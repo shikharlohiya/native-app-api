@@ -1,31 +1,15 @@
 const { Sequelize } = require("sequelize");
+require("dotenv").config();
 
-
-
-
-
-const sequelize = new Sequelize("crm_parivartan_prd", "root", "loglin", {
-  host: "localhost",
-  dialect: "mysql",
-});
-
-
-
-
-
-
-
-// const sequelize = new Sequelize( 'crm_parivartan_prd' , 'crmuser' , 'loglin', {
-//     host : '172.16.2.22',
-//     dialect : 'mysql'
-//    });
-
-
-
-//
-
-
-
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST,
+    dialect: process.env.DB_DIALECT,
+  }
+);
 
 try {
   sequelize.authenticate();
@@ -34,4 +18,4 @@ try {
   console.error("unable to connect to the data base", error);
 }
 
-module.exports = sequelize
+module.exports = sequelize;
