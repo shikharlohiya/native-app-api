@@ -1261,6 +1261,9 @@ exports.getBDMFollowUpTasks = async (req, res) => {
           attributes: ['RegionId', 'Project']
       });
 
+      console.log(bdmAssignments, "----------------");
+      
+
       if (!bdmAssignments || bdmAssignments.length === 0) {
           return res.status(404).json({
               success: false,
@@ -1318,6 +1321,8 @@ exports.getBDMFollowUpTasks = async (req, res) => {
           region_name: lead.Region?.RegionName,
           Project: lead.Project,
           lead_source: lead.lead_created_by === 1 ? 'Agent Created' : 'HO Uploaded'
+           
+          
       }));
 
       res.status(200).json({
@@ -1483,6 +1488,29 @@ exports.getBDMSelfTasks = async (req, res) => {
               }
           }))
       };
+    //   const whereClause = {
+    //     follow_up_date: {
+    //         [Op.gte]: today,
+    //         [Op.lt]: tomorrow
+    //     },
+    //     BDMId: bdmId,  // Add this back
+    //     [Op.and]: [
+    //         {
+    //             [Op.or]: [
+    //                 { lead_created_by: 2 }, // Created by BDM
+    //                 { lead_created_by: 3 }  // Created by Zonal Manager
+    //             ]
+    //         },
+    //         {
+    //             [Op.or]: assignments.map(assignment => ({
+    //                 [Op.and]: {
+    //                     RegionId: assignment.RegionId,
+    //                     Project: assignment.Project
+    //                 }
+    //             }))
+    //         }
+    //     ]
+    // };
 
       const selfTasks = await Lead_Detail.findAndCountAll({
           where: whereClause,

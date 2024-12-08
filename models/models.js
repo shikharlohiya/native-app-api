@@ -42,7 +42,9 @@ const Parivartan_BDM = require('./Parivartan_BDM.js');
 const source = require('./Source.js'); 
 const sequelize = require('./index.js');
 
-// CustomerLeadForm.sync({alter: true});
+// source.sync({force: true});
+
+
 // Uncomment and adjust the sync options as needed
 //  source.sync({force:true});
 // chicks_inquiry.sync({force: true});

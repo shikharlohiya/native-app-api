@@ -312,9 +312,13 @@ const validateLeadData = (data = {}, call_status) => {
           };
 
           Object.entries(connectedRequiredFields).forEach(([field, message]) => {
-              if (!data[field]) {
-                  errors[field] = message;
-              }
+              // if (!data[field]) {
+              //     errors[field] = message;
+              // }
+              if (!data[field] || data[field].toString().trim() === '') {
+                errors[field] = message;
+                console.log(`Validation failed for ${field}:`, data[field]);
+            }
           });
       }
 
