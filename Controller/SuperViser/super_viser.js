@@ -16,6 +16,7 @@ const { Sequelize, QueryTypes } = require("sequelize");
 const BdmLeadAction = require('../../models/BdmLeadAction');
 const EmployeeRole = require('../../models/employeRole');
 const Parivartan_BDM = require('../../models/Parivartan_BDM');
+const ParivatanRegion = require('../../models/Parivartan_Region')
 
 exports.getLeadsWithSiteVisitsForSupervisor = async (req, res) => {
   try {
@@ -1180,6 +1181,7 @@ exports.getRegionMeetingCount = async (req, res) => {
 
 
 //v1
+
 // exports.getBDMFollowUpTasks = async (req, res) => {
 //   try {
 //     const { page = 1, limit = 10, bdmId } = req.query;
@@ -1239,6 +1241,7 @@ exports.getRegionMeetingCount = async (req, res) => {
 
 
 //v2
+
 exports.getBDMFollowUpTasks = async (req, res) => {
   try {
       const { page = 1, limit = 10, bdmId } = req.query;
@@ -1346,81 +1349,189 @@ exports.getBDMFollowUpTasks = async (req, res) => {
 
 
 
+//v1
+// exports.getBDMSelfTasks = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 10, bdmId } = req.query;
+//     const offset = (page - 1) * limit;
+
+//     console.log("Query parameters:", { page, limit, bdmId });
+
+//     // Get today's date
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
+    
+//     console.log("Date range:", {
+//       today: today.toISOString(),
+//       tomorrow: tomorrow.toISOString(),
+//     });
+
+//     const whereClause = {
+//       lead_created_by: 2, // Self tasks created by BDM
+//       follow_up_date: {
+//         [Op.gte]: today,
+//         [Op.lt]: tomorrow,
+//       },
+//     };
+
+//     if (bdmId) {
+//       whereClause.BDMId = bdmId;
+//     }
+
+//     console.log("Where clause:", JSON.stringify(whereClause, null, 2));
+
+//     // Log the SQL query
+//     const queryOptions = {
+//       where: whereClause,
+//       order: [["follow_up_date", "ASC"]],
+//       offset,
+//       limit: parseInt(limit),
+//       logging: console.log, // This will log the SQL query
+//     };
+
+//     const selfTasks = await Lead_Detail.findAndCountAll(queryOptions);
+
+//     console.log("Raw results:", JSON.stringify(selfTasks, null, 2));
+
+//     const formattedLeads = selfTasks.rows.map((lead) => ({
+//       id: lead.id,
+//       InquiryType: lead.InquiryType,
+//       Project: lead.Project,
+//       CustomerName: lead.CustomerName,
+//       MobileNo: lead.MobileNo,
+//       location: lead.location,
+//       category: lead.category,
+//       sub_category: lead.sub_category,
+//       agent_remark: lead.agent_remark,
+//       bdm_remark: lead.bdm_remark,
+//       follow_up_date: lead.follow_up_date,
+//     }));
+
+//     console.log("Formatted leads:", JSON.stringify(formattedLeads, null, 2));
+
+//     // res.status(200).json({
+//     //   self_task: {
+//     //     leads: formattedLeads,
+
+//     //   },
+//     // });
+
+//     res.status(200).json({
+//       self_task: formattedLeads,
+//     });
+//   } catch (error) {
+//     console.error("Error retrieving BDM self tasks:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
+
+
+
+// v2
 
 exports.getBDMSelfTasks = async (req, res) => {
   try {
-    const { page = 1, limit = 10, bdmId } = req.query;
-    const offset = (page - 1) * limit;
+      const { page = 1, limit = 10, bdmId } = req.query;
+      const offset = (page - 1) * limit;
 
-    console.log("Query parameters:", { page, limit, bdmId });
+      // Get today's date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    console.log("Date range:", {
-      today: today.toISOString(),
-      tomorrow: tomorrow.toISOString(),
-    });
+      // First get BDM's assigned regions with projects
+      const bdmAssignments = await Parivartan_BDM.findAll({
+          where: {
+              EmployeeId: bdmId,
+              is_active: 'Active', 
+              Deleted: 'N'
+          },
+          attributes: ['RegionId', 'Project']
+      });
 
-    const whereClause = {
-      lead_created_by: 2, // Self tasks created by BDM
-      follow_up_date: {
-        [Op.gte]: today,
-        [Op.lt]: tomorrow,
-      },
-    };
+      if (!bdmAssignments || bdmAssignments.length === 0) {
+          return res.status(404).json({
+              success: false,
+              message: "No active assignments found for this BDM"
+          });
+      }
 
-    if (bdmId) {
-      whereClause.BDMId = bdmId;
-    }
+      // Create array of region-project combinations
+      const assignments = bdmAssignments.map(assignment => ({
+          RegionId: assignment.RegionId,
+          Project: assignment.Project
+      }));
 
-    console.log("Where clause:", JSON.stringify(whereClause, null, 2));
+      const whereClause = {
+          follow_up_date: {
+              [Op.gte]: today,
+              [Op.lt]: tomorrow
+          },
+          [Op.or]: [
+              { lead_created_by: 2 }, // Created by BDM
+              { lead_created_by: 3 }  // Created by Zonal Manager
+          ],
+          // BDMId: bdmId,
+          [Op.or]: assignments.map(assignment => ({
+              [Op.and]: {
+                  RegionId: assignment.RegionId,
+                  Project: assignment.Project
+              }
+          }))
+      };
 
-    // Log the SQL query
-    const queryOptions = {
-      where: whereClause,
-      order: [["follow_up_date", "ASC"]],
-      offset,
-      limit: parseInt(limit),
-      logging: console.log, // This will log the SQL query
-    };
+      const selfTasks = await Lead_Detail.findAndCountAll({
+          where: whereClause,
+          include: [{
+              model: ParivatanRegion,
+              as: 'Region',
+              attributes: ['RegionName']
+          }],
+          order: [["follow_up_date", "ASC"]],
+          offset,
+          limit: parseInt(limit)
+      });
 
-    const selfTasks = await Lead_Detail.findAndCountAll(queryOptions);
+      const formattedLeads = selfTasks.rows.map((lead) => ({
+          id: lead.id,
+          InquiryType: lead.InquiryType,
+          Project: lead.Project,
+          CustomerName: lead.CustomerName,
+          MobileNo: lead.MobileNo,
+          location: lead.location,
+          category: lead.category,
+          sub_category: lead.sub_category,
+          agent_remark: lead.agent_remark,
+          bdm_remark: lead.bdm_remark,
+          follow_up_date: lead.follow_up_date,
+          region_name: lead.Region?.RegionName,
+          creator_type: lead.lead_created_by === 2 ? 'BDM' : 'Zonal Manager'
+      }));
 
-    console.log("Raw results:", JSON.stringify(selfTasks, null, 2));
+      res.status(200).json({
+          success: true,
+          totalCount: selfTasks.count,
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(selfTasks.count / parseInt(limit)),
+          self_task: formattedLeads,
+          assignments: assignments.map(a => ({
+              regionId: a.RegionId,
+              project: a.Project,
+              regionName: selfTasks.rows.find(l => l.RegionId === a.RegionId)?.Region?.RegionName
+          }))
+      });
 
-    const formattedLeads = selfTasks.rows.map((lead) => ({
-      id: lead.id,
-      InquiryType: lead.InquiryType,
-      Project: lead.Project,
-      CustomerName: lead.CustomerName,
-      MobileNo: lead.MobileNo,
-      location: lead.location,
-      category: lead.category,
-      sub_category: lead.sub_category,
-      agent_remark: lead.agent_remark,
-      bdm_remark: lead.bdm_remark,
-      follow_up_date: lead.follow_up_date,
-    }));
-
-    console.log("Formatted leads:", JSON.stringify(formattedLeads, null, 2));
-
-    // res.status(200).json({
-    //   self_task: {
-    //     leads: formattedLeads,
-
-    //   },
-    // });
-
-    res.status(200).json({
-      self_task: formattedLeads,
-    });
   } catch (error) {
-    console.error("Error retrieving BDM self tasks:", error);
-    res.status(500).json({ message: "Internal server error" });
+      console.error("Error retrieving BDM self tasks:", error);
+      res.status(500).json({
+          success: false,
+          message: "Error fetching self tasks",
+          error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
   }
 };
 
