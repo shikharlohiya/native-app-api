@@ -271,6 +271,11 @@ const sequelize = require("../../models/index");
 //   return Object.keys(errors).length > 0 ? errors : null;
 // };
 
+
+
+//for only
+
+
 const validateLeadData = (data = {}, call_status) => {
   if (!data) {
       return { general: "No data provided" };
