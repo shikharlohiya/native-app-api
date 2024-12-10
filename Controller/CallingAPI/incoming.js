@@ -211,23 +211,7 @@ const PostCallData = require('../../models/PostCallData');
 
 
 
-// router.post('/webhook/pingback', async (req, res) => {
-//   const data = req.body;
-//   console.log('Webhook data received:', data);
-
-//   try {
-//     // Emit the raw webhook data to all connected clients
-//     // Make sure io is properly initialized and accessible
-//     req.io.emit('callStatusUpdate', data);
-
-//     res.status(200).json({ 
-//       message: 'Webhook processed successfully'
-//     });
-//   } catch (error) {
-//     console.error('Error processing webhook:', error);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
+ 
 
 
 
@@ -377,44 +361,7 @@ router.get('/call-logs/:callId/call-end', async (req, res) => {
 });
 
 
-// router.post('/incoming-call', async (req, res) => {
-//   try {
-//     const {
-//       event,
-//       callid,
-//       ivr_number,
-//       caller_no,
-//       agent_number
-//     } = req.body;
-
-//     console.log('Incoming call data:', req.body);
-
-//     // Create a new call record
-//     const call = await IncomingCall.create({
-//       callId: callid,
-//       event: event,
-//       ivrNumber: ivr_number,
-//       callerNumber: caller_no,
-//       agentNumber: agent_number
-//       // Note: agentNumber and connectedAt are not set at this stage
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: 'Incoming call data received and processed',
-//       callId: call.id
-//     });
-
-//   } catch (error) {
-//     console.error('Error processing incoming call data:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: 'Error processing incoming call data',
-//       error: error.message
-//     });
-//   }
-// });
-
+ 
 
 router.post('/incoming-call', async (req, res) => {
   try {
@@ -467,59 +414,7 @@ router.post('/incoming-call', async (req, res) => {
   }
 });       
 
-
-// router.post('/incoming-call/connect', async (req, res) => {
-//   try {
-//     const {
-//       event,
-//       callid,
-//       ivr_number,
-//       caller_no,
-//       agent_number
-//     } = req.body;
-
-//     console.log('Incoming call connect data:', req.body);
-
-//     // Find or create the call record
-//     const [call, created] = await IncomingCall.findOrCreate({
-//       where: { callId: callid },
-//       defaults: {
-//         event: event,
-//         ivrNumber: ivr_number,
-//         callerNumber: caller_no,
-//         agentNumber: agent_number,
-//         connectedAt: new Date()
-//       }
-//     });
-
-//     if (!created) {
-//       // If the record already existed, update it
-//       await call.update({
-//         event: event,
-//         ivrNumber: ivr_number,
-//         callerNumber: caller_no,
-//         agentNumber: agent_number,
-//         connectedAt: new Date()
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: 'Call connect data received and processed',
-//       callId: call.id,
-//       isNewCall: created
-//     });
-
-//   } catch (error) {
-//     console.error('Error processing incoming call connect data:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: 'Error processing incoming call connect data',
-//       error: error.message
-//     });
-//   }
-// });
-
+ 
 
 router.post('/incoming-call/connect', async (req, res) => {
   try {
@@ -830,62 +725,8 @@ router.post('/call-disconnection', async (req, res) => {
   }
 });
 
-///
-// router.get('/call-statistics/:aPartyNo', async (req, res) => {
-//   try {
-//     const { aPartyNo } = req.params;
 
-//     // Fetch all call logs for the given A-party number
-//     const callLogs = await CallLog.findAll({
-//       where: { aPartyNo },
-//       order: [['callStartTime', 'DESC']]
-//     });
-
-//     let connectedCalls = 0;
-//     let notConnectedCalls = 0;
-//     let totalDuration = 0;
-
-//     const callDetails = callLogs.map(call => {
-//       const startTime = new Date(call.callStartTime);
-//       const endTime = new Date(call.aPartyEndTime);
-//       const duration = (endTime - startTime) / 1000; // duration in seconds
-
-//       if (call.aDialStatus === 'Connected') {
-//         connectedCalls++;
-//         totalDuration += duration;
-//       } else {
-//         notConnectedCalls++;
-//       }
-
-//       return {
-//         callId: call.callId,
-//         startTime: call.callStartTime,
-//         duration: duration,
-//         status: call.aDialStatus
-//       };
-//     });
-
-//     const totalCalls = connectedCalls + notConnectedCalls;
-//     const averageDuration = connectedCalls > 0 ? totalDuration / connectedCalls : 0;
-
-//     const response = {
-//      "AgentNo": aPartyNo,
-//       totalCalls,
-//       connectedCalls,
-//       notConnectedCalls,
-//       totalDuration,
-//       averageDuration,
-//       callDetails
-//     };
-
-//     res.status(200).json(response);
-//   } catch (error) {
-//     console.error('Error fetching call statistics:', error);
-//     res.status(500).json({ message: 'Error fetching call statistics', error: error.message });
-//   }
-// });
-
-
+ 
 
 router.get('/call-statistics/:aPartyNo', async (req, res) => {
   try {
@@ -931,8 +772,6 @@ router.get('/call-statistics/:aPartyNo', async (req, res) => {
 });
 
 
-
-//
 router.get('/latest-agent-call/:agentNumber', async (req, res) => {
   try {
     const { agentNumber } = req.params;
@@ -970,11 +809,6 @@ router.get('/latest-agent-call/:agentNumber', async (req, res) => {
     });
   }
 });
-
-
-
-
-
 
 
 router.post('/merge-call', async (req, res) => {
@@ -1023,83 +857,7 @@ router.post('/merge-call', async (req, res) => {
 
 
 
-// router.post('/merge-call', async (req, res) => {
-//   try {
-//     // Extract the bearer token from the request headers
-//     const bearerToken = req.headers.authorization;
-
-//     if (!bearerToken || !bearerToken.startsWith('Bearer ')) {
-//       return res.status(401).json({ message: 'No bearer token provided' });
-//     }
-
-//     const token = bearerToken.split(' ')[1];
-
-//     // The URL of the Vodafone Call Conference API
-//     const vodafoneApiUrl = 'https://cts.myvi.in:8443/Cpaas/api/clicktocall/callConference';
-
-//     // Forward the request body to the Vodafone API
-//     const vodafoneResponse = await axios.post(vodafoneApiUrl, req.body, {
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Authorization': `Bearer ${token}`
-//       }
-//     });
-
-//     // After successful merge call, update the call log
-//     if (vodafoneResponse.status === 200 && req.body.call_id && req.body.cparty_number) {
-//       try {
-//         const existingCall = await CallLog.findOne({
-//           where: { callId: req.body.call_id }
-//         });
-
-//         if (existingCall) {
-//           // Update the existing call with C-party information
-//           await existingCall.update({
-//             cPartyNo: req.body.cparty_number,
-//             // Set initial C-party status
-//             cDialStatus: 'Initiated',
-//             // Update the event type to reflect merge call
-//             eventType: 'Conference Initiated'
-//           });
-
-//           console.log('CallLog updated with C-party information:', {
-//             callId: req.body.call_id,
-//             cPartyNo: req.body.cparty_number
-//           });
-//         } else {
-//           console.log('No existing call found with ID:', req.body.call_id);
-//         }
-//       } catch (dbError) {
-//         // Log database error but don't affect the API response
-//         console.error('Error updating CallLog:', dbError);
-//       }
-//     }
-
-//     // Send the Vodafone API response back to the client
-//     res.status(vodafoneResponse.status).json(vodafoneResponse.data);
-
-//   } catch (error) {
-//     console.error('Error in Merge Call operation:', error);
-
-//     if (error.response) {
-//       // The request was made and the server responded with a status code
-//       // that falls out of the range of 2xx
-//       res.status(error.response.status).json(error.response.data);
-//     } else if (error.request) {
-//       // The request was made but no response was received
-//       res.status(500).json({ message: 'No response received from Vodafone API' });
-//     } else {
-//       // Something happened in setting up the request that triggered an Error
-//       res.status(500).json({ 
-//         message: 'Error setting up the request', 
-//         error: error.message 
-//       });
-//     }
-//   }
-// });
-
-
-
+ 
 
 
  

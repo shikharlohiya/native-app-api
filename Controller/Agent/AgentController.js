@@ -313,7 +313,8 @@ const validateLeadData = (data = {}, call_status) => {
               pincode: "pincode is required for connected calls",
               RegionId: "RegionId is required for connected calls",
               Project: "Project is required for connected calls",
-              lead_owner: "Lead Owner is required for connected calls"
+              lead_owner: "Lead Owner is required for connected calls",
+              BDMId : "BDM ID is required for connected calls"
           };
 
           Object.entries(connectedRequiredFields).forEach(([field, message]) => {
@@ -526,7 +527,8 @@ if (existingLead) {
           source_of_lead_generated,
           close_month,
           AgentId: lead_created_by === 1 ? AgentId : null,
-          BDMId: (lead_created_by === 2 || lead_created_by === 3) ? BDMId : null,
+          // BDMId: (lead_created_by === 2 || lead_created_by === 3) ? BDMId : null,
+          BDMId,
           pincode,
           lead_created_by,
           last_action: lead_created_by === 1 ? "Lead Created by Agent" : 
