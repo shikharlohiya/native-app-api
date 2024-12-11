@@ -13,7 +13,7 @@ const uploadMiddleware = upload.fields([
   // Add any other fields you need here
 ]);
 
-router.post(
+router.patch(
   "/estimations/:id/status",
   uploadMiddleware,
   auth,
