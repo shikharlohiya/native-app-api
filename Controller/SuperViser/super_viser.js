@@ -1278,23 +1278,49 @@ exports.getBDMFollowUpTasks = async (req, res) => {
       }));
 
       // Build where clause with region and project conditions
+      // const whereClause = {
+      //     follow_up_date: {
+      //         [Op.gte]: today,
+      //         [Op.lt]: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+      //     },
+      //     [Op.or]: assignments.map(assignment => ({
+      //         [Op.and]: {
+      //             RegionId: assignment.RegionId,
+      //             Project: assignment.Project
+      //         }
+      //     })),
+      //     [Op.or]: [
+      //         { lead_created_by: 1 },  // Created by agent
+      //         { lead_created_by: null }  // Uploaded by HO supervisor
+      //     ],
+      //     // BDMId: bdmId
+      // };
+
       const whereClause = {
-          follow_up_date: {
-              [Op.gte]: today,
-              [Op.lt]: new Date(today.getTime() + 24 * 60 * 60 * 1000),
-          },
-          [Op.or]: assignments.map(assignment => ({
-              [Op.and]: {
-                  RegionId: assignment.RegionId,
-                  Project: assignment.Project
-              }
-          })),
-          [Op.or]: [
-              { lead_created_by: 1 },  // Created by agent
-              { lead_created_by: null }  // Uploaded by HO supervisor
-          ],
-          BDMId: bdmId
-      };
+        [Op.and]: [
+            {
+                follow_up_date: {
+                    [Op.gte]: today,
+                    [Op.lt]: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+                }
+            },
+            {
+                [Op.or]: assignments.map(assignment => ({
+                    [Op.and]: {
+                        RegionId: assignment.RegionId,
+                        Project: assignment.Project
+                    }
+                }))
+            },
+            {
+                [Op.or]: [
+                    { lead_created_by: 1 },
+                    { lead_created_by: null }
+                ]
+            },
+            { BDMId: bdmId }
+        ]
+    };
 
       const leads = await Lead_Detail.findAndCountAll({
           where: whereClause,
@@ -1471,23 +1497,46 @@ exports.getBDMSelfTasks = async (req, res) => {
           Project: assignment.Project
       }));
 
+      // const whereClause = {
+      //     follow_up_date: {
+      //         [Op.gte]: today,
+      //         [Op.lt]: tomorrow
+      //     },
+      //     [Op.or]: [
+      //         { lead_created_by: 2 }, // Created by BDM
+      //         { lead_created_by: 3 }  // Created by Zonal Manager
+      //     ],
+      //     // BDMId: bdmId,
+      //     [Op.or]: assignments.map(assignment => ({
+      //         [Op.and]: {
+      //             RegionId: assignment.RegionId,
+      //             Project: assignment.Project
+      //         }
+      //     }))
+      // };
+
       const whereClause = {
-          follow_up_date: {
-              [Op.gte]: today,
-              [Op.lt]: tomorrow
-          },
-          [Op.or]: [
-              { lead_created_by: 2 }, // Created by BDM
-              { lead_created_by: 3 }  // Created by Zonal Manager
-          ],
-          // BDMId: bdmId,
-          [Op.or]: assignments.map(assignment => ({
-              [Op.and]: {
-                  RegionId: assignment.RegionId,
-                  Project: assignment.Project
-              }
-          }))
-      };
+        follow_up_date: {
+            [Op.gte]: today,
+            [Op.lt]: tomorrow
+        },
+        [Op.and]: [
+            {
+                [Op.or]: [
+                    { lead_created_by: 2 },  // Created by BDM
+                    { lead_created_by: 3 }   // Created by Zonal Manager
+                ]
+            },
+            {
+                [Op.or]: assignments.map(assignment => ({
+                    [Op.and]: {
+                        RegionId: assignment.RegionId,
+                        Project: assignment.Project
+                    }
+                }))
+            }
+        ]
+    };
     //   const whereClause = {
     //     follow_up_date: {
     //         [Op.gte]: today,
