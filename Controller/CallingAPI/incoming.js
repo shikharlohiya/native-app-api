@@ -489,6 +489,8 @@ router.post('/incoming-call/connect', async (req, res) => {
 
 //post call incoming 
 router.post('/Data/json', async (req, res) => {
+  console.log("all row dataaaa:::", req);
+  
   try {
     const {
       callid,
@@ -516,11 +518,11 @@ router.post('/Data/json', async (req, res) => {
     };
 
     // Check if the call exists in IncomingCall
-    let incomingCall = await IncomingCall.findOne({ where: { callId: callid } });
+    // let incomingCall = await IncomingCall.findOne({ where: { callId: callid } });
 
-    if (!incomingCall) {
-      console.log(`No matching incoming call found for callId: ${callid}`);
-    }
+    // if (!incomingCall) {
+    //   console.log(`No matching incoming call found for callId: ${callid}`);
+    // }
 
     // Create a new PostCallData record using parseDateTime
     const postCallData = await PostCallData.create({
@@ -540,12 +542,12 @@ router.post('/Data/json', async (req, res) => {
     });
 
     // If IncomingCall exists, update its status
-    if (incomingCall) {
-      await incomingCall.update({
-        event: 'call_ended',
-        endedAt: parseDateTime(call_end_time)
-      });
-    }
+    // if (incomingCall) {
+    //   await incomingCall.update({
+    //     event: 'call_ended',
+    //     endedAt: parseDateTime(call_end_time)
+    //   });
+    // }
 
     return res.status(200).json({
       success: true,
@@ -562,6 +564,11 @@ router.post('/Data/json', async (req, res) => {
     });
   }
 });
+
+
+
+
+
 
 
 //auth-token
