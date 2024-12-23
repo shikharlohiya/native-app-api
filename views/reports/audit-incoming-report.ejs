@@ -1,0 +1,135 @@
+<!-- views/reports/call-details-report.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Call Details Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .filters {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .summary-box {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f5f5f5;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .section {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Call Details Report</h1>
+    </div>
+
+    <div class="filters">
+        <h3>Report Filters</h3>
+        <p><strong>Date Range:</strong> <%= filters.startDate %> to <%= filters.endDate %></p>
+        <% if (filters.agentName) { %>
+        <p><strong>Agent Name:</strong> <%= filters.agentName %></p>
+        <% } %>
+    </div>
+
+    <div class="section">
+        <h2>Summary</h2>
+        <div class="summary-box">
+            <p><strong>Total Calls:</strong> <%= summary.total_calls %></p>
+            <p><strong>Connected Calls:</strong> <%= summary.connected_calls %></p>
+            <p><strong>Missed Calls:</strong> <%= summary.missed_calls %></p>
+            <p><strong>Unique Leads:</strong> <%= summary.unique_leads %></p>
+            <p><strong>Total Talk Time:</strong> <%= Math.floor(summary.total_talk_time_seconds / 60) %> minutes</p>
+            <p><strong>Average Talk Time:</strong> <%= Math.floor(summary.average_talk_time_seconds / 60) %> minutes</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Agent-wise Statistics</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Agent Name</th>
+                    <th>Total Calls</th>
+                    <th>Connected Calls</th>
+                    <th>Missed Calls</th>
+                    <th>Total Talk Time (mins)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% agent_stats.forEach(function(agent) { %>
+                <tr>
+                    <td><%= agent.name %></td>
+                    <td><%= agent.total_calls %></td>
+                    <td><%= agent.connected_calls %></td>
+                    <td><%= agent.missed_calls %></td>
+                    <td><%= Math.floor(agent.total_talk_time / 60) %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Call Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Agent Name</th>
+                    <th>Caller Number</th>
+                    <th>Lead Name</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Zone</th>
+                    <th>Branch</th>
+                    <th>Lot Number</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% call_details.forEach(function(call) { %>
+                <tr>
+                    <td><%= call.call_date %></td>
+                    <td><%= call.agent_name %></td>
+                    <td><%= call.caller_number %></td>
+                    <td><%= call.lead_name || '-' %></td>
+                    <td><%= call.call_status %></td>
+                    <td><%= Math.floor(call.call_duration_seconds / 60) %> mins</td>
+                    <td><%= call.Zone_Name || '-' %></td>
+                    <td><%= call.Branch_Name || '-' %></td>
+                    <td><%= call.Lot_Number || '-' %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

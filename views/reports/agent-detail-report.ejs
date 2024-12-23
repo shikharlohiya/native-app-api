@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agent Detail Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        .header { margin-bottom: 20px; }
+        .section { margin: 20px 0; }
+        .summary-box {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Agent Detail Report</h1>
+        <p>Date Range: <%= filters.startDate %> to <%= filters.endDate %></p>
+        <% if (filters.agentName) { %>
+        <p>Agent Filter: <%= filters.agentName %></p>
+        <% } %>
+    </div>
+
+    <div class="section">
+        <h2>Summary Statistics</h2>
+        <div class="summary-box">
+            <h3>Overall Statistics</h3>
+            <p>Total Remarks: <%= summary.total_remarks %></p>
+            <p>Open Remarks: <%= summary.status_wise_count.open || 0 %></p>
+            <p>Closed Remarks: <%= summary.status_wise_count.closed || 0 %></p>
+        </div>
+        
+        <div class="summary-box">
+            <h3>Follow-up Statistics</h3>
+            <p>Total Follow-ups: <%= summary.followup_statistics.total_followups %></p>
+            <p>Completed Follow-ups: <%= summary.followup_statistics.completed_followups %></p>
+            <p>Pending Follow-ups: <%= summary.followup_statistics.pending_followups %></p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Agent-wise Summary</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Agent Name</th>
+                    <th>Region</th>
+                    <th>Phone</th>
+                    <th>Total Remarks</th>
+                    <th>Open Remarks</th>
+                    <th>Closed Remarks</th>
+                    <th>Total Follow-ups</th>
+                    <th>Completed Follow-ups</th>
+                    <th>Pending Follow-ups</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% agent_wise_summary.forEach(function(agent) { %>
+                <tr>
+                    <td><%= agent.agent_details.name %></td>
+                    <td><%= agent.agent_details.region %></td>
+                    <td><%= agent.agent_details.phone %></td>
+                    <td><%= agent.counts.total_remarks %></td>
+                    <td><%= agent.counts.open_remarks %></td>
+                    <td><%= agent.counts.closed_remarks %></td>
+                    <td><%= agent.counts.followups.total %></td>
+                    <td><%= agent.counts.followups.completed %></td>
+                    <td><%= agent.counts.followups.pending %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Remark Details</h2>
+        <h3>Open Remarks</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Lot Number</th>
+                    <th>Farmer Name</th>
+                    <th>Zone</th>
+                    <th>Branch</th>
+                    <th>Remarks</th>
+                    <th>Date</th>
+                    <th>Age</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% details.remarks.open.forEach(function(remark) { %>
+                <tr>
+                    <td><%= remark.Lot_Number %></td>
+                    <td><%= remark.Farmer_Name %></td>
+                    <td><%= remark.Zone_Name %></td>
+                    <td><%= remark.Branch_Name %></td>
+                    <td><%= remark.REMARKS %></td>
+                    <td><%= remark.DATE %></td>
+                    <td><%= remark.AGE %></td>
+                    <td><%= remark.REASON %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Follow-up Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Lot Number</th>
+                    <th>Farmer Name</th>
+                    <th>Zone</th>
+                    <th>Branch</th>
+                    <th>Follow-up Date</th>
+                    <th>Status</th>
+                    <th>Completed On</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% details.followups.pending.concat(details.followups.completed).forEach(function(followup) { %>
+                <tr>
+                    <td><%= followup.Lot_Number %></td>
+                    <td><%= followup.Farmer_Name %></td>
+                    <td><%= followup.Zone_Name %></td>
+                    <td><%= followup.Branch_Name %></td>
+                    <td><%= followup.follow_up_date %></td>
+                    <td><%= followup.follow_up_status %></td>
+                    <td><%= followup.completed_on || '-' %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

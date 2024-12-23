@@ -73,6 +73,15 @@ AuditLeadRemark.init(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+    follow_up_date:{
+      type: DataTypes.DATE,
+    },
+
+    closure_status:{
+      type: DataTypes.STRING,
+    },
+    
+
   },
   {
     sequelize,

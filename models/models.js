@@ -40,37 +40,9 @@ const VistaarBroilerDistribution = require('./VistaarBroilerDistribution.js');
 const chicks_inquiry = require('./ChicksInquiry.js');
 const Parivartan_BDM = require('./Parivartan_BDM.js');
 const source = require('./Source.js'); 
+const AuditNewFarmer = require('./AuditNewFarmer.js'); 
 const sequelize = require('./index.js');
-
-// source.sync({force: true});
-
-
-// Uncomment and adjust the sync options as needed
-//  source.sync({force:true});
-// chicks_inquiry.sync({force: true});
-// Parivartan_BDM.sync({alter: true});
-// Country.sync({force:true});
-// call_logs.sync({force:true});
-// City.sync({alter:true});
-// Place.sync({force:true});
-// Zone.sync({force:true});
-// Region.sync({force:true});
-// Area.sync({force:true});
-// Site_Visit.sync({force:true})
-// BDM.sync({force:true})
-// Employee.sync({alter: true});
-// Employee_Role.sync({alter: true});
-// Estimation.sync({alter: true});
-// Attendance.sync();
-// Parivartan_Employee.sync({force: true});
-// lead_Meeting.sync({alter:true});
-//  AuditLeadRemark.sync({force:true});
-// Employee_Campaign.sync({force:true});
-// Parivartan_Region.sync({force: true});
-// Parivartan_Employee.sync({force: true});
-// Lead_Update.sync({alter: true})
-
-
+ 
 module.exports = {
   Lead_Update,
   Site_Visit,

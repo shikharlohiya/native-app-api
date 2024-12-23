@@ -170,6 +170,7 @@ const Attendance = require('./Routes/Attendence/Attendence.js');
 const BiRoutes = require('./Routes/BiRoutes/BiRoutes.js');
 const customerLeadRoutes = require('./Routes/Customer/Customer.js');
 const masterRoutes = require('./Routes/Master/MasterRoute.js');
+const AuditReport = require('./Routes/AuditLeadRoutes/AuditReportRoutes.js')
 
 
 // Middleware
@@ -191,6 +192,7 @@ app.use((req, res, next) => {
   req.activeCallSockets = activeCallSockets;
   next();
 });
+app.set('view engine', 'ejs');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -215,6 +217,7 @@ app.use('/api', BiRoutes);
 app.use('/api', PincodeRoutes);
 app.use('/api', customerLeadRoutes);
 app.use('/api', masterRoutes);
+app.use('/api',AuditReport )
 
 // Root route
 app.get('/', function (req, res) {

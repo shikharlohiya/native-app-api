@@ -2,10 +2,14 @@ const Lead_Detail = require("../../models/lead_detail");
 const Employee = require("../../models/employee");
 const Campaign = require("../../models/campaign");
 const LeadLog = require("../../models/leads_logs");
-const { Op } = require("sequelize");
+const { Op,QueryTypes  } = require("sequelize");
 const moment = require("moment");
 const FollowUPByAgent = require("../../models/FollowUpByAgent");
 const sequelize = require("../../models/index");
+
+// const moment = require('moment-timezone');
+ 
+
 
 // exports.createLead = async (req, res) => {
 //   const t = await sequelize.transaction();
@@ -910,3 +914,1480 @@ exports.createFollowUpByAgent = async (req, res) => {
       .json({ error: "Internal server error", details: error.message });
   }
 };
+
+
+ 
+
+ 
+ 
+exports.getCallAnalytics = async (req, res) => {
+    try {
+        const startDate = req.query.startDate || moment().subtract(7, 'days').format('YYYY-MM-DD');
+        const endDate = req.query.endDate || moment().format('YYYY-MM-DD');
+        const agentName = req.query.agentName;
+        
+        if (!moment(startDate).isValid() || !moment(endDate).isValid()) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid date range provided"
+            });
+        }
+
+        // Main query with optional agent filter
+        let query = `
+            SELECT 
+                emp.EmployeeName as agent_name,
+                ic.id,
+                ic.call_id,
+                ic.caller_number,
+                ic.agent_number,
+                ic.connected_at,
+                ic.ended_at,
+                ic.created_at,
+                ld.CustomerName as lead_name,
+                ld.location as lead_location,
+                CASE 
+                    WHEN ic.connected_at IS NULL THEN 'Missed'
+                    WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL THEN 'Connected'
+                    ELSE 'Unknown'
+                END as call_status,
+                CASE 
+                    WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL 
+                    THEN TIMESTAMPDIFF(SECOND, ic.connected_at, ic.ended_at)
+                    ELSE 0
+                END as call_duration_seconds
+            FROM incoming_calls ic
+            LEFT JOIN lead_detail ld ON ic.caller_number = ld.MobileNo
+            LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
+            WHERE ic.ivr_number = '8517009997'
+            AND ic.created_at BETWEEN :startDate AND :endDate
+            ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+            ORDER BY ic.created_at DESC
+        `;
+
+        const replacements = { startDate, endDate };
+        if (agentName) {
+            replacements.agentName = agentName;
+        }
+
+        const callDetails = await sequelize.query(query, {
+            replacements,
+            type: QueryTypes.SELECT
+        });
+
+        // Process the data
+        const agentMap = new Map();
+        let totalCalls = 0;
+        let totalConnected = 0;
+        let totalMissed = 0;
+        let uniqueLeads = new Set();
+
+        callDetails.forEach(call => {
+            if (!call.agent_name) return;
+
+            totalCalls++;
+            if (call.lead_name) uniqueLeads.add(call.lead_name);
+            if (call.call_status === 'Connected') totalConnected++;
+            if (call.call_status === 'Missed') totalMissed++;
+
+            if (!agentMap.has(call.agent_name)) {
+                agentMap.set(call.agent_name, {
+                    agent_name: call.agent_name,
+                    agent_number: call.agent_number,
+                    total_calls: 0,
+                    missed_calls: 0,
+                    connected_calls: 0,
+                    total_duration_minutes: 0,
+                    connected_details: [],
+                    missed_details: []
+                });
+            }
+
+            const agentData = agentMap.get(call.agent_name);
+            agentData.total_calls++;
+
+            const callDetail = {
+                call_id: call.call_id,
+                date: moment(call.created_at).format('YYYY-MM-DD'),
+                time: moment(call.created_at).format('HH:mm:ss'),
+                caller_number: call.caller_number,
+                duration_minutes: (call.call_duration_seconds / 60).toFixed(2)
+            };
+
+            const customerDetail = call.lead_name ? {
+                customer_name: call.lead_name,
+                location: call.lead_location
+            } : null;
+
+            if (call.call_status === 'Connected') {
+                agentData.connected_calls++;
+                agentData.total_duration_minutes += call.call_duration_seconds / 60;
+                callDetail.connected_at = moment(call.connected_at).format('YYYY-MM-DD HH:mm:ss');
+                callDetail.ended_at = moment(call.ended_at).format('YYYY-MM-DD HH:mm:ss');
+                agentData.connected_details.push({
+                    ...callDetail,
+                    customer_details: customerDetail
+                });
+            } else {
+                agentData.missed_calls++;
+                agentData.missed_details.push({
+                    ...callDetail,
+                    customer_details: customerDetail
+                });
+            }
+        });
+
+        const agentStats = Array.from(agentMap.values()).map(agent => ({
+            agent_name: agent.agent_name,
+            agent_number: agent.agent_number,
+            total_calls: agent.total_calls,
+            connected_calls: agent.connected_calls,
+            missed_calls: agent.missed_calls,
+            total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+            avg_call_duration_minutes: agent.connected_calls > 0 ? 
+                (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+            connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+            missed_rate: ((agent.missed_calls / agent.total_calls) * 100).toFixed(2) + '%',
+            connected_calls_detail: agent.connected_details,
+            missed_calls_detail: agent.missed_details
+        }));
+
+        agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+        const response = {
+            success: true,
+            data: {
+                summary: {
+                    period: {
+                        start_date: startDate,
+                        end_date: endDate
+                    },
+                    metrics: {
+                        total_calls: totalCalls,
+                        unique_leads: uniqueLeads.size,
+                        connected_calls: totalConnected,
+                        missed_calls: totalMissed,
+                        connection_rate: totalCalls ? 
+                            ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+                    }
+                },
+                agents: agentStats
+            }
+        };
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        console.error('Error in getCallAnalytics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+ 
+
+
+
+
+
+
+//right code part 1
+
+
+// exports.getAuditCallAnalytics = async (req, res) => {
+//     try {
+//         const startDate = req.query.startDate;
+//         const endDate = req.query.endDate || startDate;
+//         const agentName = req.query.agentName;
+
+//         if (!startDate || !moment(startDate).isValid()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid start date required"
+//             });
+//         }
+
+//         let query = `
+//             SELECT DISTINCT
+//                 ic.call_id,
+//                 ic.agent_number,
+//                 ic.caller_number,
+//                 emp.EmployeeName as agent_name,
+//                 ic.ivr_number,
+//                 DATE(ic.created_at) as call_date,
+//                 ic.created_at,
+//                 ic.connected_at,
+//                 ic.ended_at,
+//                 alt.Farmer_Name as lead_name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status as lead_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL THEN 'Connected'
+//                     ELSE 'Missed'
+//                 END as call_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL 
+//                     THEN TIMESTAMPDIFF(SECOND, ic.connected_at, ic.ended_at)
+//                     ELSE 0
+//                 END as call_duration_seconds
+//             FROM incoming_calls ic
+//             LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
+//             LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
+//             WHERE ic.ivr_number = '8517009998'
+//             AND DATE(ic.created_at) = :startDate
+//             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+//             GROUP BY 
+//                 ic.call_id, 
+//                 ic.agent_number,
+//                 ic.caller_number,
+//                 emp.EmployeeName,
+//                 ic.ivr_number,
+//                 ic.created_at,
+//                 ic.connected_at,
+//                 ic.ended_at,
+//                 alt.Farmer_Name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status
+//             ORDER BY ic.created_at DESC
+//         `;
+
+//         const replacements = { 
+//             startDate: moment(startDate).format('YYYY-MM-DD'),
+//             ...(agentName && { agentName })
+//         };
+
+//         const callDetails = await sequelize.query(query, {
+//             replacements,
+//             type: QueryTypes.SELECT
+//         });
+
+//         const agentMap = new Map();
+//         let totalCalls = 0;
+//         let totalConnected = 0;
+//         let totalMissed = 0;
+//         let uniqueLeads = new Set();
+//         let processedCallIds = new Set();
+
+//         callDetails.forEach(call => {
+//             if (!call.agent_name || processedCallIds.has(call.call_id)) return;
+            
+//             processedCallIds.add(call.call_id);
+//             totalCalls++;
+            
+//             if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+            
+//             const isConnected = call.connected_at && call.ended_at;
+//             if (isConnected) {
+//                 totalConnected++;
+//             } else {
+//                 totalMissed++;
+//             }
+
+//             if (!agentMap.has(call.agent_name)) {
+//                 agentMap.set(call.agent_name, {
+//                     agent_name: call.agent_name,
+//                     agent_number: call.agent_number,
+//                     total_calls: 0,
+//                     missed_calls: 0,
+//                     connected_calls: 0,
+//                     total_duration_minutes: 0,
+//                     connected_details: [],
+//                     missed_details: []
+//                 });
+//             }
+
+//             const agentData = agentMap.get(call.agent_name);
+//             agentData.total_calls++;
+
+//             const callDetail = {
+//                 call_id: call.call_id,
+//                 date: moment(call.created_at).format('YYYY-MM-DD'),
+//                 time: moment(call.created_at).format('HH:mm:ss'),
+//                 caller_number: call.caller_number,
+//                 duration_minutes: (call.call_duration_seconds / 60).toFixed(2)
+//             };
+
+//             const customerDetail = call.lead_name ? {
+//                 farmer_name: call.lead_name,
+//                 lot_number: call.Lot_Number,
+//                 zone: call.Zone_Name,
+//                 branch: call.Branch_Name,
+//                 vendor: call.Vendor,
+//                 shed_type: call.Shed_Type,
+//                 placed_qty: call.Placed_Qty,
+//                 hatch_date: call.Hatch_Date,
+//                 total_mortality: call.Total_Mortality,
+//                 mortality_percentage: call.Total_Mortality_Percentage,
+//                 status: call.lead_status
+//             } : null;
+
+//             if (isConnected) {
+//                 agentData.connected_calls++;
+//                 agentData.total_duration_minutes += call.call_duration_seconds / 60;
+//                 callDetail.connected_at = moment(call.connected_at).format('YYYY-MM-DD HH:mm:ss');
+//                 callDetail.ended_at = moment(call.ended_at).format('YYYY-MM-DD HH:mm:ss');
+//                 agentData.connected_details.push({
+//                     ...callDetail,
+//                     customer_details: customerDetail
+//                 });
+//             } else {
+//                 agentData.missed_calls++;
+//                 agentData.missed_details.push({
+//                     ...callDetail,
+//                     customer_details: customerDetail
+//                 });
+//             }
+//         });
+
+//         const agentStats = Array.from(agentMap.values()).map(agent => ({
+//             agent_name: agent.agent_name,
+//             agent_number: agent.agent_number,
+//             total_calls: agent.total_calls,
+//             connected_calls: agent.connected_calls,
+//             missed_calls: agent.missed_calls,
+//             total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+//             avg_call_duration_minutes: agent.connected_calls > 0 ? 
+//                 (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+//             connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             missed_rate: ((agent.missed_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             connected_calls_detail: agent.connected_details,
+//             missed_calls_detail: agent.missed_details
+//         }));
+
+//         agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+//         const response = {
+//             success: true,
+//             data: {
+//                 summary: {
+//                     period: {
+//                         start_date: startDate,
+//                         end_date: endDate
+//                     },
+//                     metrics: {
+//                         total_calls: totalCalls,
+//                         unique_leads: uniqueLeads.size,
+//                         connected_calls: totalConnected,
+//                         missed_calls: totalMissed,
+//                         connection_rate: totalCalls ? 
+//                             ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+//                     }
+//                 },
+//                 agents: agentStats
+//             }
+//         };
+
+//         res.status(200).json(response);
+
+//     } catch (error) {
+//         console.error('Error in getAuditCallAnalytics:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error',
+//             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//         });
+//     }
+// };
+
+
+ 
+
+
+//corect code----
+// exports.getAuditCallAnalytics = async (req, res) => {
+//     try {
+//         const startDate = req.query.startDate;
+//         const endDate = req.query.endDate || startDate;
+//         const agentName = req.query.agentName;
+
+//         if (!startDate || !moment(startDate).isValid()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid start date required"
+//             });
+//         }
+
+//         // Main query with proper date range
+//         let query = `
+//             SELECT DISTINCT
+//                 ic.call_id,
+//                 ic.id,
+//                 ic.agent_number,
+//                 ic.caller_number,
+//                 emp.EmployeeName as agent_name,
+//                 ic.ivr_number,
+//                 DATE(ic.created_at) as call_date,
+//                 ic.created_at,
+//                 ic.connected_at,
+//                 ic.ended_at,
+//                 alt.Farmer_Name as lead_name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status as lead_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL THEN 'Connected'
+//                     ELSE 'Missed'
+//                 END as call_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL 
+//                     THEN TIMESTAMPDIFF(SECOND, ic.connected_at, ic.ended_at)
+//                     ELSE 0
+//                 END as call_duration_seconds
+//             FROM incoming_calls ic
+//             LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
+//             LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
+//             WHERE ic.ivr_number = '8517009998'
+//             AND DATE(ic.created_at) BETWEEN DATE(:startDate) AND DATE(:endDate)
+//             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+//             ORDER BY ic.created_at DESC
+//         `;
+
+//         // Query replacements with proper date formatting
+//         const replacements = { 
+//             startDate: moment(startDate).startOf('day').format('YYYY-MM-DD'),
+//             endDate: moment(endDate).endOf('day').format('YYYY-MM-DD'),
+//             ...(agentName && { agentName })
+//         };
+
+//         // Execute query
+//         const callDetails = await sequelize.query(query, {
+//             replacements,
+//             type: QueryTypes.SELECT
+//         });
+
+//         // Initialize counters and data structures
+//         const agentMap = new Map();
+//         let totalCalls = 0;
+//         let totalConnected = 0;
+//         let totalMissed = 0;
+//         let uniqueLeads = new Set();
+//         let processedCallIds = new Set();
+
+//         // Process call details
+//         callDetails.forEach(call => {
+//             if (!call.agent_name || processedCallIds.has(call.call_id)) return;
+            
+//             processedCallIds.add(call.call_id);
+//             totalCalls++;
+            
+//             if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+            
+//             const isConnected = call.connected_at && call.ended_at;
+//             if (isConnected) {
+//                 totalConnected++;
+//             } else {
+//                 totalMissed++;
+//             }
+
+//             // Initialize agent data if not exists
+//             if (!agentMap.has(call.agent_name)) {
+//                 agentMap.set(call.agent_name, {
+//                     agent_name: call.agent_name,
+//                     agent_number: call.agent_number,
+//                     total_calls: 0,
+//                     missed_calls: 0,
+//                     connected_calls: 0,
+//                     total_duration_minutes: 0,
+//                     connected_details: [],
+//                     missed_details: []
+//                 });
+//             }
+
+//             const agentData = agentMap.get(call.agent_name);
+//             agentData.total_calls++;
+
+//             // Prepare call detail
+//             const callDetail = {
+//                 call_id: call.call_id,
+//                 date: moment(call.created_at).format('YYYY-MM-DD'),
+//                 time: moment(call.created_at).format('HH:mm:ss'),
+//                 caller_number: call.caller_number,
+//                 duration_minutes: (call.call_duration_seconds / 60).toFixed(2)
+//             };
+
+//             // Prepare customer detail if exists
+//             const customerDetail = call.lead_name ? {
+//                 farmer_name: call.lead_name,
+//                 lot_number: call.Lot_Number,
+//                 zone: call.Zone_Name,
+//                 branch: call.Branch_Name,
+//                 vendor: call.Vendor,
+//                 shed_type: call.Shed_Type,
+//                 placed_qty: call.Placed_Qty,
+//                 hatch_date: call.Hatch_Date,
+//                 total_mortality: call.Total_Mortality,
+//                 mortality_percentage: call.Total_Mortality_Percentage,
+//                 status: call.lead_status
+//             } : null;
+
+//             // Process connected and missed calls
+//             if (isConnected) {
+//                 agentData.connected_calls++;
+//                 agentData.total_duration_minutes += call.call_duration_seconds / 60;
+//                 callDetail.connected_at = moment(call.connected_at).format('YYYY-MM-DD HH:mm:ss');
+//                 callDetail.ended_at = moment(call.ended_at).format('YYYY-MM-DD HH:mm:ss');
+//                 agentData.connected_details.push({
+//                     ...callDetail,
+//                     customer_details: customerDetail
+//                 });
+//             } else {
+//                 agentData.missed_calls++;
+//                 agentData.missed_details.push({
+//                     ...callDetail,
+//                     customer_details: customerDetail
+//                 });
+//             }
+//         });
+
+//         // Process agent statistics
+//         const agentStats = Array.from(agentMap.values()).map(agent => ({
+//             agent_name: agent.agent_name,
+//             agent_number: agent.agent_number,
+//             total_calls: agent.total_calls,
+//             connected_calls: agent.connected_calls,
+//             missed_calls: agent.missed_calls,
+//             total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+//             avg_call_duration_minutes: agent.connected_calls > 0 ? 
+//                 (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+//             connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             missed_rate: ((agent.missed_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             connected_calls_detail: agent.connected_details,
+//             missed_calls_detail: agent.missed_details
+//         }));
+
+//         // Sort agents by total calls
+//         agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+//         // Prepare final response
+//         const response = {
+//             success: true,
+//             data: {
+//                 summary: {
+//                     period: {
+//                         start_date: moment(startDate).format('YYYY-MM-DD'),
+//                         end_date: moment(endDate).format('YYYY-MM-DD')
+//                     },
+//                     metrics: {
+//                         total_calls: totalCalls,
+//                         unique_leads: uniqueLeads.size,
+//                         connected_calls: totalConnected,
+//                         missed_calls: totalMissed,
+//                         connection_rate: totalCalls ? 
+//                             ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+//                     }
+//                 },
+//                 agents: agentStats
+//             }
+//         };
+
+//         res.status(200).json(response);
+
+//     } catch (error) {
+//         console.error('Error in getAuditCallAnalytics:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error',
+//             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//         });
+//     }
+// };
+
+
+
+
+//18-12-2024
+
+// exports.getAuditCallAnalytics = async (req, res) => {
+//     try {
+//         const startDate = req.query.startDate;
+//         const endDate = req.query.endDate || startDate;
+//         const agentName = req.query.agentName;
+
+//         if (!startDate || !moment(startDate).isValid()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid start date required"
+//             });
+//         }
+
+//         // Main query without GROUP BY to get all records
+//         let query = `
+//             SELECT 
+//                 ic.call_id,
+//                 ic.agent_number,
+//                 ic.caller_number,
+//                 emp.EmployeeName as agent_name,
+//                 ic.ivr_number,
+//                 DATE(ic.created_at) as call_date,
+//                 ic.created_at,
+//                 ic.connected_at,
+//                 ic.ended_at,
+//                 alt.Farmer_Name as lead_name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status as lead_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL THEN 'Connected'
+//                     ELSE 'Missed'
+//                 END as call_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL 
+//                     THEN TIMESTAMPDIFF(SECOND, ic.connected_at, ic.ended_at)
+//                     ELSE 0
+//                 END as call_duration_seconds
+//             FROM incoming_calls ic
+//             LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
+//             LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
+//             WHERE ic.ivr_number = '8517009998'
+//             AND DATE(ic.created_at) BETWEEN DATE(:startDate) AND DATE(:endDate)
+//             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+//             ORDER BY ic.created_at DESC
+//         `;
+
+//         const replacements = { 
+//             startDate: moment(startDate).startOf('day').format('YYYY-MM-DD'),
+//             endDate: moment(endDate).endOf('day').format('YYYY-MM-DD'),
+//             ...(agentName && { agentName })
+//         };
+
+//         const callDetails = await sequelize.query(query, {
+//             replacements,
+//             type: QueryTypes.SELECT
+//         });
+
+//         // Initialize data structures
+//         const agentMap = new Map();
+//         let totalCalls = 0;
+//         let totalConnected = 0;
+//         let totalMissed = 0;
+//         let uniqueLeads = new Set();
+//         let processedCalls = new Map(); // Track unique call_id + agent_number combinations
+
+//         // Process call details
+//         callDetails.forEach(call => {
+//             if (!call.agent_name) return;
+            
+//             // Create unique key for call_id + agent_number combination
+//             const uniqueKey = `${call.call_id}_${call.agent_number}`;
+            
+//             // Count each unique agent interaction with a call
+//             if (!processedCalls.has(uniqueKey)) {
+//                 processedCalls.set(uniqueKey, true);
+//                 totalCalls++;
+
+//                 if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+                
+//                 const isConnected = call.connected_at && call.ended_at;
+//                 if (isConnected) {
+//                     totalConnected++;
+//                 } else {
+//                     totalMissed++;
+//                 }
+
+//                 // Initialize agent data if not exists
+//                 if (!agentMap.has(call.agent_name)) {
+//                     agentMap.set(call.agent_name, {
+//                         agent_name: call.agent_name,
+//                         agent_number: call.agent_number,
+//                         total_calls: 0,
+//                         missed_calls: 0,
+//                         connected_calls: 0,
+//                         total_duration_minutes: 0,
+//                         connected_details: [],
+//                         missed_details: []
+//                     });
+//                 }
+
+//                 const agentData = agentMap.get(call.agent_name);
+//                 agentData.total_calls++;
+
+//                 // Prepare call detail
+//                 const callDetail = {
+//                     call_id: call.call_id,
+//                     date: moment(call.created_at).format('YYYY-MM-DD'),
+//                     time: moment(call.created_at).format('HH:mm:ss'),
+//                     caller_number: call.caller_number,
+//                     duration_minutes: (call.call_duration_seconds / 60).toFixed(2)
+//                 };
+
+//                 // Prepare customer detail if exists
+//                 const customerDetail = call.lead_name ? {
+//                     farmer_name: call.lead_name,
+//                     lot_number: call.Lot_Number,
+//                     zone: call.Zone_Name,
+//                     branch: call.Branch_Name,
+//                     vendor: call.Vendor,
+//                     shed_type: call.Shed_Type,
+//                     placed_qty: call.Placed_Qty,
+//                     hatch_date: call.Hatch_Date,
+//                     total_mortality: call.Total_Mortality,
+//                     mortality_percentage: call.Total_Mortality_Percentage,
+//                     status: call.lead_status
+//                 } : null;
+
+//                 // Process connected and missed calls
+//                 if (isConnected) {
+//                     agentData.connected_calls++;
+//                     agentData.total_duration_minutes += call.call_duration_seconds / 60;
+//                     callDetail.connected_at = moment(call.connected_at).format('YYYY-MM-DD HH:mm:ss');
+//                     callDetail.ended_at = moment(call.ended_at).format('YYYY-MM-DD HH:mm:ss');
+//                     agentData.connected_details.push({
+//                         ...callDetail,
+//                         customer_details: customerDetail
+//                     });
+//                 } else {
+//                     agentData.missed_calls++;
+//                     agentData.missed_details.push({
+//                         ...callDetail,
+//                         customer_details: customerDetail
+//                     });
+//                 }
+//             }
+//         });
+
+//         // Process agent statistics
+//         const agentStats = Array.from(agentMap.values()).map(agent => ({
+//             agent_name: agent.agent_name,
+//             agent_number: agent.agent_number,
+//             total_calls: agent.total_calls,
+//             connected_calls: agent.connected_calls,
+//             missed_calls: agent.missed_calls,
+//             total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+//             avg_call_duration_minutes: agent.connected_calls > 0 ? 
+//                 (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+//             connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             missed_rate: ((agent.missed_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             connected_calls_detail: agent.connected_details,
+//             missed_calls_detail: agent.missed_details
+//         }));
+
+//         // Sort agents by total calls
+//         agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+//         // Prepare final response
+//         const response = {
+//             success: true,
+//             data: {
+//                 summary: {
+//                     period: {
+//                         start_date: moment(startDate).format('YYYY-MM-DD'),
+//                         end_date: moment(endDate).format('YYYY-MM-DD')
+//                     },
+//                     metrics: {
+//                         total_calls: totalCalls,
+//                         unique_leads: uniqueLeads.size,
+//                         connected_calls: totalConnected,
+//                         missed_calls: totalMissed,
+//                         connection_rate: totalCalls ? 
+//                             ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+//                     }
+//                 },
+//                 agents: agentStats
+//             }
+//         };
+
+//         res.status(200).json(response);
+
+//     } catch (error) {
+//         console.error('Error in getAuditCallAnalytics:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error',
+//             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//         });
+//     }
+// };
+
+
+
+
+
+//
+// exports.getAuditCallAnalytics = async (req, res) => {
+//     try {
+//         const startDate = req.query.startDate;
+//         const endDate = req.query.endDate || startDate;
+//         const agentName = req.query.agentName;
+
+//         if (!startDate || !moment(startDate).isValid()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid start date required"
+//             });
+//         }
+
+//         let query = `
+//             SELECT 
+//                 ic.call_id,
+//                 ic.agent_number,
+//                 ic.caller_number,
+//                 emp.EmployeeName as agent_name,
+//                 ic.ivr_number,
+//                 DATE(ic.created_at) as call_date,
+//                 ic.created_at,
+//                 ic.connected_at,
+//                 ic.ended_at,
+//                 alt.Farmer_Name as lead_name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status as lead_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL THEN 'Connected'
+//                     ELSE 'Missed'
+//                 END as call_status,
+//                 CASE 
+//                     WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL 
+//                     THEN TIMESTAMPDIFF(SECOND, ic.connected_at, ic.ended_at)
+//                     ELSE 0
+//                 END as call_duration_seconds
+//             FROM incoming_calls ic
+//             LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
+//             LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
+//             WHERE ic.ivr_number = '8517009998'
+//             AND DATE(ic.created_at) BETWEEN DATE(:startDate) AND DATE(:endDate)
+//             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+//             ORDER BY ic.created_at DESC
+//         `;
+
+//         const replacements = { 
+//             startDate: moment(startDate).startOf('day').format('YYYY-MM-DD'),
+//             endDate: moment(endDate).endOf('day').format('YYYY-MM-DD'),
+//             ...(agentName && { agentName })
+//         };
+
+//         const callDetails = await sequelize.query(query, {
+//             replacements,
+//             type: QueryTypes.SELECT
+//         });
+
+//         const agentMap = new Map();
+//         let totalCalls = 0;
+//         let totalConnected = 0;
+//         let totalMissed = 0;
+//         let uniqueLeads = new Set();
+//         let processedCalls = new Map();
+//         let totalTalkTimeSeconds = 0;
+
+//         callDetails.forEach(call => {
+//             if (!call.agent_name) return;
+            
+//             const uniqueKey = `${call.call_id}_${call.agent_number}`;
+            
+//             if (!processedCalls.has(uniqueKey)) {
+//                 processedCalls.set(uniqueKey, true);
+//                 totalCalls++;
+
+//                 if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+                
+//                 const isConnected = call.connected_at && call.ended_at;
+//                 if (isConnected) {
+//                     totalConnected++;
+//                     totalTalkTimeSeconds += call.call_duration_seconds;
+//                 } else {
+//                     totalMissed++;
+//                 }
+
+//                 if (!agentMap.has(call.agent_name)) {
+//                     agentMap.set(call.agent_name, {
+//                         agent_name: call.agent_name,
+//                         agent_number: call.agent_number,
+//                         total_calls: 0,
+//                         missed_calls: 0,
+//                         connected_calls: 0,
+//                         total_duration_minutes: 0,
+//                         total_duration_seconds: 0,
+//                         connected_details: [],
+//                         missed_details: []
+//                     });
+//                 }
+
+//                 const agentData = agentMap.get(call.agent_name);
+//                 agentData.total_calls++;
+
+//                 const callDetail = {
+//                     call_id: call.call_id,
+//                     date: moment(call.created_at).format('YYYY-MM-DD'),
+//                     time: moment(call.created_at).format('HH:mm:ss'),
+//                     caller_number: call.caller_number,
+//                     duration_minutes: (call.call_duration_seconds / 60).toFixed(2)
+//                 };
+
+//                 const customerDetail = call.lead_name ? {
+//                     farmer_name: call.lead_name,
+//                     lot_number: call.Lot_Number,
+//                     zone: call.Zone_Name,
+//                     branch: call.Branch_Name,
+//                     vendor: call.Vendor,
+//                     shed_type: call.Shed_Type,
+//                     placed_qty: call.Placed_Qty,
+//                     hatch_date: call.Hatch_Date,
+//                     total_mortality: call.Total_Mortality,
+//                     mortality_percentage: call.Total_Mortality_Percentage,
+//                     status: call.lead_status
+//                 } : null;
+
+//                 if (isConnected) {
+//                     agentData.connected_calls++;
+//                     agentData.total_duration_seconds += call.call_duration_seconds;
+//                     agentData.total_duration_minutes += call.call_duration_seconds / 60;
+//                     callDetail.connected_at = moment(call.connected_at).format('YYYY-MM-DD HH:mm:ss');
+//                     callDetail.ended_at = moment(call.ended_at).format('YYYY-MM-DD HH:mm:ss');
+//                     agentData.connected_details.push({
+//                         ...callDetail,
+//                         customer_details: customerDetail
+//                     });
+//                 } else {
+//                     agentData.missed_calls++;
+//                     agentData.missed_details.push({
+//                         ...callDetail,
+//                         customer_details: customerDetail
+//                     });
+//                 }
+//             }
+//         });
+
+//         // Calculate hours, minutes and seconds format
+//         const formatDuration = (totalSeconds) => {
+//             const hours = Math.floor(totalSeconds / 3600);
+//             const minutes = Math.floor((totalSeconds % 3600) / 60);
+//             const seconds = totalSeconds % 60;
+//             return {
+//                 hours,
+//                 minutes,
+//                 seconds,
+//                 formatted: `${hours}h ${minutes}m ${seconds}s`
+//             };
+//         };
+
+//         const agentStats = Array.from(agentMap.values()).map(agent => {
+//             const duration = formatDuration(agent.total_duration_seconds);
+//             return {
+//                 agent_name: agent.agent_name,
+//                 agent_number: agent.agent_number,
+//                 total_calls: agent.total_calls,
+//                 connected_calls: agent.connected_calls,
+//                 missed_calls: agent.missed_calls,
+//                 total_talk_time: duration.formatted,
+//                 total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+//                 avg_call_duration_minutes: agent.connected_calls > 0 ? 
+//                     (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+//                 connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//                 missed_rate: ((agent.missed_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//                 connected_calls_detail: agent.connected_details,
+//                 missed_calls_detail: agent.missed_details
+//             };
+//         });
+
+//         agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+//         const totalDuration = formatDuration(totalTalkTimeSeconds);
+
+//         const response = {
+//             success: true,
+//             data: {
+//                 summary: {
+//                     period: {
+//                         start_date: moment(startDate).format('YYYY-MM-DD'),
+//                         end_date: moment(endDate).format('YYYY-MM-DD')
+//                     },
+//                     metrics: {
+//                         total_calls: totalCalls,
+//                         unique_leads: uniqueLeads.size,
+//                         connected_calls: totalConnected,
+//                         missed_calls: totalMissed,
+//                         total_talk_time: totalDuration.formatted,
+//                         connection_rate: totalCalls ? 
+//                             ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+//                     }
+//                 },
+//                 agents: agentStats
+//             }
+//         };
+
+//         res.status(200).json(response);
+
+//     } catch (error) {
+//         console.error('Error in getAuditCallAnalytics:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error',
+//             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//         });
+//     }
+// };
+
+
+
+
+
+
+
+
+
+
+exports.getAuditCallAnalytics = async (req, res) => {
+    try {
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate || startDate;
+        const agentName = req.query.agentName;
+
+        if (!startDate || !moment(startDate).isValid()) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid start date required"
+            });
+        }
+
+        let query = `
+            SELECT 
+                ic.call_id,
+                ic.agent_number,
+                ic.caller_number,
+                emp.EmployeeName as agent_name,
+                ic.ivr_number,
+                DATE(ic.created_at) as call_date,
+                ic.created_at,
+                ic.connected_at,
+                ic.ended_at,
+                alt.Farmer_Name as lead_name,
+                alt.Zone_Name,
+                alt.Branch_Name,
+                alt.Lot_Number,
+                alt.Vendor,
+                alt.Shed_Type,
+                alt.Placed_Qty,
+                alt.Hatch_Date,
+                alt.Total_Mortality,
+                alt.Total_Mortality_Percentage,
+                alt.status as lead_status,
+                CASE 
+                    WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL THEN 'Connected'
+                    ELSE 'Missed'
+                END as call_status,
+                CASE 
+                    WHEN ic.connected_at IS NOT NULL AND ic.ended_at IS NOT NULL 
+                    THEN TIMESTAMPDIFF(SECOND, ic.connected_at, ic.ended_at)
+                    ELSE 0
+                END as call_duration_seconds
+            FROM incoming_calls ic
+            LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
+            LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
+            WHERE ic.ivr_number = '8517009998'
+            AND DATE(ic.created_at) BETWEEN DATE(:startDate) AND DATE(:endDate)
+            ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+            ORDER BY ic.created_at DESC
+        `;
+
+        const replacements = { 
+            startDate: moment(startDate).startOf('day').format('YYYY-MM-DD'),
+            endDate: moment(endDate).endOf('day').format('YYYY-MM-DD'),
+            ...(agentName && { agentName })
+        };
+
+        const callDetails = await sequelize.query(query, {
+            replacements,
+            type: QueryTypes.SELECT
+        });
+
+        const agentMap = new Map();
+        let totalCalls = 0;
+        let totalConnected = 0;
+        let totalMissed = 0;
+        let uniqueLeads = new Set();
+        let processedCalls = new Map();
+        let totalTalkTimeSeconds = 0;
+
+        callDetails.forEach(call => {
+            if (!call.agent_name) return;
+            
+            const uniqueKey = `${call.call_id}_${call.agent_number}`;
+            
+            if (!processedCalls.has(uniqueKey)) {
+                processedCalls.set(uniqueKey, true);
+                totalCalls++;
+
+                if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+                
+                const isConnected = call.connected_at && call.ended_at;
+                if (isConnected) {
+                    totalConnected++;
+                    totalTalkTimeSeconds += call.call_duration_seconds;
+                } else {
+                    totalMissed++;
+                }
+
+                if (!agentMap.has(call.agent_name)) {
+                    agentMap.set(call.agent_name, {
+                        agent_name: call.agent_name,
+                        agent_number: call.agent_number,
+                        total_calls: 0,
+                        missed_calls: 0,
+                        connected_calls: 0,
+                        total_duration_minutes: 0,
+                        total_duration_seconds: 0,
+                        connected_details: [],
+                        missed_details: []
+                    });
+                }
+
+                const agentData = agentMap.get(call.agent_name);
+                agentData.total_calls++;
+
+                const callDetail = {
+                    call_id: call.call_id,
+                    date: moment(call.created_at).format('YYYY-MM-DD'),
+                    time: moment(call.created_at).format('HH:mm:ss'),
+                    caller_number: call.caller_number,
+                    duration_minutes: (call.call_duration_seconds / 60).toFixed(2)
+                };
+
+                const customerDetail = call.lead_name ? {
+                    farmer_name: call.lead_name,
+                    lot_number: call.Lot_Number,
+                    zone: call.Zone_Name,
+                    branch: call.Branch_Name,
+                    vendor: call.Vendor,
+                    shed_type: call.Shed_Type,
+                    placed_qty: call.Placed_Qty,
+                    hatch_date: call.Hatch_Date,
+                    total_mortality: call.Total_Mortality,
+                    mortality_percentage: call.Total_Mortality_Percentage,
+                    status: call.lead_status
+                } : null;
+
+                if (isConnected) {
+                    agentData.connected_calls++;
+                    agentData.total_duration_seconds += call.call_duration_seconds;
+                    agentData.total_duration_minutes += call.call_duration_seconds / 60;
+                    callDetail.connected_at = moment(call.connected_at).format('YYYY-MM-DD HH:mm:ss');
+                    callDetail.ended_at = moment(call.ended_at).format('YYYY-MM-DD HH:mm:ss');
+                    agentData.connected_details.push({
+                        ...callDetail,
+                        customer_details: customerDetail
+                    });
+                } else {
+                    agentData.missed_calls++;
+                    agentData.missed_details.push({
+                        ...callDetail,
+                        customer_details: customerDetail
+                    });
+                }
+            }
+        });
+
+        // Calculate hours, minutes and seconds format
+        const formatDuration = (totalSeconds) => {
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return {
+                hours,
+                minutes,
+                seconds,
+                formatted: `${hours}h ${minutes}m ${seconds}s`
+            };
+        };
+
+        const agentStats = Array.from(agentMap.values()).map(agent => {
+            const duration = formatDuration(agent.total_duration_seconds);
+            return {
+                agent_name: agent.agent_name,
+                agent_number: agent.agent_number,
+                total_calls: agent.total_calls,
+                connected_calls: agent.connected_calls,
+                missed_calls: agent.missed_calls,
+                total_talk_time: duration.formatted,
+                total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+                avg_call_duration_minutes: agent.connected_calls > 0 ? 
+                    (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+                connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+                missed_rate: ((agent.missed_calls / agent.total_calls) * 100).toFixed(2) + '%',
+                connected_calls_detail: agent.connected_details,
+                missed_calls_detail: agent.missed_details
+            };
+        });
+
+        agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+        const totalDuration = formatDuration(totalTalkTimeSeconds);
+
+        const response = {
+            success: true,
+            data: {
+                summary: {
+                    period: {
+                        start_date: moment(startDate).format('YYYY-MM-DD'),
+                        end_date: moment(endDate).format('YYYY-MM-DD')
+                    },
+                    metrics: {
+                        total_calls: totalCalls,
+                        unique_leads: uniqueLeads.size,
+                        connected_calls: totalConnected,
+                        missed_calls: totalMissed,
+                        total_talk_time: totalDuration.formatted,
+                        connection_rate: totalCalls ? 
+                            ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+                    }
+                },
+                agents: agentStats
+            }
+        };
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        console.error('Error in getAuditCallAnalytics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+
+
+
+
+
+
+
+
+ 
+
+ 
+
+
+//outgoing parivartan /
+exports.getOutboundCallAnalytics = async (req, res) => {
+    try {
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate || startDate;
+        const agentName = req.query.agentName;
+        const ivrNumber = req.query.ivrNumber;
+
+        if (!startDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid start date required"
+            });
+        }
+
+        if (!ivrNumber || !['8517009997', '8517009998'].includes(ivrNumber)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid IVR number required (8517009997 or 8517009998)"
+            });
+        }
+
+        // Modify date range to include full days
+        const startDateTime = moment(startDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+        const endDateTime = moment(endDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+
+        // Modified query to focus on Call End events
+        const callDetails = await sequelize.query(`
+            SELECT 
+                cl.*,
+                emp.EmployeeName as agent_name,
+                alt.Farmer_Name as lead_name,
+                alt.Zone_Name,
+                alt.Branch_Name,
+                alt.Lot_Number,
+                alt.Vendor,
+                alt.Shed_Type,
+                alt.Placed_Qty,
+                alt.Hatch_Date,
+                alt.Total_Mortality,
+                alt.Total_Mortality_Percentage,
+                alt.status as lead_status,
+                CASE 
+                    WHEN cl.eventType = 'Call End' AND cl.bDialStatus = 'Connected' THEN 'Connected'
+                    WHEN cl.eventType = 'Call End' THEN 'Not Connected'
+                    ELSE NULL
+                END as call_status,
+                CASE 
+                    WHEN cl.bPartyConnectedTime IS NOT NULL AND cl.bPartyEndTime IS NOT NULL 
+                    THEN TIMESTAMPDIFF(SECOND, cl.bPartyConnectedTime, cl.bPartyEndTime)
+                    ELSE 0
+                END as call_duration_seconds
+            FROM call_logs cl
+            LEFT JOIN employee_table emp ON cl.aPartyNo = emp.EmployeePhone
+            LEFT JOIN audit_lead_table alt ON cl.bPartyNo = alt.Mobile
+            WHERE cl.dni = :ivrNumber
+            AND cl.eventType = 'Call End'
+            AND cl.callStartTime BETWEEN :startDateTime AND :endDateTime
+            ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+            ORDER BY cl.callStartTime DESC
+        `, {
+            replacements: { 
+                startDateTime, 
+                endDateTime, 
+                ivrNumber, 
+                ...(agentName && { agentName }) 
+            },
+            type: QueryTypes.SELECT
+        });
+
+        // Process the data
+        const agentMap = new Map();
+        let totalCalls = 0;
+        let totalConnected = 0;
+        let totalNotConnected = 0;
+        let uniqueLeads = new Set();
+
+        callDetails.forEach(call => {
+            if (!call.agent_name) return;
+
+            totalCalls++;
+            if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+            if (call.call_status === 'Connected') totalConnected++;
+            if (call.call_status === 'Not Connected') totalNotConnected++;
+
+            if (!agentMap.has(call.agent_name)) {
+                agentMap.set(call.agent_name, {
+                    agent_name: call.agent_name,
+                    agent_number: call.aPartyNo,
+                    total_calls: 0,
+                    connected_calls: 0,
+                    not_connected_calls: 0,
+                    total_duration_minutes: 0,
+                    connected_details: [],
+                    not_connected_details: []
+                });
+            }
+
+            const agentData = agentMap.get(call.agent_name);
+            agentData.total_calls++;
+
+            const callDetail = {
+                call_id: call.callId,
+                date: moment(call.callStartTime).format('YYYY-MM-DD'),
+                time: moment(call.callStartTime).format('HH:mm:ss'),
+                customer_number: call.bPartyNo,
+                duration_minutes: (call.call_duration_seconds / 60).toFixed(2),
+                dial_status: call.bDialStatus,
+                release_reason: call.bPartyReleaseReason || 'N/A'
+            };
+
+            const customerDetail = call.lead_name ? {
+                farmer_name: call.lead_name,
+                lot_number: call.Lot_Number,
+                zone: call.Zone_Name,
+                branch: call.Branch_Name,
+                vendor: call.Vendor,
+                shed_type: call.Shed_Type,
+                placed_qty: call.Placed_Qty,
+                hatch_date: call.Hatch_Date,
+                total_mortality: call.Total_Mortality,
+                mortality_percentage: call.Total_Mortality_Percentage,
+                status: call.lead_status
+            } : null;
+
+            if (call.call_status === 'Connected') {
+                agentData.connected_calls++;
+                agentData.total_duration_minutes += call.call_duration_seconds / 60;
+                callDetail.connected_at = moment(call.bPartyConnectedTime).format('YYYY-MM-DD HH:mm:ss');
+                callDetail.ended_at = moment(call.bPartyEndTime).format('YYYY-MM-DD HH:mm:ss');
+                agentData.connected_details.push({
+                    ...callDetail,
+                    customer_details: customerDetail
+                });
+            } else {
+                agentData.not_connected_calls++;
+                agentData.not_connected_details.push({
+                    ...callDetail,
+                    customer_details: customerDetail
+                });
+            }
+        });
+
+        const agentStats = Array.from(agentMap.values()).map(agent => ({
+            agent_name: agent.agent_name,
+            agent_number: agent.agent_number,
+            total_calls: agent.total_calls,
+            connected_calls: agent.connected_calls,
+            not_connected_calls: agent.not_connected_calls,
+            total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+            avg_call_duration_minutes: agent.connected_calls > 0 ? 
+                (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+            connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+            connected_details: agent.connected_details,
+            not_connected_details: agent.not_connected_details
+        }));
+
+        agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+        const response = {
+            success: true,
+            data: {
+                summary: {
+                    period: {
+                        start_date: startDate,
+                        end_date: endDate
+                    },
+                    ivr_number: ivrNumber,
+                    metrics: {
+                        total_calls: totalCalls,
+                        unique_leads: uniqueLeads.size,
+                        connected_calls: totalConnected,
+                        not_connected_calls: totalNotConnected,
+                        connection_rate: totalCalls ? 
+                            ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+                    }
+                },
+                agents: agentStats
+            }
+        };
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        console.error('Error in getOutboundCallAnalytics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+

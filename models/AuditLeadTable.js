@@ -1,5 +1,6 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
 const sequelize = require("./index");
+const Employee = require("./employee");
 
 class AuditLeadTable extends Model {}
 
@@ -99,16 +100,16 @@ AuditLeadTable.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
-    extra_feild1: {
+    follow_up_date: {
       type: DataTypes.DATE,
       allowNull: true,
     },
-    extra_feild2: {
+    completed_on: {
       type: DataTypes.DATE,
       allowNull: true,
     },
-    extra_feild3: {
-      type: DataTypes.DATE,
+    AgentId: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
   },
@@ -118,5 +119,13 @@ AuditLeadTable.init(
     tableName: "audit_lead_table",
   }
 );
+Employee.hasMany(AuditLeadTable, {
+  foreignKey: "AgentId",
+  as: "AgentAuditLeads"
+});
 
+AuditLeadTable.belongsTo(Employee, {
+  foreignKey: "AgentId",
+  as: "Agent"
+});
 module.exports = AuditLeadTable;

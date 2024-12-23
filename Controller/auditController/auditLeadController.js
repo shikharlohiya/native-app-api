@@ -6,12 +6,13 @@ const site_visit = require("../../models/site_visit");
 const lead_Meeting = require("../../models/lead_meeting");
 const estimation = require("../../models/estimation");
 const AuditLeadDetail = require("../../models/AuditLeadTable");
-const { Op,literal } = require("sequelize");
+const {  Op, literal, where, fn, col } = require("sequelize");
 const sequelize = require("../../models/index");
 const XLSX = require("xlsx");
 const multer = require("multer");
 const AuditLeadRemark = require("../../models/AuditLeadRemark");
 const AuditTraderTable = require("../../models/AuditTraderTable");
+const AuditNewFarmer  = require("../../models/AuditNewFarmer");
 
 function excelDateToJSDate(excelDate) {
   if (typeof excelDate === "string" && excelDate.includes("-")) {
@@ -157,16 +158,41 @@ exports.uploadAuditLeads = async (req, res) => {
 };
 
 
+ 
+ //v1
 
 // exports.getAuditLeads = async (req, res) => {
 //   try {
-//     const { agentId } = req.query; // Assuming you'll pass the agent's ID as a query parameter
+//     const { 
+//       agentId, 
+//       page = 1, 
+//       limit = 10, 
+//       zoneName, //contaion //equal
+//       branchName,//contaion //equal
+//       farmerName, //none
+//       shedType, //equal
+//       lotNumber,// none
+//       line, //equal
+//       hatcheryName,//contaion //equal
+//       status,//equal
+//       sortFCR,// //equal // greaterthanequal // lessthanequal //greathan //leassthan 
+//       sortBirdAge, //equal // greaterthanequal // lessthanequal //greathan //leassthan //contain
+//       commonSearch,
+//       vendor,//contain//equal
+//       Placed_Qty, //equal // greaterthanequal // lessthanequal //greathan //leassthan
+//       ca,//equal // greaterthanequal // lessthanequal //greathan //leassthan
+//       Diif,//equal // greaterthanequal // lessthanequal //greathan //leassthan // contain 
+//       first_Week_M, //equal // greaterthanequal // lessthanequal //greathan //leassthan // contain
+//       First_Week_Mortality_Percentage,//equal // greaterthanequal // lessthanequal //greathan //leassthan // contain
+//       Total_Mortality,//equal // greaterthanequal // lessthanequal //greathan //leassthan // contain
+//       Lift_Percentage,//equal // greaterthanequal // lessthanequal //greathan //leassthan // contain
+//       Bal_Birds,
+//     } = req.query;
 
 //     if (!agentId) {
 //       return res.status(400).json({ message: "Agent ID is required" });
 //     }
 
-//     // First, fetch the agent's details to get their mapped regions
 //     const agent = await Employee.findByPk(agentId, {
 //       attributes: ["EmployeeName", "EmployeeRegion"],
 //     });
@@ -175,21 +201,88 @@ exports.uploadAuditLeads = async (req, res) => {
 //       return res.status(404).json({ message: "Agent not found" });
 //     }
 
-//     // Assuming MappedRegions is stored as a comma-separated string
 //     const mappedRegions = agent.EmployeeRegion.split(",").map((region) =>
 //       region.trim()
 //     );
 
-//     // Fetch audit leads for the mapped regions
-//     const auditLeads = await AuditLeadDetail.findAll({
+//     const whereClause = {
+//       Zone_Name: {
+//         [Op.in]: mappedRegions,
+//       },
+//     };
+
+    // // Add specific filters
+    // if (zoneName) whereClause.Zone_Name = { [Op.like]: `%${zoneName}%` };
+    // if (branchName) whereClause.Branch_Name = { [Op.like]: `%${branchName}%` };
+    // if (farmerName) whereClause.Farmer_Name = { [Op.like]: `%${farmerName}%` };
+    // if (shedType) whereClause.Shed_Type = { [Op.like]: `%${shedType}%` };
+    // if (lotNumber) whereClause.Lot_Number = { [Op.like]: `%${lotNumber}%` };
+    // if (line) whereClause.Line = { [Op.like]: `%${line}%` };
+    // if (hatcheryName) whereClause.Hatchery_Name = { [Op.like]: `%${hatcheryName}%` };
+    // if (status) whereClause.status = status;
+
+    // // Add common search
+    // if (commonSearch) {
+    //   whereClause[Op.or] = [
+    //     { Zone_Name: { [Op.like]: `%${commonSearch}%` } },
+    //     { Branch_Name: { [Op.like]: `%${commonSearch}%` } },
+    //     { Farmer_Name: { [Op.like]: `%${commonSearch}%` } },
+    //     { Shed_Type: { [Op.like]: `%${commonSearch}%` } },
+    //     { Lot_Number: { [Op.like]: `%${commonSearch}%` } },
+    //     { Line: { [Op.like]: `%${commonSearch}%` } },
+    //     { Hatchery_Name: { [Op.like]: `%${commonSearch}%` } },
+    //     { FCR: { [Op.like]: `%${commonSearch}%` } },
+    //     { Age_SAP: { [Op.like]: `%${commonSearch}%` } },
+    //   ];
+    // }
+
+//     const order = [];
+//     if (sortFCR) {
+//       order.push([literal('CAST(FCR AS DECIMAL)'), sortFCR.toUpperCase()]);
+//     }
+//     if (sortBirdAge) {
+//       order.push([literal('CAST(Age_SAP AS DECIMAL)'), sortBirdAge.toUpperCase()]);
+//     }
+//     if (order.length === 0) {
+//       order.push(['updatedAt', 'DESC']);
+//     }
+
+//     const offset = (page - 1) * limit;
+
+//     const { count, rows: auditLeads } = await AuditLeadDetail.findAndCountAll({
+//       where: whereClause,
+//       order: order,
+//       limit: parseInt(limit),
+//       offset: offset,
+//     });
+
+//     // Get total status counts for all records
+//     const totalStatusCounts = await AuditLeadDetail.count({
 //       where: {
 //         Zone_Name: {
 //           [Op.in]: mappedRegions,
 //         },
 //       },
-//       order: [["updatedAt", "DESC"]],
+//       group: ['status'],
+//       attributes: ['status'],
 //     });
-//     const totalCount = auditLeads.length;
+
+//     const formattedTotalStatusCounts = totalStatusCounts.reduce((acc, curr) => {
+//       acc[curr.status] = curr.count;
+//       return acc;
+//     }, {open: 0, working: 0, closed: 0});
+
+//     // Get filtered status counts
+//     const filteredStatusCounts = await AuditLeadDetail.count({
+//       where: whereClause,
+//       group: ['status'],
+//       attributes: ['status'],
+//     });
+
+//     const formattedFilteredStatusCounts = filteredStatusCounts.reduce((acc, curr) => {
+//       acc[curr.status] = curr.count;
+//       return acc;
+//     }, {open: 0, working: 0, closed: 0});
 
 //     res.status(200).json({
 //       data: auditLeads,
@@ -197,7 +290,14 @@ exports.uploadAuditLeads = async (req, res) => {
 //         name: agent.EmployeeName,
 //         mappedRegions: mappedRegions,
 //       },
-//       totalCount: totalCount,
+//       pagination: {
+//         currentPage: parseInt(page),
+//         totalPages: Math.ceil(count / limit),
+//         totalCount: count,
+//         perPage: parseInt(limit),
+//       },
+//       totalStatusCounts: formattedTotalStatusCounts,
+//       filteredStatusCounts: formattedFilteredStatusCounts,
 //     });
 //   } catch (error) {
 //     console.error("Error retrieving audit leads:", error);
@@ -206,28 +306,36 @@ exports.uploadAuditLeads = async (req, res) => {
 // };
 
 
- 
+
+
+
+//v2
 exports.getAuditLeads = async (req, res) => {
   try {
     const { 
       agentId, 
       page = 1, 
-      limit = 10, 
-      zoneName,
-      branchName,
-      farmerName, 
-      shedType, 
-      lotNumber,
-      line,
-      hatcheryName,
-      status,
+      limit = 10,
+      filters = [],
       sortFCR,
       sortBirdAge,
+      status,
       commonSearch
     } = req.query;
 
     if (!agentId) {
       return res.status(400).json({ message: "Agent ID is required" });
+    }
+
+    // Parse filters if it's a string
+    let parsedFilters = filters;
+    if (typeof filters === 'string') {
+      try {
+        parsedFilters = JSON.parse(filters);
+      } catch (error) {
+        console.error("Error parsing filters:", error);
+        return res.status(400).json({ message: "Invalid filters format" });
+      }
     }
 
     const agent = await Employee.findByPk(agentId, {
@@ -242,37 +350,66 @@ exports.getAuditLeads = async (req, res) => {
       region.trim()
     );
 
+    // Base where clause with region restriction
     const whereClause = {
       Zone_Name: {
         [Op.in]: mappedRegions,
       },
     };
+        // Add specific filters
+        if (status) whereClause.status = status;
+    
+        // Add common search
+        if (commonSearch) {
+          whereClause[Op.or] = [
+            { Zone_Name: { [Op.like]: `%${commonSearch}%` } },
+            { Branch_Name: { [Op.like]: `%${commonSearch}%` } },
+            { Farmer_Name: { [Op.like]: `%${commonSearch}%` } },
+            { Shed_Type: { [Op.like]: `%${commonSearch}%` } },
+            { Lot_Number: { [Op.like]: `%${commonSearch}%` } },
+            { Line: { [Op.like]: `%${commonSearch}%` } },
+            { Hatchery_Name: { [Op.like]: `%${commonSearch}%` } },
+            { FCR: { [Op.like]: `%${commonSearch}%` } },
+            { Age_SAP: { [Op.like]: `%${commonSearch}%` } },
+            { Mobile: { [Op.like]: `%${commonSearch}%` } },
+          ];
+        }
 
-    // Add specific filters
-    if (zoneName) whereClause.Zone_Name = { [Op.like]: `%${zoneName}%` };
-    if (branchName) whereClause.Branch_Name = { [Op.like]: `%${branchName}%` };
-    if (farmerName) whereClause.Farmer_Name = { [Op.like]: `%${farmerName}%` };
-    if (shedType) whereClause.Shed_Type = { [Op.like]: `%${shedType}%` };
-    if (lotNumber) whereClause.Lot_Number = { [Op.like]: `%${lotNumber}%` };
-    if (line) whereClause.Line = { [Op.like]: `%${line}%` };
-    if (hatcheryName) whereClause.Hatchery_Name = { [Op.like]: `%${hatcheryName}%` };
-    if (status) whereClause.status = status;
+    // Process dynamic filters
+    if (Array.isArray(parsedFilters) && parsedFilters.length > 0) {
+      const filterConditions = parsedFilters.map(filter => {
+        const { field, condition, value } = filter;
+        
+        // Validate field exists in the model
+        
+        if (!field || !condition || value === undefined) {
+          return null;
+        }
 
-    // Add common search
-    if (commonSearch) {
-      whereClause[Op.or] = [
-        { Zone_Name: { [Op.like]: `%${commonSearch}%` } },
-        { Branch_Name: { [Op.like]: `%${commonSearch}%` } },
-        { Farmer_Name: { [Op.like]: `%${commonSearch}%` } },
-        { Shed_Type: { [Op.like]: `%${commonSearch}%` } },
-        { Lot_Number: { [Op.like]: `%${commonSearch}%` } },
-        { Line: { [Op.like]: `%${commonSearch}%` } },
-        { Hatchery_Name: { [Op.like]: `%${commonSearch}%` } },
-        { FCR: { [Op.like]: `%${commonSearch}%` } },
-        { Age_SAP: { [Op.like]: `%${commonSearch}%` } },
-      ];
+        switch (condition.toLowerCase()) {
+          case 'contains':
+            return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
+          case 'equal':
+            return { [field]: { [Op.eq]: value } }; // Exact match
+          case 'greaterthanequal':
+            return { [field]: { [Op.gte]: value } };
+          case 'lessthanequal':
+            return { [field]: { [Op.lte]: value } };
+          case 'greaterthan':
+            return { [field]: { [Op.gt]: value } };
+          case 'lessthan':
+            return { [field]: { [Op.lt]: value } };
+          default:
+            return null;
+        }
+      }).filter(condition => condition !== null);
+
+      if (filterConditions.length > 0) {
+        whereClause[Op.and] = filterConditions;
+      }
     }
 
+    // Handle sorting
     const order = [];
     if (sortFCR) {
       order.push([literal('CAST(FCR AS DECIMAL)'), sortFCR.toUpperCase()]);
@@ -286,6 +423,7 @@ exports.getAuditLeads = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
+    // Get filtered results
     const { count, rows: auditLeads } = await AuditLeadDetail.findAndCountAll({
       where: whereClause,
       order: order,
@@ -335,10 +473,11 @@ exports.getAuditLeads = async (req, res) => {
       },
       totalStatusCounts: formattedTotalStatusCounts,
       filteredStatusCounts: formattedFilteredStatusCounts,
+      appliedFilters: parsedFilters, // Return applied filters for debugging
     });
   } catch (error) {
     console.error("Error retrieving audit leads:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -347,9 +486,194 @@ exports.getAuditLeads = async (req, res) => {
 
 
 
+// const MAX_RETRIES = 3;
+// const RETRY_DELAY = 1000; // 1 second
+// const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// exports.createAuditLeadRemark = async (req, res) => {
+//   let retries = 0;
+
+//   while (retries < MAX_RETRIES) {
+//     const transaction = await sequelize.transaction();
+
+//     try {
+//       const {
+//         CH,
+//         AGE,
+//         BWT,
+//         M_QTY,
+//         REASON,
+//         MED,
+//         FEED,
+//         STOCK,
+//         IFFT_IN,
+//         IFFT_OUT,
+//         LS_VISIT,
+//         BM_VISIT,
+//         DAILY_ENT,
+//         FEED_ENT,
+//         MORT_ENT,
+//         BWT_ENT,
+//         MED_ENT,
+//         REMARKS,
+//         DATE,
+//         Lot_Number,
+//         AgentId,
+//         status,
+//         follow_up_date
+//       } = req.body;
+
+//       const auditLeadRemark = await AuditLeadRemark.create(
+//         {
+//           CH,
+//           AGE,
+//           BWT,
+//           M_QTY,
+//           REASON,
+//           MED,
+//           FEED,
+//           STOCK,
+//           IFFT_IN,
+//           IFFT_OUT,
+//           LS_VISIT,
+//           BM_VISIT,
+//           DAILY_ENT,
+//           FEED_ENT,
+//           MORT_ENT,
+//           BWT_ENT,
+//           MED_ENT,
+//           REMARKS,
+//           DATE,
+//           Lot_Number,
+//           AgentId,
+//           closure_status:status,
+//           follow_up_date
+//         },
+//         { transaction }
+//       );
+
+//       await AuditLeadDetail.update(
+//         {
+//           last_action_date: sequelize.literal("CURRENT_TIMESTAMP"),
+//           status: status, // Update the status field,
+//           follow_up_date,
+//           // completed_on: sequelize.literal("CURRENT_TIMESTAMP"),
+//           AgentId
+
+          
+//         },
+//         {
+//           where: { Lot_Number: Lot_Number },
+//           transaction,
+//         }
+//       );
+
+//       await transaction.commit();
+
+//       return res
+//         .status(200)
+//         .json({
+//           message: "Created audit lead remark successfully",
+//           auditLeadRemark,
+//         });
+//     } catch (error) {
+//       await transaction.rollback();
+
+//       if (
+//         error.name === "SequelizeDatabaseError" &&
+//         error.parent.code === "ER_LOCK_WAIT_TIMEOUT"
+//       ) {
+//         retries++;
+//         console.log(
+//           `Lock wait timeout. Retrying (${retries}/${MAX_RETRIES})...`
+//         );
+//         await sleep(RETRY_DELAY);
+//       } else {
+//         console.error("Error creating audit lead remark:", error);
+//         return res.status(500).json({ message: "Internal server error" });
+//       }
+//     }
+//   }
+
+//   console.error("Max retries reached. Failed to create audit lead remark.");
+//   return res
+//     .status(500)
+//     .json({
+//       message: "Failed to create audit lead remark after multiple attempts",
+//     });
+// };
+
+
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const RETRY_DELAY = 1000;
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getDetailedErrorMessage = (error) => {
+  if (error.name === 'SequelizeValidationError') {
+    return {
+      type: 'Validation Error',
+      message: 'Data validation failed',
+      details: error.errors.map(err => ({
+        field: err.path,
+        value: err.value,
+        problem: err.message
+      }))
+    };
+  }
+  
+  if (error.name === 'SequelizeUniqueConstraintError') {
+    return {
+      type: 'Unique Constraint Error',
+      message: 'Duplicate entry found',
+      details: error.errors.map(err => ({
+        field: err.path,
+        value: err.value,
+        problem: 'This value already exists'
+      }))
+    };
+  }
+
+  if (error.name === 'SequelizeForeignKeyConstraintError') {
+    return {
+      type: 'Foreign Key Error',
+      message: 'Invalid reference to related data',
+      details: {
+        field: error.fields?.[0],
+        value: error.value,
+        problem: 'Referenced record does not exist'
+      }
+    };
+  }
+
+  if (error.name === 'SequelizeDatabaseError') {
+    if (error.parent?.code === 'ER_LOCK_WAIT_TIMEOUT') {
+      return {
+        type: 'Database Lock Error',
+        message: 'Database lock timeout',
+        details: 'The operation took too long due to database locks'
+      };
+    }
+    if (error.parent?.code === 'ER_DATA_TOO_LONG') {
+      return {
+        type: 'Data Length Error',
+        message: 'Data too long for column',
+        details: error.parent.sqlMessage
+      };
+    }
+    return {
+      type: 'Database Error',
+      message: 'Database operation failed',
+      details: error.parent?.sqlMessage || error.message
+    };
+  }
+
+  return {
+    type: 'Unknown Error',
+    message: error.message,
+    details: error.stack
+  };
+};
 
 exports.createAuditLeadRemark = async (req, res) => {
   let retries = 0;
@@ -359,102 +683,200 @@ exports.createAuditLeadRemark = async (req, res) => {
 
     try {
       const {
-        CH,
-        AGE,
-        BWT,
-        M_QTY,
-        REASON,
-        MED,
-        FEED,
-        STOCK,
-        IFFT_IN,
-        IFFT_OUT,
-        LS_VISIT,
-        BM_VISIT,
-        DAILY_ENT,
-        FEED_ENT,
-        MORT_ENT,
-        BWT_ENT,
-        MED_ENT,
-        REMARKS,
-        DATE,
-        Lot_Number,
+        type,
         AgentId,
         status,
+        follow_up_date,
+        
+        // Fields for type = 'running'
+        CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
+        IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
+        FEED_ENT, MORT_ENT, BWT_ENT, MED_ENT, REMARKS,
+        DATE, Lot_Number,
+
+        // Fields for type = 'old' or 'new'
+        ABWT, Avg_Lift_Wt, Total_Mortality, Zone_Name,
+        farmer_name, first_Week_M, followUpBy, Mobile,
+        Shed_Type, branch_Name, previousCompanyName,
+        previousPoultryExperience
       } = req.body;
 
-      const auditLeadRemark = await AuditLeadRemark.create(
-        {
-          CH,
-          AGE,
-          BWT,
-          M_QTY,
-          REASON,
-          MED,
-          FEED,
-          STOCK,
-          IFFT_IN,
-          IFFT_OUT,
-          LS_VISIT,
-          BM_VISIT,
-          DAILY_ENT,
-          FEED_ENT,
-          MORT_ENT,
-          BWT_ENT,
-          MED_ENT,
-          REMARKS,
-          DATE,
-          Lot_Number,
-          AgentId,
-        },
-        { transaction }
-      );
+      let result;
 
-      await AuditLeadDetail.update(
-        {
-          last_action_date: sequelize.literal("CURRENT_TIMESTAMP"),
-          status: status, // Update the status field
-        },
-        {
-          where: { Lot_Number: Lot_Number },
-          transaction,
+      // Validate AgentId exists
+      const agentExists = await sequelize.models.Employee.findByPk(AgentId);
+      if (!agentExists) {
+        throw new Error(`Invalid AgentId: ${AgentId} - Agent does not exist`);
+      }
+
+      if (type === 'running') {
+        // Validate Lot_Number exists for running type
+        const lotExists = await AuditLeadDetail.findByPk(Lot_Number);
+        if (!lotExists) {
+          throw new Error(`Invalid Lot_Number: ${Lot_Number} - Lot does not exist`);
         }
-      );
+
+        // Handle running type - save to AuditLeadRemark
+        result = await AuditLeadRemark.create({
+          CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
+          IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
+          FEED_ENT, MORT_ENT, BWT_ENT, MED_ENT, REMARKS,
+          DATE, Lot_Number, AgentId,
+          closure_status: status,
+          follow_up_date
+        }, { 
+          transaction,
+          validate: true // Enable validation
+        });
+
+        // Update AuditLeadDetail
+        await AuditLeadDetail.update({
+          last_action_date: sequelize.literal("CURRENT_TIMESTAMP"),
+          status,
+          follow_up_date,
+          AgentId
+        }, {
+          where: { Lot_Number },
+          transaction
+        });
+
+      } else if (type === 'old' || type === 'new') {
+        // Validate mobile number format
+        if (Mobile && !/^\d{10,15}$/.test(Mobile)) {
+          throw new Error(`Invalid mobile number format: ${Mobile}`);
+        }
+
+        // Handle old or new type - save to AuditNewFarmer
+        result = await AuditNewFarmer.create({
+          type,
+          AgentId,
+          status,
+          follow_up_date,
+          ABWT: type === 'old' ? ABWT : null,
+          Avg_Lift_Wt: type === 'old' ? Avg_Lift_Wt : null,
+          Total_Mortality: type === 'old' ? Total_Mortality : null,
+          first_Week_M: type === 'old' ? first_Week_M : null,
+          Shed_Type: type === 'new' ? Shed_Type : null,
+          branch_Name: type === 'new' ? branch_Name : null,
+          previousCompanyName: type === 'new' ? previousCompanyName : null,
+          previousPoultryExperience: type === 'new' ? previousPoultryExperience : null,
+          Mobile,
+          Zone_Name,
+          farmer_name,
+          followUpBy,
+          remarks: REMARKS,
+          user_type: 'farmer'
+        }, { 
+          transaction,
+          validate: true // Enable validation
+        });
+      } else {
+        throw new Error(`Invalid type specified: ${type}. Must be 'running', 'old', or 'new'`);
+      }
 
       await transaction.commit();
 
-      return res
-        .status(200)
-        .json({
-          message: "Created audit lead remark successfully",
-          auditLeadRemark,
-        });
+      return res.status(200).json({
+        success: true,
+        message: `Created ${type} audit record successfully`,
+        data: result
+      });
+
     } catch (error) {
       await transaction.rollback();
 
-      if (
-        error.name === "SequelizeDatabaseError" &&
-        error.parent.code === "ER_LOCK_WAIT_TIMEOUT"
-      ) {
+      if (error.name === "SequelizeDatabaseError" && 
+          error.parent?.code === "ER_LOCK_WAIT_TIMEOUT") {
         retries++;
-        console.log(
-          `Lock wait timeout. Retrying (${retries}/${MAX_RETRIES})...`
-        );
+        console.log(`Lock wait timeout. Retrying (${retries}/${MAX_RETRIES})...`);
         await sleep(RETRY_DELAY);
-      } else {
-        console.error("Error creating audit lead remark:", error);
-        return res.status(500).json({ message: "Internal server error" });
+        continue;
       }
+
+      const errorDetails = getDetailedErrorMessage(error);
+      console.error("Error creating audit record:", errorDetails);
+
+      return res.status(500).json({ 
+        success: false,
+        message: "Failed to create audit record",
+        error: errorDetails
+      });
     }
   }
 
-  console.error("Max retries reached. Failed to create audit lead remark.");
-  return res
-    .status(500)
-    .json({
-      message: "Failed to create audit lead remark after multiple attempts",
-    });
+  return res.status(500).json({
+    success: false,
+    message: "Failed to create audit record after multiple attempts",
+    error: {
+      type: 'Retry Error',
+      details: `Maximum retries (${MAX_RETRIES}) reached due to database locks`
+    }
+  });
 };
+
+exports.validateAuditData = async (req, res, next) => {
+  try {
+    const { type } = req.body;
+
+    if (!type) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Validation Error",
+        error: {
+          type: 'Validation Error',
+          details: 'Type is required'
+        }
+      });
+    }
+
+    const commonRequiredFields = ['AgentId', 'status', 'follow_up_date'];
+    let requiredFields = [...commonRequiredFields];
+
+    if (type === 'running') {
+      requiredFields = [...requiredFields, 'Lot_Number'];
+    } else if (type === 'old' || type === 'new') {
+      requiredFields = [...requiredFields, 'Mobile', 'Zone_Name', 'farmer_name', 'followUpBy'];
+    } else {
+      return res.status(400).json({ 
+        success: false,
+        message: "Validation Error",
+        error: {
+          type: 'Validation Error',
+          details: `Invalid type: ${type}. Must be 'running', 'old', or 'new'`
+        }
+      });
+    }
+
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation Error",
+        error: {
+          type: 'Validation Error',
+          message: 'Missing required fields',
+          details: missingFields
+        }
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Validation error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Validation Error",
+      error: {
+        type: 'Validation Error',
+        details: error.message
+      }
+    });
+  }
+};
+
+
+
 
 
 
@@ -1138,6 +1560,72 @@ exports.createAuditLead = async (req, res) => {
 };
 
 
+
+
+// exports.getLotNumbersByMobile = async (req, res) => {
+//   try {
+//       const { mobile } = req.params;
+
+//       // Validate mobile parameter
+//       if (!mobile) {
+//           return res.status(400).json({
+//               success: false,
+//               message: "Mobile number is required"
+//           });
+//       }
+
+//       // Validate mobile number format and length
+//       if (mobile.length > 20) {
+//           return res.status(400).json({
+//               success: false,
+//               message: "Invalid mobile number length"
+//           });
+//       }
+
+//       // Find all records with the given mobile number
+//       const auditRecords = await AuditLeadDetail.findAll({
+//           where: {
+//               Mobile: mobile
+//           },
+//           attributes: [
+//               'Lot_Number', 
+//               'Farmer_Name',
+//               'Zone_Name',
+//               'Branch_Name',
+//               'status',
+//               'last_action_date'
+//           ],
+//           order: [
+//               ['last_action_date', 'DESC']  // Most recent first
+//           ]
+//       });
+
+//       if (!auditRecords || auditRecords.length === 0) {
+//           return res.status(404).json({
+//               success: false,
+//               message: "No records found for this mobile number"
+//           });
+//       }
+
+//       return res.status(200).json({
+//           success: true,
+//           message: "Records retrieved successfully",
+//           count: auditRecords.length,
+//           data: auditRecords
+//       });
+
+//   } catch (error) {
+//       console.error('Error fetching lot numbers:', error);
+//       return res.status(500).json({
+//           success: false,
+//           message: "An error occurred while fetching the records",
+//           error: error.message
+//       });
+//   }
+// };
+
+
+
 exports.getLotNumbersByMobile = async (req, res) => {
   try {
       const { mobile } = req.params;
@@ -1158,13 +1646,13 @@ exports.getLotNumbersByMobile = async (req, res) => {
           });
       }
 
-      // Find all records with the given mobile number
-      const auditRecords = await AuditLeadDetail.findAll({
+      // Find records in AuditLeadDetail
+      const existingRecords = await AuditLeadDetail.findAll({
           where: {
               Mobile: mobile
           },
           attributes: [
-              'Lot_Number', 
+              'Lot_Number',
               'Farmer_Name',
               'Zone_Name',
               'Branch_Name',
@@ -1172,32 +1660,136 @@ exports.getLotNumbersByMobile = async (req, res) => {
               'last_action_date'
           ],
           order: [
-              ['last_action_date', 'DESC']  // Most recent first
+              ['last_action_date', 'DESC']
           ]
       });
 
-      if (!auditRecords || auditRecords.length === 0) {
+      // Find records in AuditNewFarmer
+      const newRecords = await AuditNewFarmer.findAll({
+          where: {
+              Mobile: mobile
+          },
+          attributes: [
+              'id',
+              'farmer_name',
+              'Zone_Name',
+              'branch_Name',
+              'type',
+              'status',
+              'follow_up_date',
+              'previousCompanyName',
+              'previousPoultryExperience',
+              'Shed_Type',
+              'ABWT',
+              'Avg_Lift_Wt',
+              'Total_Mortality',
+              'first_Week_M',
+              'remarks',
+              'createdAt',
+              'updatedAt'
+          ],
+          order: [
+              ['createdAt', 'DESC']
+          ]
+      });
+
+      // Prepare response based on found records
+      const response = {
+          success: true,
+          message: "Records retrieved successfully",
+          data: {
+              existing_customer: {
+                  found: existingRecords.length > 0,
+                  count: existingRecords.length,
+                  records: existingRecords
+              },
+              new_customer: {
+                  found: newRecords.length > 0,
+                  count: newRecords.length,
+                  records: newRecords
+              }
+          }
+      };
+
+      // Add customer status summary
+      response.data.customer_status = {
+          is_existing: existingRecords.length > 0,
+          is_new: newRecords.length > 0,
+          total_records: existingRecords.length + newRecords.length,
+          latest_status: getLatestStatus(existingRecords, newRecords)
+      };
+
+      if (existingRecords.length === 0 && newRecords.length === 0) {
           return res.status(404).json({
               success: false,
-              message: "No records found for this mobile number"
+              message: "No records found for this mobile number",
+              data: response.data
           });
       }
 
-      return res.status(200).json({
-          success: true,
-          message: "Records retrieved successfully",
-          count: auditRecords.length,
-          data: auditRecords
-      });
+      return res.status(200).json(response);
 
   } catch (error) {
-      console.error('Error fetching lot numbers:', error);
+      console.error('Error fetching customer details:', error);
       return res.status(500).json({
           success: false,
-          message: "An error occurred while fetching the records",
-          error: error.message
+          message: "An error occurred while fetching the customer details",
+          error: {
+              type: error.name,
+              details: error.message,
+              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          }
       });
   }
 };
 
+// Helper function to determine the latest status from both record types
+function getLatestStatus(existingRecords, newRecords) {
+  const allDates = [
+      ...existingRecords.map(record => ({
+          date: new Date(record.last_action_date),
+          status: record.status,
+          type: 'existing'
+      })),
+      ...newRecords.map(record => ({
+          date: new Date(record.createdAt),
+          status: record.status,
+          type: record.type
+      }))
+  ];
 
+  if (allDates.length === 0) return null;
+
+  const latestRecord = allDates.reduce((latest, current) => {
+      return latest.date > current.date ? latest : current;
+  });
+
+  return {
+      status: latestRecord.status,
+      type: latestRecord.type,
+      last_updated: latestRecord.date
+  };
+}
+
+// Optional: Add detailed validation middleware if needed
+exports.validateMobileNumber = (req, res, next) => {
+  const { mobile } = req.params;
+  
+  if (!mobile) {
+      return res.status(400).json({
+          success: false,
+          message: "Mobile number is required"
+      });
+  }
+
+  // Basic mobile number validation (adjust regex as per your requirements)
+  const mobileRegex = /^\d{10,15}$/;
+  if (!mobileRegex.test(mobile)) {
+      return res.status(400).json({
+          success: false,
+          message: "Invalid mobile number format"
+      });
+  }
+
+  next();
+};
