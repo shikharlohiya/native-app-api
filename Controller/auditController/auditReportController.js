@@ -941,6 +941,11 @@ exports.exportAgentDetailReport = async (req, res) => {
 
 
 //detail incoming report with count 
+
+//v1
+
+
+
 exports.getAuditCallAnalytics = async (req, res) => {
     try {
         const startDate = req.query.startDate;
@@ -988,7 +993,7 @@ exports.getAuditCallAnalytics = async (req, res) => {
             FROM incoming_calls ic
             LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
             LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
-            WHERE ic.ivr_number = '8517009998'
+           WHERE ic.ivr_number IN ('8517009998', '7610233333')
             AND DATE(ic.created_at) BETWEEN DATE(:startDate) AND DATE(:endDate)
             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
             ORDER BY ic.created_at DESC
@@ -1162,10 +1167,11 @@ exports.getAuditCallAnalytics = async (req, res) => {
 };
 
 
+
+
+
+
 //detail incoming report with download
-
-
-
 // exports.getAgentReportFiltersExport = async (req, res) => {
 //     try {
 //         const { startDate, endDate, agentName, format = 'pdf' } = req.query;
