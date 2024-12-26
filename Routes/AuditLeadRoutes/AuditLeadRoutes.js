@@ -18,6 +18,9 @@ router.get('/get-audit-detail/:lotNumber',AuditController.getAuditLeadDetailsByL
 router.post('/create-lead/new-farmer', AuditController.createAuditLead);
 router.get('/audit-lead/mobile/:mobile', AuditController.getLotNumbersByMobile);
 
+router.get('/audit-new-farmers', AuditController.getAuditNewFarmers);
+router.get('/audit-farmers/summary', AuditController.getStatusSummary);
+
 
 
 

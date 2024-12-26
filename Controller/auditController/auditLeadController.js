@@ -386,23 +386,61 @@ exports.getAuditLeads = async (req, res) => {
           return null;
         }
 
-        switch (condition.toLowerCase()) {
-          case 'contains':
-            return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
-          case 'equal':
-            return { [field]: { [Op.eq]: value } }; // Exact match
-          case 'greaterthanequal':
-            return { [field]: { [Op.gte]: value } };
-          case 'lessthanequal':
-            return { [field]: { [Op.lte]: value } };
-          case 'greaterthan':
-            return { [field]: { [Op.gt]: value } };
-          case 'lessthan':
-            return { [field]: { [Op.lt]: value } };
-          default:
-            return null;
-        }
-      }).filter(condition => condition !== null);
+        const numericFields = ['CA', 'FCR', 'Age_SAP', 'Total_Mortality'];
+
+
+      //   switch (condition.toLowerCase()) {
+      //     case 'contains':
+      //       return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
+      //     case 'equal':
+      //       return { [field]: { [Op.eq]: value } }; // Exact match
+      //     case 'greaterthanequal':
+      //       return { [field]: { [Op.gte]: value } };
+      //     case 'lessthanequal':
+      //       return { [field]: { [Op.lte]: value } };
+      //     case 'greaterthan':
+      //       return { [field]: { [Op.gt]: value } };
+      //     case 'lessthan':
+      //       return { [field]: { [Op.lt]: value } };
+      //     default:
+      //       return null;
+      //   }
+      // }).filter(condition => condition !== null);
+
+      switch (condition.toLowerCase()) {
+        case 'contains':
+          return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
+        case 'equal':
+          if (numericFields.includes(field)) {
+            return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), value);
+          }
+          return { [field]: { [Op.eq]: value } };
+        case 'greaterthan':
+          if (numericFields.includes(field)) {
+            return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.gt, parseFloat(value));
+          }
+          return { [field]: { [Op.gt]: value } };
+        case 'greaterthanequal':
+          if (numericFields.includes(field)) {
+            return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.gte, parseFloat(value));
+          }
+          return { [field]: { [Op.gte]: value } };
+        case 'lessthan':
+          if (numericFields.includes(field)) {
+            return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.lt, parseFloat(value));
+          }
+          return { [field]: { [Op.lt]: value } };
+        case 'lessthanequal':
+          if (numericFields.includes(field)) {
+            return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.lte, parseFloat(value));
+          }
+          return { [field]: { [Op.lte]: value } };
+        default:
+          return null;
+      }
+    }).filter(condition => condition !== null);
+
+
 
       if (filterConditions.length > 0) {
         whereClause[Op.and] = filterConditions;
@@ -618,7 +656,7 @@ const getDetailedErrorMessage = (error) => {
         field: err.path,
         value: err.value,
         problem: err.message
-      }))
+      })) 
     };
   }
   
@@ -733,8 +771,11 @@ exports.createAuditLeadRemark = async (req, res) => {
         await AuditLeadDetail.update({
           last_action_date: sequelize.literal("CURRENT_TIMESTAMP"),
           status,
-          follow_up_date,
-          AgentId
+          follow_up_date: status === 'closed' ? null : follow_up_date,
+          AgentId,
+          completed_on: sequelize.literal("CURRENT_TIMESTAMP"),
+          
+
         }, {
           where: { Lot_Number },
           transaction
@@ -751,7 +792,7 @@ exports.createAuditLeadRemark = async (req, res) => {
           type,
           AgentId,
           status,
-          follow_up_date,
+          follow_up_date: status === 'closed' ? null : follow_up_date,
           ABWT: type === 'old' ? ABWT : null,
           Avg_Lift_Wt: type === 'old' ? Avg_Lift_Wt : null,
           Total_Mortality: type === 'old' ? Total_Mortality : null,
@@ -832,6 +873,11 @@ exports.validateAuditData = async (req, res, next) => {
     const commonRequiredFields = ['AgentId', 'status', 'follow_up_date'];
     let requiredFields = [...commonRequiredFields];
 
+      // Add follow_up_date requirement only if status is not 'closed'
+      if (status !== 'closed') {
+        requiredFields.push('follow_up_date');
+      }
+      
     if (type === 'running') {
       requiredFields = [...requiredFields, 'Lot_Number'];
     } else if (type === 'old' || type === 'new') {
@@ -1625,6 +1671,124 @@ exports.createAuditLead = async (req, res) => {
 // };
 
 
+// changes on 25/12/2024
+
+// exports.getLotNumbersByMobile = async (req, res) => {
+//   try {
+//       const { mobile } = req.params;
+
+//       // Validate mobile parameter
+//       if (!mobile) {
+//           return res.status(400).json({
+//               success: false,
+//               message: "Mobile number is required"
+//           });
+//       }
+
+//       // Validate mobile number format and length
+//       if (mobile.length > 20) {
+//           return res.status(400).json({
+//               success: false,
+//               message: "Invalid mobile number length"
+//           });
+//       }
+
+//       // Find records in AuditLeadDetail
+//       const existingRecords = await AuditLeadDetail.findAll({
+//           where: {
+//               Mobile: mobile
+//           },
+//           attributes: [
+//               'Lot_Number',
+//               'Farmer_Name',
+//               'Zone_Name',
+//               'Branch_Name',
+//               'status',
+//               'last_action_date'
+//           ],
+//           order: [
+//               ['last_action_date', 'DESC']
+//           ]
+//       });
+
+//       // Find records in AuditNewFarmer
+//       const newRecords = await AuditNewFarmer.findAll({
+//           where: {
+//               Mobile: mobile
+//           },
+//           attributes: [
+//               'id',
+//               'farmer_name',
+//               'Zone_Name',
+//               'branch_Name',
+//               'type',
+//               'status',
+//               'follow_up_date',
+//               'previousCompanyName',
+//               'previousPoultryExperience',
+//               'Shed_Type',
+//               'ABWT',
+//               'Avg_Lift_Wt',
+//               'Total_Mortality',
+//               'first_Week_M',
+//               'remarks',
+//               'createdAt',
+//               'updatedAt'
+//           ],
+//           order: [
+//               ['createdAt', 'DESC']
+//           ]
+//       });
+
+//       // Prepare response based on found records
+//       const response = {
+//           success: true,
+//           message: "Records retrieved successfully",
+//           data: {
+//               existing_customer: {
+//                   found: existingRecords.length > 0,
+//                   count: existingRecords.length,
+//                   records: existingRecords
+//               },
+//               new_customer: {
+//                   found: newRecords.length > 0,
+//                   count: newRecords.length,
+//                   records: newRecords
+//               }
+//           }
+//       };
+
+//       // Add customer status summary
+//       response.data.customer_status = {
+//           is_existing: existingRecords.length > 0,
+//           is_new: newRecords.length > 0,
+//           total_records: existingRecords.length + newRecords.length,
+//           latest_status: getLatestStatus(existingRecords, newRecords)
+//       };
+
+//       if (existingRecords.length === 0 && newRecords.length === 0) {
+//           return res.status(404).json({
+//               success: false,
+//               message: "No records found for this mobile number",
+//               data: response.data
+//           });
+//       }
+
+//       return res.status(200).json(response);
+
+//   } catch (error) {
+//       console.error('Error fetching customer details:', error);
+//       return res.status(500).json({
+//           success: false,
+//           message: "An error occurred while fetching the customer details",
+//           error: {
+//               type: error.name,
+//               details: error.message,
+//               stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//           }
+//       });
+//   }
+// };
 
 exports.getLotNumbersByMobile = async (req, res) => {
   try {
@@ -1646,7 +1810,7 @@ exports.getLotNumbersByMobile = async (req, res) => {
           });
       }
 
-      // Find records in AuditLeadDetail
+      // Find records in AuditLeadDetail with remarks
       const existingRecords = await AuditLeadDetail.findAll({
           where: {
               Mobile: mobile
@@ -1659,6 +1823,16 @@ exports.getLotNumbersByMobile = async (req, res) => {
               'status',
               'last_action_date'
           ],
+          include: [{
+              model: AuditLeadRemark,
+              as: 'AuditRemarks',
+              include: [{
+                  model: Employee,
+                  as: 'Agent',
+                  attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+              }],
+              order: [['DATE', 'DESC']]
+          }],
           order: [
               ['last_action_date', 'DESC']
           ]
@@ -1693,15 +1867,54 @@ exports.getLotNumbersByMobile = async (req, res) => {
           ]
       });
 
-      // Prepare response based on found records
+      // Process existing records to include formatted remarks
+      const processedExistingRecords = existingRecords.map(record => {
+          const plainRecord = record.get({ plain: true });
+          return {
+              ...plainRecord,
+              remarks_summary: {
+                  total_remarks: plainRecord.AuditRemarks?.length || 0,
+                  latest_remark: plainRecord.AuditRemarks?.[0] || null,
+                  all_remarks: plainRecord.AuditRemarks?.map(remark => ({
+                      id: remark.id,
+                      date: remark.DATE,
+                      remarks: remark.REMARKS,
+                      status: remark.closure_status,
+                      follow_up_date: remark.follow_up_date,
+                      agent: remark.Agent,
+                      details: {
+                          CH: remark.CH,
+                          AGE: remark.AGE,
+                          BWT: remark.BWT,
+                          M_QTY: remark.M_QTY,
+                          REASON: remark.REASON,
+                          MED: remark.MED,
+                          FEED: remark.FEED,
+                          STOCK: remark.STOCK,
+                          IFFT_IN: remark.IFFT_IN,
+                          IFFT_OUT: remark.IFFT_OUT,
+                          LS_VISIT: remark.LS_VISIT,
+                          BM_VISIT: remark.BM_VISIT,
+                          DAILY_ENT: remark.DAILY_ENT,
+                          FEED_ENT: remark.FEED_ENT,
+                          MORT_ENT: remark.MORT_ENT,
+                          BWT_ENT: remark.BWT_ENT,
+                          MED_ENT: remark.MED_ENT
+                      }
+                  }))
+              }
+          };
+      });
+
+      // Prepare response
       const response = {
           success: true,
           message: "Records retrieved successfully",
           data: {
               existing_customer: {
-                  found: existingRecords.length > 0,
-                  count: existingRecords.length,
-                  records: existingRecords
+                  found: processedExistingRecords.length > 0,
+                  count: processedExistingRecords.length,
+                  records: processedExistingRecords
               },
               new_customer: {
                   found: newRecords.length > 0,
@@ -1742,6 +1955,38 @@ exports.getLotNumbersByMobile = async (req, res) => {
       });
   }
 };
+
+function getLatestStatus(existingRecords, newRecords) {
+  const allDates = [
+      ...existingRecords.map(record => ({
+          date: new Date(record.last_action_date),
+          status: record.status,
+          type: 'existing',
+          remarks: record.AuditRemarks?.[0]?.REMARKS || null
+      })),
+      ...newRecords.map(record => ({
+          date: new Date(record.createdAt),
+          status: record.status,
+          type: record.type,
+          remarks: record.remarks
+      }))
+  ];
+
+  if (allDates.length === 0) return null;
+
+  const latestRecord = allDates.reduce((latest, current) => {
+      return latest.date > current.date ? latest : current;
+  });
+
+  return {
+      status: latestRecord.status,
+      type: latestRecord.type,
+      last_updated: latestRecord.date,
+      latest_remarks: latestRecord.remarks
+  };
+}
+
+
 
 // Helper function to determine the latest status from both record types
 function getLatestStatus(existingRecords, newRecords) {
@@ -1792,4 +2037,200 @@ exports.validateMobileNumber = (req, res, next) => {
   }
 
   next();
+};
+
+
+
+
+
+
+exports.getAuditNewFarmers = async (req, res) => {
+  try {
+    const {
+      type,                 // 'old' or 'new'
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      status,
+      agentId,
+      zone,
+      startDate,
+      endDate,
+      search
+    } = req.query;
+
+    // Base where clause
+    const whereClause = {};
+
+    // Type filter
+    if (type) {
+      whereClause.type = type;
+    }
+
+    // Status filter
+    if (status) {
+      whereClause.status = status;
+    }
+
+    // Agent filter
+    if (agentId) {
+      whereClause.AgentId = agentId;
+    }
+
+    // Zone filter
+    if (zone) {
+      whereClause.Zone_Name = zone;
+    }
+
+    // Date range filter
+    if (startDate && endDate) {
+      whereClause.createdAt = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    // Search filter
+    if (search) {
+      whereClause[Op.or] = [
+        { farmer_name: { [Op.like]: `%${search}%` } },
+        { Mobile: { [Op.like]: `%${search}%` } },
+        { Zone_Name: { [Op.like]: `%${search}%` } },
+        { branch_Name: { [Op.like]: `%${search}%` } },
+        { previousCompanyName: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
+
+    // Get total count before pagination
+    const totalCount = await AuditNewFarmer.count({ where: whereClause });
+
+    // Get data with pagination
+    const data = await AuditNewFarmer.findAll({
+      where: whereClause,
+      include: [{
+        model: Employee,
+        as: 'agent',
+        attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone', 'EmployeeRegion']
+      }],
+      order: [[sortBy, sortOrder]],
+      limit: parseInt(limit),
+      offset: offset,
+      attributes: [
+        'id', 'type', 'status', 'AgentId', 'farmer_name', 'Mobile',
+        'Zone_Name', 'branch_Name', 'previousCompanyName',
+        'previousPoultryExperience', 'Shed_Type', 'ABWT',
+        'Avg_Lift_Wt', 'Total_Mortality', 'first_Week_M',
+        'remarks', 'follow_up_date', 'createdAt', 'updatedAt'
+      ]
+    });
+
+    // Get status counts
+    const statusCounts = await AuditNewFarmer.count({
+      where: {
+        ...whereClause,
+        status: { [Op.ne]: null }
+      },
+      group: ['status']
+    });
+
+    // Get type counts
+    const typeCounts = await AuditNewFarmer.count({
+      where: {
+        ...whereClause,
+        type: { [Op.ne]: null }
+      },
+      group: ['type']
+    });
+
+    const response = {
+      success: true,
+      data: {
+        records: data,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalCount / limit),
+          totalRecords: totalCount,
+          perPage: parseInt(limit)
+        },
+        summary: {
+          status: statusCounts.reduce((acc, curr) => {
+            acc[curr.status.toLowerCase()] = curr.count;
+            return acc;
+          }, {}),
+          type: typeCounts.reduce((acc, curr) => {
+            acc[curr.type] = curr.count;
+            return acc;
+          }, { old: 0, new: 0 })
+        },
+        filters_applied: {
+          type,
+          status,
+          agentId,
+          zone,
+          date_range: startDate && endDate ? { startDate, endDate } : null,
+          search: search || null
+        }
+      }
+    };
+
+    return res.status(200).json(response);
+
+  } catch (error) {
+    console.error('Error fetching audit new farmers:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching data",
+      error: {
+        type: error.name,
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }
+    });
+  }
+};
+
+// Get Status Summary
+exports.getStatusSummary = async (req, res) => {
+  try {
+    const { type, startDate, endDate } = req.query;
+
+    const whereClause = {};
+    if (type) {
+      whereClause.type = type;
+    }
+
+    if (startDate && endDate) {
+      whereClause.createdAt = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    const summary = await AuditNewFarmer.findAll({
+      where: whereClause,
+      attributes: [
+        'status',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      group: ['status']
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: summary.reduce((acc, curr) => {
+        acc[curr.status.toLowerCase()] = parseInt(curr.get('count'));
+        return acc;
+      }, {})
+    });
+
+  } catch (error) {
+    console.error('Error getting status summary:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Error getting summary",
+      error: error.message
+    });
+  }
 };

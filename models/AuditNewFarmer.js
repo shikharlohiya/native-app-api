@@ -72,7 +72,7 @@ AuditNewFarmer.init(
     },
     follow_up_date: {
       type: DataTypes.DATEONLY,
-      allowNull: false,
+      allowNull: true,
     },
     remarks: {
       type: DataTypes.TEXT,

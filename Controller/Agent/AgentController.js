@@ -2199,6 +2199,210 @@ exports.getAuditCallAnalytics = async (req, res) => {
 
 
 //outgoing parivartan /
+
+//v1 important api 
+// exports.getOutboundCallAnalytics = async (req, res) => {
+//     try {
+//         const startDate = req.query.startDate;
+//         const endDate = req.query.endDate || startDate;
+//         const agentName = req.query.agentName;
+//         const ivrNumber = req.query.ivrNumber;
+
+//         if (!startDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid start date required"
+//             });
+//         }
+
+//         if (!ivrNumber || !['8517009997', '8517009998'].includes(ivrNumber)) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid IVR number required (8517009997 or 8517009998)"
+//             });
+//         }
+
+//         // Modify date range to include full days
+//         const startDateTime = moment(startDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+//         const endDateTime = moment(endDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+
+//         // Modified query to focus on Call End events
+//         const callDetails = await sequelize.query(`
+//             SELECT 
+//                 cl.*,
+//                 emp.EmployeeName as agent_name,
+//                 alt.Farmer_Name as lead_name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status as lead_status,
+//                 CASE 
+//                     WHEN cl.eventType = 'Call End' AND cl.bDialStatus = 'Connected' THEN 'Connected'
+//                     WHEN cl.eventType = 'Call End' THEN 'Not Connected'
+//                     ELSE NULL
+//                 END as call_status,
+//                 CASE 
+//                     WHEN cl.bPartyConnectedTime IS NOT NULL AND cl.bPartyEndTime IS NOT NULL 
+//                     THEN TIMESTAMPDIFF(SECOND, cl.bPartyConnectedTime, cl.bPartyEndTime)
+//                     ELSE 0
+//                 END as call_duration_seconds
+//             FROM call_logs cl
+//             LEFT JOIN employee_table emp ON cl.aPartyNo = emp.EmployeePhone
+//             LEFT JOIN audit_lead_table alt ON cl.bPartyNo = alt.Mobile
+//             WHERE cl.dni = :ivrNumber
+//             AND cl.eventType = 'Call End'
+//             AND cl.callStartTime BETWEEN :startDateTime AND :endDateTime
+//             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+//             ORDER BY cl.callStartTime DESC
+//         `, {
+//             replacements: { 
+//                 startDateTime, 
+//                 endDateTime, 
+//                 ivrNumber, 
+//                 ...(agentName && { agentName }) 
+//             },
+//             type: QueryTypes.SELECT
+//         });
+
+//         // Process the data
+//         const agentMap = new Map();
+//         let totalCalls = 0;
+//         let totalConnected = 0;
+//         let totalNotConnected = 0;
+//         let uniqueLeads = new Set();
+
+//         callDetails.forEach(call => {
+//             if (!call.agent_name) return;
+
+//             totalCalls++;
+//             if (call.Lot_Number) uniqueLeads.add(call.Lot_Number);
+//             if (call.call_status === 'Connected') totalConnected++;
+//             if (call.call_status === 'Not Connected') totalNotConnected++;
+
+//             if (!agentMap.has(call.agent_name)) {
+//                 agentMap.set(call.agent_name, {
+//                     agent_name: call.agent_name,
+//                     agent_number: call.aPartyNo,
+//                     total_calls: 0,
+//                     connected_calls: 0,
+//                     not_connected_calls: 0,
+//                     total_duration_minutes: 0,
+//                     connected_details: [],
+//                     not_connected_details: []
+//                 });
+//             }
+
+//             const agentData = agentMap.get(call.agent_name);
+//             agentData.total_calls++;
+
+//             const callDetail = {
+//                 call_id: call.callId,
+//                 date: moment(call.callStartTime).format('YYYY-MM-DD'),
+//                 time: moment(call.callStartTime).format('HH:mm:ss'),
+//                 customer_number: call.bPartyNo,
+//                 duration_minutes: (call.call_duration_seconds / 60).toFixed(2),
+//                 dial_status: call.bDialStatus,
+//                 release_reason: call.bPartyReleaseReason || 'N/A'
+//             };
+
+//             const customerDetail = call.lead_name ? {
+//                 farmer_name: call.lead_name,
+//                 lot_number: call.Lot_Number,
+//                 zone: call.Zone_Name,
+//                 branch: call.Branch_Name,
+//                 vendor: call.Vendor,
+//                 shed_type: call.Shed_Type,
+//                 placed_qty: call.Placed_Qty,
+//                 hatch_date: call.Hatch_Date,
+//                 total_mortality: call.Total_Mortality,
+//                 mortality_percentage: call.Total_Mortality_Percentage,
+//                 status: call.lead_status
+//             } : null;
+
+//             if (call.call_status === 'Connected') {
+//                 agentData.connected_calls++;
+//                 agentData.total_duration_minutes += call.call_duration_seconds / 60;
+//                 callDetail.connected_at = moment(call.bPartyConnectedTime).format('YYYY-MM-DD HH:mm:ss');
+//                 callDetail.ended_at = moment(call.bPartyEndTime).format('YYYY-MM-DD HH:mm:ss');
+//                 agentData.connected_details.push({
+//                     ...callDetail,
+//                     customer_details: customerDetail
+//                 });
+//             } else {
+//                 agentData.not_connected_calls++;
+//                 agentData.not_connected_details.push({
+//                     ...callDetail,
+//                     customer_details: customerDetail
+//                 });
+//             }
+//         });
+
+//         const agentStats = Array.from(agentMap.values()).map(agent => ({
+//             agent_name: agent.agent_name,
+//             agent_number: agent.agent_number,
+//             total_calls: agent.total_calls,
+//             connected_calls: agent.connected_calls,
+//             not_connected_calls: agent.not_connected_calls,
+//             total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+//             avg_call_duration_minutes: agent.connected_calls > 0 ? 
+//                 (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+//             connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             connected_details: agent.connected_details,
+//             not_connected_details: agent.not_connected_details
+//         }));
+
+//         agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+//         const response = {
+//             success: true,
+//             data: {
+//                 summary: {
+//                     period: {
+//                         start_date: startDate,
+//                         end_date: endDate
+//                     },
+//                     ivr_number: ivrNumber,
+//                     metrics: {
+//                         total_calls: totalCalls,
+//                         unique_leads: uniqueLeads.size,
+//                         connected_calls: totalConnected,
+//                         not_connected_calls: totalNotConnected,
+//                         connection_rate: totalCalls ? 
+//                             ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+//                     }
+//                 },
+//                 agents: agentStats
+//             }
+//         };
+
+//         res.status(200).json(response);
+
+//     } catch (error) {
+//         console.error('Error in getOutboundCallAnalytics:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error',
+//             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//         });
+//     }
+// };
+
+
+
+// / Add IVR pair mapping
+
+
+const IVR_PAIRS = {
+    '8517009997': ['8517009997', '7610255555'],
+    '8517009998': ['8517009998', '7610233333']
+};
+
 exports.getOutboundCallAnalytics = async (req, res) => {
     try {
         const startDate = req.query.startDate;
@@ -2213,18 +2417,16 @@ exports.getOutboundCallAnalytics = async (req, res) => {
             });
         }
 
-        if (!ivrNumber || !['8517009997', '8517009998'].includes(ivrNumber)) {
+        if (!ivrNumber || !Object.keys(IVR_PAIRS).includes(ivrNumber)) {
             return res.status(400).json({
                 success: false,
                 message: "Valid IVR number required (8517009997 or 8517009998)"
             });
         }
 
-        // Modify date range to include full days
         const startDateTime = moment(startDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
         const endDateTime = moment(endDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
 
-        // Modified query to focus on Call End events
         const callDetails = await sequelize.query(`
             SELECT 
                 cl.*,
@@ -2253,7 +2455,7 @@ exports.getOutboundCallAnalytics = async (req, res) => {
             FROM call_logs cl
             LEFT JOIN employee_table emp ON cl.aPartyNo = emp.EmployeePhone
             LEFT JOIN audit_lead_table alt ON cl.bPartyNo = alt.Mobile
-            WHERE cl.dni = :ivrNumber
+            WHERE cl.dni IN (:ivrNumbers)
             AND cl.eventType = 'Call End'
             AND cl.callStartTime BETWEEN :startDateTime AND :endDateTime
             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
@@ -2262,7 +2464,7 @@ exports.getOutboundCallAnalytics = async (req, res) => {
             replacements: { 
                 startDateTime, 
                 endDateTime, 
-                ivrNumber, 
+                ivrNumbers: IVR_PAIRS[ivrNumber],
                 ...(agentName && { agentName }) 
             },
             type: QueryTypes.SELECT
@@ -2390,4 +2592,3 @@ exports.getOutboundCallAnalytics = async (req, res) => {
         });
     }
 };
-

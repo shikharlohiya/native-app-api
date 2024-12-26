@@ -370,6 +370,7 @@ Employee.belongsTo(Employee_Role, {
   };
   
 
+  
 
   //detail report export in ejs
 
