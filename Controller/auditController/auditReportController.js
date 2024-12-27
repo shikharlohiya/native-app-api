@@ -275,28 +275,51 @@ Employee.belongsTo(Employee_Role, {
         type: QueryTypes.SELECT
       });
   
-      // Get agent-wise stats
-      const agentStatsQuery = `
-        SELECT 
-          e.EmployeeId,
-          e.EmployeeName,
-          e.EmployeeRegion,
-          e.EmployeePhone,
-          COUNT(DISTINCT alr.id) as total_remarks,
-          SUM(CASE WHEN alr.closure_status = 'open' THEN 1 ELSE 0 END) as open_remarks,
-          SUM(CASE WHEN alr.closure_status = 'closed' THEN 1 ELSE 0 END) as closed_remarks,
-          COUNT(DISTINCT CASE WHEN alt.follow_up_date IS NOT NULL 
-            AND ${followupDateFilterWithAlias} THEN alt.Lot_Number END) as total_followups,
-          COUNT(DISTINCT CASE WHEN DATE(alt.follow_up_date) = DATE(alt.completed_on) 
-            AND ${followupDateFilterWithAlias} THEN alt.Lot_Number END) as completed_followups
-        FROM employee_table e
-        LEFT JOIN audit_lead_remarks alr ON alr.AgentId = e.EmployeeId 
-          AND ${remarkDateFilter}
-        LEFT JOIN audit_lead_table alt ON alt.AgentId = e.EmployeeId 
-        WHERE e.EmployeeRoleID = 100
-        ${agentName ? `AND e.EmployeeName LIKE '%${agentName}%'` : ''}
-        GROUP BY e.EmployeeId, e.EmployeeName, e.EmployeeRegion, e.EmployeePhone;
-      `;
+      // Get agent-wise stats  v1 can be change
+    //   const agentStatsQuery = `
+    //     SELECT 
+    //       e.EmployeeId,
+    //       e.EmployeeName,
+    //       e.EmployeeRegion,
+    //       e.EmployeePhone,
+    //       COUNT(DISTINCT alr.id) as total_remarks,
+    //       SUM(CASE WHEN alr.closure_status = 'open' THEN 1 ELSE 0 END) as open_remarks,
+    //       SUM(CASE WHEN alr.closure_status = 'closed' THEN 1 ELSE 0 END) as closed_remarks,
+    //       COUNT(DISTINCT CASE WHEN alt.follow_up_date IS NOT NULL 
+    //         AND ${followupDateFilterWithAlias} THEN alt.Lot_Number END) as total_followups,
+    //       COUNT(DISTINCT CASE WHEN DATE(alt.follow_up_date) = DATE(alt.completed_on) 
+    //         AND ${followupDateFilterWithAlias} THEN alt.Lot_Number END) as completed_followups
+    //     FROM employee_table e
+    //     LEFT JOIN audit_lead_remarks alr ON alr.AgentId = e.EmployeeId 
+    //       AND ${remarkDateFilter}
+    //     LEFT JOIN audit_lead_table alt ON alt.AgentId = e.EmployeeId 
+    //     WHERE e.EmployeeRoleID = 100
+    //     ${agentName ? `AND e.EmployeeName LIKE '%${agentName}%'` : ''}
+    //     GROUP BY e.EmployeeId, e.EmployeeName, e.EmployeeRegion, e.EmployeePhone;
+    //   `;
+
+     
+    const agentStatsQuery = `
+  SELECT 
+    e.EmployeeId,
+    e.EmployeeName,
+    e.EmployeeRegion,
+    e.EmployeePhone,
+    COUNT(DISTINCT alr.id) as total_remarks,
+    COUNT(DISTINCT CASE WHEN alr.closure_status = 'open' THEN alr.id END) as open_remarks,
+    COUNT(DISTINCT CASE WHEN alr.closure_status = 'closed' THEN alr.id END) as closed_remarks,
+    COUNT(DISTINCT CASE WHEN alt.follow_up_date IS NOT NULL 
+      AND ${followupDateFilterWithAlias} THEN alt.Lot_Number END) as total_followups,
+    COUNT(DISTINCT CASE WHEN DATE(alt.follow_up_date) = DATE(alt.completed_on) 
+      AND ${followupDateFilterWithAlias} THEN alt.Lot_Number END) as completed_followups
+  FROM employee_table e
+  LEFT JOIN audit_lead_remarks alr ON alr.AgentId = e.EmployeeId 
+    AND ${remarkDateFilter}
+  LEFT JOIN audit_lead_table alt ON alt.AgentId = e.EmployeeId 
+  WHERE e.EmployeeRoleID = 100
+  ${agentName ? `AND e.EmployeeName LIKE '%${agentName}%'` : ''}
+  GROUP BY e.EmployeeId, e.EmployeeName, e.EmployeeRegion, e.EmployeePhone;
+`;
   
       const agentStats = await sequelize.query(agentStatsQuery, {
         type: QueryTypes.SELECT
@@ -314,7 +337,7 @@ Employee.belongsTo(Employee_Role, {
           status_wise_count: overallStatusCounts.reduce((acc, curr) => {
             acc[curr.closure_status || 'undefined'] = parseInt(curr.count);
             return acc;
-          }, {}),
+          }, {}), 
           followup_statistics: {
             total_followups: parseInt(followUpStats[0]?.total_followups) || 0,
             completed_followups: parseInt(followUpStats[0]?.completed_followups) || 0,
@@ -1500,7 +1523,7 @@ exports.getAgentReportFiltersExport = async (req, res) => {
             FROM incoming_calls ic
             LEFT JOIN audit_lead_table alt ON ic.caller_number = alt.Mobile
             LEFT JOIN employee_table emp ON ic.agent_number = emp.EmployeePhone
-            WHERE ic.ivr_number = '8517009998'
+         WHERE ic.ivr_number IN ('8517009998', '7610233333')
             AND DATE(ic.created_at) BETWEEN DATE(:startDate) AND DATE(:endDate)
             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
             ORDER BY ic.created_at DESC
