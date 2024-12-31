@@ -642,75 +642,311 @@ exports.getAuditLeads = async (req, res) => {
 // };
 
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000;
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const getDetailedErrorMessage = (error) => {
-  if (error.name === 'SequelizeValidationError') {
-    return {
-      type: 'Validation Error',
-      message: 'Data validation failed',
-      details: error.errors.map(err => ({
-        field: err.path,
-        value: err.value,
-        problem: err.message
-      })) 
-    };
-  }
+
+
+// const MAX_RETRIES = 3;
+// const RETRY_DELAY = 1000;
+
+// const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// const getDetailedErrorMessage = (error) => {
+//   if (error.name === 'SequelizeValidationError') {
+//     return {
+//       type: 'Validation Error',
+//       message: 'Data validation failed',
+//       details: error.errors.map(err => ({
+//         field: err.path,
+//         value: err.value,
+//         problem: err.message
+//       })) 
+//     };
+//   }
   
-  if (error.name === 'SequelizeUniqueConstraintError') {
-    return {
-      type: 'Unique Constraint Error',
-      message: 'Duplicate entry found',
-      details: error.errors.map(err => ({
-        field: err.path,
-        value: err.value,
-        problem: 'This value already exists'
-      }))
-    };
-  }
+//   if (error.name === 'SequelizeUniqueConstraintError') {
+//     return {
+//       type: 'Unique Constraint Error',
+//       message: 'Duplicate entry found',
+//       details: error.errors.map(err => ({
+//         field: err.path,
+//         value: err.value,
+//         problem: 'This value already exists'
+//       }))
+//     };
+//   }
 
-  if (error.name === 'SequelizeForeignKeyConstraintError') {
-    return {
-      type: 'Foreign Key Error',
-      message: 'Invalid reference to related data',
-      details: {
-        field: error.fields?.[0],
-        value: error.value,
-        problem: 'Referenced record does not exist'
-      }
-    };
-  }
+//   if (error.name === 'SequelizeForeignKeyConstraintError') {
+//     return {
+//       type: 'Foreign Key Error',
+//       message: 'Invalid reference to related data',
+//       details: {
+//         field: error.fields?.[0],
+//         value: error.value,
+//         problem: 'Referenced record does not exist'
+//       }
+//     };
+//   }
 
-  if (error.name === 'SequelizeDatabaseError') {
-    if (error.parent?.code === 'ER_LOCK_WAIT_TIMEOUT') {
-      return {
-        type: 'Database Lock Error',
-        message: 'Database lock timeout',
-        details: 'The operation took too long due to database locks'
-      };
-    }
-    if (error.parent?.code === 'ER_DATA_TOO_LONG') {
-      return {
-        type: 'Data Length Error',
-        message: 'Data too long for column',
-        details: error.parent.sqlMessage
-      };
-    }
-    return {
-      type: 'Database Error',
-      message: 'Database operation failed',
-      details: error.parent?.sqlMessage || error.message
-    };
-  }
+//   if (error.name === 'SequelizeDatabaseError') {
+//     if (error.parent?.code === 'ER_LOCK_WAIT_TIMEOUT') {
+//       return {
+//         type: 'Database Lock Error',
+//         message: 'Database lock timeout',
+//         details: 'The operation took too long due to database locks'
+//       };
+//     }
+//     if (error.parent?.code === 'ER_DATA_TOO_LONG') {
+//       return {
+//         type: 'Data Length Error',
+//         message: 'Data too long for column',
+//         details: error.parent.sqlMessage
+//       };
+//     }
+//     return {
+//       type: 'Database Error',
+//       message: 'Database operation failed',
+//       details: error.parent?.sqlMessage || error.message
+//     };
+//   }
 
-  return {
-    type: 'Unknown Error',
-    message: error.message,
-    details: error.stack
-  };
+//   return {
+//     type: 'Unknown Error',
+//     message: error.message,
+//     details: error.stack
+//   };
+// };
+
+// exports.createAuditLeadRemark = async (req, res) => {
+//   let retries = 0;
+
+//   while (retries < MAX_RETRIES) {
+//     const transaction = await sequelize.transaction();
+
+//     try {
+//       const {
+//         type,
+//         AgentId,
+//         status,
+//         follow_up_date,
+        
+//         // Fields for type = 'running'
+//         CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
+//         IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
+//         FEED_ENT, MORT_ENT, BWT_ENT, MED_ENT, REMARKS,
+//         DATE, Lot_Number,
+
+//         // Fields for type = 'old' or 'new'
+//         ABWT, Avg_Lift_Wt, Total_Mortality, Zone_Name,
+//         farmer_name, first_Week_M, followUpBy, Mobile,
+//         Shed_Type, branch_Name, previousCompanyName,
+//         previousPoultryExperience
+//       } = req.body;
+
+//       let result;
+
+//       // Validate AgentId exists
+//       const agentExists = await sequelize.models.Employee.findByPk(AgentId);
+//       if (!agentExists) {
+//         throw new Error(`Invalid AgentId: ${AgentId} - Agent does not exist`);
+//       }
+
+//       if (type === 'running') {
+//         // Validate Lot_Number exists for running type
+//         const lotExists = await AuditLeadDetail.findByPk(Lot_Number);
+//         if (!lotExists) {
+//           throw new Error(`Invalid Lot_Number: ${Lot_Number} - Lot does not exist`);
+//         }
+
+//         // Handle running type - save to AuditLeadRemark
+//         result = await AuditLeadRemark.create({
+//           CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
+//           IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
+//           FEED_ENT, MORT_ENT, BWT_ENT, MED_ENT, REMARKS,
+//           DATE, Lot_Number, AgentId,
+//           closure_status: status,
+//           follow_up_date
+//         }, { 
+//           transaction,
+//           validate: true // Enable validation
+//         });
+
+//         // Update AuditLeadDetail
+//         await AuditLeadDetail.update({
+//           last_action_date: sequelize.literal("CURRENT_TIMESTAMP"),
+//           status,
+//           follow_up_date: status === 'closed' ? null : follow_up_date,
+//           AgentId,
+//           completed_on: sequelize.literal("CURRENT_TIMESTAMP"),
+          
+
+//         }, {
+//           where: { Lot_Number },
+//           transaction
+//         });
+
+//       } else if (type === 'old' || type === 'new') {
+//         // Validate mobile number format
+//         if (Mobile && !/^\d{10,15}$/.test(Mobile)) {
+//           throw new Error(`Invalid mobile number format: ${Mobile}`);
+//         }
+
+//         // Handle old or new type - save to AuditNewFarmer
+//         result = await AuditNewFarmer.create({
+//           type,
+//           AgentId,
+//           status,
+//           follow_up_date: status === 'closed' ? null : follow_up_date,
+//           ABWT: type === 'old' ? ABWT : null,
+//           Avg_Lift_Wt: type === 'old' ? Avg_Lift_Wt : null,
+//           Total_Mortality: type === 'old' ? Total_Mortality : null,
+//           first_Week_M: type === 'old' ? first_Week_M : null,
+//           Shed_Type: type === 'new' ? Shed_Type : null,
+//           branch_Name: type === 'new' ? branch_Name : null,
+//           previousCompanyName: type === 'new' ? previousCompanyName : null,
+//           previousPoultryExperience: type === 'new' ? previousPoultryExperience : null,
+//           Mobile,
+//           Zone_Name,
+//           farmer_name,
+//           followUpBy,
+//           remarks: REMARKS,
+//           user_type: 'farmer'
+//         }, { 
+//           transaction,
+//           validate: true // Enable validation
+//         });
+//       } else {
+//         throw new Error(`Invalid type specified: ${type}. Must be 'running', 'old', or 'new'`);
+//       }
+
+//       await transaction.commit();
+
+//       return res.status(200).json({
+//         success: true,
+//         message: `Created ${type} audit record successfully`,
+//         data: result
+//       });
+
+//     } catch (error) {
+//       await transaction.rollback();
+
+//       if (error.name === "SequelizeDatabaseError" && 
+//           error.parent?.code === "ER_LOCK_WAIT_TIMEOUT") {
+//         retries++;
+//         console.log(`Lock wait timeout. Retrying (${retries}/${MAX_RETRIES})...`);
+//         await sleep(RETRY_DELAY);
+//         continue;
+//       }
+
+//       const errorDetails = getDetailedErrorMessage(error);
+//       console.error("Error creating audit record:", errorDetails);
+
+//       return res.status(500).json({ 
+//         success: false,
+//         message: "Failed to create audit record",
+//         error: errorDetails
+//       });
+//     }
+//   }
+
+//   return res.status(500).json({
+//     success: false,
+//     message: "Failed to create audit record after multiple attempts",
+//     error: {
+//       type: 'Retry Error',
+//       details: `Maximum retries (${MAX_RETRIES}) reached due to database locks`
+//     }
+//   });
+// };
+
+// exports.validateAuditData = async (req, res, next) => {
+//   try {
+//     const { type } = req.body;
+
+//     if (!type) {
+//       return res.status(400).json({ 
+//         success: false,
+//         message: "Validation Error",
+//         error: {
+//           type: 'Validation Error',
+//           details: 'Type is required'
+//         }
+//       });
+//     }
+
+//     const commonRequiredFields = ['AgentId', 'status', 'follow_up_date'];
+//     let requiredFields = [...commonRequiredFields];
+
+//       // Add follow_up_date requirement only if status is not 'closed'
+//       if (status !== 'closed') {
+//         requiredFields.push('follow_up_date');
+//       }
+      
+//     if (type === 'running') {
+//       requiredFields = [...requiredFields, 'Lot_Number'];
+//     } else if (type === 'old' || type === 'new') {
+//       requiredFields = [...requiredFields, 'Mobile', 'Zone_Name', 'farmer_name', 'followUpBy'];
+//     } else {
+//       return res.status(400).json({ 
+//         success: false,
+//         message: "Validation Error",
+//         error: {
+//           type: 'Validation Error',
+//           details: `Invalid type: ${type}. Must be 'running', 'old', or 'new'`
+//         }
+//       });
+//     }
+
+//     const missingFields = requiredFields.filter(field => !req.body[field]);
+
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Validation Error",
+//         error: {
+//           type: 'Validation Error',
+//           message: 'Missing required fields',
+//           details: missingFields
+//         }
+//       });
+//     }
+
+//     next();
+//   } catch (error) {
+//     console.error("Validation error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Validation Error",
+//       error: {
+//         type: 'Validation Error',
+//         details: error.message
+//       }
+//     });
+//   }
+// };
+
+
+
+// with message 
+// Constants
+
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper function to get user-friendly error messages
+const getUserFriendlyError = (error) => {
+  if (error.name === "SequelizeValidationError") {
+    return "Please check the provided information. Some fields contain invalid data.";
+  }
+  if (error.name === "SequelizeUniqueConstraintError") {
+    return "This record already exists in the system.";
+  }
+  if (error.name === "SequelizeForeignKeyConstraintError") {
+    return "One or more referenced records don't exist in the system.";
+  }
+  return "An unexpected error occurred. Please try again later.";
 };
 
 exports.createAuditLeadRemark = async (req, res) => {
@@ -725,13 +961,11 @@ exports.createAuditLeadRemark = async (req, res) => {
         AgentId,
         status,
         follow_up_date,
-        
         // Fields for type = 'running'
         CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
         IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
         FEED_ENT, MORT_ENT, BWT_ENT, MED_ENT, REMARKS,
         DATE, Lot_Number,
-
         // Fields for type = 'old' or 'new'
         ABWT, Avg_Lift_Wt, Total_Mortality, Zone_Name,
         farmer_name, first_Week_M, followUpBy, Mobile,
@@ -739,22 +973,27 @@ exports.createAuditLeadRemark = async (req, res) => {
         previousPoultryExperience
       } = req.body;
 
-      let result;
-
       // Validate AgentId exists
       const agentExists = await sequelize.models.Employee.findByPk(AgentId);
       if (!agentExists) {
-        throw new Error(`Invalid AgentId: ${AgentId} - Agent does not exist`);
+        return res.status(400).json({
+          success: false,
+          message: "The selected agent no longer exists in the system. Please refresh and try again."
+        });
       }
 
+      let result;
       if (type === 'running') {
-        // Validate Lot_Number exists for running type
+        // Validate Lot_Number exists
         const lotExists = await AuditLeadDetail.findByPk(Lot_Number);
         if (!lotExists) {
-          throw new Error(`Invalid Lot_Number: ${Lot_Number} - Lot does not exist`);
+          return res.status(400).json({
+            success: false,
+            message: "The specified lot number was not found. Please verify and try again."
+          });
         }
 
-        // Handle running type - save to AuditLeadRemark
+        // Create running type record
         result = await AuditLeadRemark.create({
           CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
           IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
@@ -762,10 +1001,7 @@ exports.createAuditLeadRemark = async (req, res) => {
           DATE, Lot_Number, AgentId,
           closure_status: status,
           follow_up_date
-        }, { 
-          transaction,
-          validate: true // Enable validation
-        });
+        }, { transaction });
 
         // Update AuditLeadDetail
         await AuditLeadDetail.update({
@@ -773,21 +1009,22 @@ exports.createAuditLeadRemark = async (req, res) => {
           status,
           follow_up_date: status === 'closed' ? null : follow_up_date,
           AgentId,
-          completed_on: sequelize.literal("CURRENT_TIMESTAMP"),
-          
-
+          completed_on: sequelize.literal("CURRENT_TIMESTAMP")
         }, {
           where: { Lot_Number },
           transaction
         });
 
       } else if (type === 'old' || type === 'new') {
-        // Validate mobile number format
+        // Validate mobile number
         if (Mobile && !/^\d{10,15}$/.test(Mobile)) {
-          throw new Error(`Invalid mobile number format: ${Mobile}`);
+          return res.status(400).json({
+            success: false,
+            message: "Please enter a valid mobile number between 10 and 15 digits."
+          });
         }
 
-        // Handle old or new type - save to AuditNewFarmer
+        // Create old/new type record
         result = await AuditNewFarmer.create({
           type,
           AgentId,
@@ -807,19 +1044,20 @@ exports.createAuditLeadRemark = async (req, res) => {
           followUpBy,
           remarks: REMARKS,
           user_type: 'farmer'
-        }, { 
-          transaction,
-          validate: true // Enable validation
-        });
+        }, { transaction });
+
       } else {
-        throw new Error(`Invalid type specified: ${type}. Must be 'running', 'old', or 'new'`);
+        return res.status(400).json({
+          success: false,
+          message: "Please select a valid record type (running, old, or new)."
+        });
       }
 
       await transaction.commit();
 
       return res.status(200).json({
         success: true,
-        message: `Created ${type} audit record successfully`,
+        message: `Record created successfully`,
         data: result
       });
 
@@ -834,93 +1072,95 @@ exports.createAuditLeadRemark = async (req, res) => {
         continue;
       }
 
-      const errorDetails = getDetailedErrorMessage(error);
-      console.error("Error creating audit record:", errorDetails);
-
-      return res.status(500).json({ 
+      console.error("Error creating audit record:", error);
+      
+      return res.status(500).json({
         success: false,
-        message: "Failed to create audit record",
-        error: errorDetails
+        message: getUserFriendlyError(error)
       });
     }
   }
 
   return res.status(500).json({
     success: false,
-    message: "Failed to create audit record after multiple attempts",
-    error: {
-      type: 'Retry Error',
-      details: `Maximum retries (${MAX_RETRIES}) reached due to database locks`
-    }
+    message: "Unable to save the record due to high system load. Please try again in a few moments."
   });
 };
 
 exports.validateAuditData = async (req, res, next) => {
   try {
-    const { type } = req.body;
+    const { type, status } = req.body;
 
+    // Check type
     if (!type) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Validation Error",
-        error: {
-          type: 'Validation Error',
-          details: 'Type is required'
-        }
+        message: "Please specify the record type."
       });
     }
 
-    const commonRequiredFields = ['AgentId', 'status', 'follow_up_date'];
+    // Validate record type
+    if (!['running', 'old', 'new'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select a valid record type (running, old, or new)."
+      });
+    }
+
+    // Required fields based on type
+    const commonRequiredFields = ['AgentId', 'status'];
+    if (status !== 'closed') {
+      commonRequiredFields.push('follow_up_date');
+    }
+
     let requiredFields = [...commonRequiredFields];
-
-      // Add follow_up_date requirement only if status is not 'closed'
-      if (status !== 'closed') {
-        requiredFields.push('follow_up_date');
-      }
-      
+    
     if (type === 'running') {
-      requiredFields = [...requiredFields, 'Lot_Number'];
+      requiredFields.push('Lot_Number');
     } else if (type === 'old' || type === 'new') {
-      requiredFields = [...requiredFields, 'Mobile', 'Zone_Name', 'farmer_name', 'followUpBy'];
-    } else {
-      return res.status(400).json({ 
-        success: false,
-        message: "Validation Error",
-        error: {
-          type: 'Validation Error',
-          details: `Invalid type: ${type}. Must be 'running', 'old', or 'new'`
-        }
-      });
+      requiredFields = [
+        ...requiredFields,
+        'Mobile',
+        'Zone_Name',
+        'farmer_name',
+        'followUpBy'
+      ];
     }
 
+    // Check for missing fields
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
+      const fieldLabels = {
+        AgentId: 'Agent',
+        status: 'Status',
+        follow_up_date: 'Follow-up Date',
+        Lot_Number: 'Lot Number',
+        Mobile: 'Mobile Number',
+        Zone_Name: 'Zone Name',
+        farmer_name: 'Farmer Name',
+        followUpBy: 'Follow-up By'
+      };
+
+      const missingFieldNames = missingFields
+        .map(field => fieldLabels[field] || field)
+        .join(', ');
+
       return res.status(400).json({
         success: false,
-        message: "Validation Error",
-        error: {
-          type: 'Validation Error',
-          message: 'Missing required fields',
-          details: missingFields
-        }
+        message: `Please provide the following required information: ${missingFieldNames}`
       });
     }
 
     next();
   } catch (error) {
     console.error("Validation error:", error);
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
-      message: "Validation Error",
-      error: {
-        type: 'Validation Error',
-        details: error.message
-      }
+      message: "Please check the provided information and try again."
     });
   }
 };
-
 
 
 
@@ -1789,6 +2029,7 @@ exports.createAuditLead = async (req, res) => {
 //       });
 //   }
 // };
+
 
 exports.getLotNumbersByMobile = async (req, res) => {
   try {
