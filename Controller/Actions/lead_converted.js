@@ -167,7 +167,7 @@ exports.getLeadDocumentData = async function(req, res) {
             const url = urls[i];
             if (typeof url === 'string' && url.startsWith('http')) {
               const response = await axios.get(url, { responseType: 'arraybuffer' });
-              archive.append(response.data, { name: `${fieldName}_${i + 1}.jpg` });
+              archive.append(response.data, { name: `${fieldName}_${i + 1}.pdf`})
             }
           }
         }
