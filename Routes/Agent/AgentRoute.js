@@ -10,6 +10,10 @@ router.get('/lead/:mobileNo', AgentController.getLeadByMobileNo);
 router.put('/leads/:leadId/assign-bdm',auth, AgentController.assignLeadToBDM);
 router.get('/leads/agent/:agentId', AgentController.getLeadsByAgentId);
 router.get('/leads/agent/:agentId/pending-cold',  AgentController.getColdLeadsByAgentId);
+router.put('/leads/:id', AgentController.updateLead);
+router.put('/leads/pending/:id', AgentController.updatePendingLead);
+
+
 
 
 //incoming parivartan
@@ -21,6 +25,8 @@ router.get('/incoming/parivartan/call-analytics',AgentController.getCallAnalytic
 
 //outgoing parivartan/ audit
 router.get('/outbound-call-analytics',AgentController.getOutboundCallAnalytics )
+
+
  
  
  

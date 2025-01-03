@@ -2,7 +2,7 @@ const Lead_Detail = require("../../models/lead_detail");
 const Employee = require("../../models/employee");
 const Campaign = require("../../models/campaign");
 const LeadLog = require("../../models/leads_logs");
-const { Op,QueryTypes  } = require("sequelize");
+const { Op,QueryTypes,Sequelize  } = require("sequelize");
 const moment = require("moment");
 const FollowUPByAgent = require("../../models/FollowUpByAgent");
 const sequelize = require("../../models/index");
@@ -595,36 +595,993 @@ if (existingLead) {
 };
 
 
+//update
+// Validation function for edit lead
 
 
-//get lead data by mobile number
 
-// exports.getLeadByMobileNo = async (req, res) => {
-//   try {
-//     const { mobileNo } = req.params;
+// const validateEditLeadData = (data = {}, originalData = {}) => {
+//     const errors = {};
+    
+//     try {
+//         // Phone number validation if being updated
+//         if (data.MobileNo) {
+//             const phoneRegex = /^\d{10}$/;
+//             if (!phoneRegex.test(data.MobileNo)) {
+//                 errors.MobileNo = "Invalid phone number format. Must be 10 digits";
+//             }
+//         }
 
-//     const lead = await Lead_Detail.findOne({
-//       where: {
-//         [Op.or]: [
-//           { MobileNo: mobileNo },
-//           { AlternateMobileNo: mobileNo },
-//           { WhatsappNo: mobileNo },
-//         ],
-//       },
-//     });
+//         // Email validation if being updated
+//         if (data.CustomerMailId) {
+//             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//             if (!emailRegex.test(data.CustomerMailId)) {
+//                 errors.CustomerMailId = "Invalid email format";
+//             }
+//         }
 
-//     if (!lead) {
-//       return res
-//         .status(200)
-//         .json({ message: "Lead not found for the given mobile number" });
+//         // Category specific validations
+//         if (data.category && ['warm', 'hot', 'pending'].includes(data.category.toLowerCase())) {
+//             if (!data.follow_up_date && !originalData.follow_up_date) {
+//                 errors.follow_up_date = "Follow up date is required for warm/hot/pending categories";
+//             }
+//         }
+
+//         // Connected call status validations
+//         if (data.call_status === 'Connected') {
+//             const requiredFields = {
+//                 CustomerName: "Customer name is required for connected calls",
+//                 state_name: "State name is required for connected calls",
+//                 region_name: "Region name is required for connected calls",
+//                 pincode: "Pincode is required for connected calls",
+//                 RegionId: "Region ID is required for connected calls",
+//                 Project: "Project is required for connected calls",
+//                 BDMId: "BDM ID is required for connected calls"
+//             };
+
+//             Object.entries(requiredFields).forEach(([field, message]) => {
+//                 if (!data[field] && !originalData[field]) {
+//                     errors[field] = message;
+//                 }
+//             });
+//         }
+
+//         // Role specific validations for remarks
+//         if (data.lead_created_by === 1 && data.agent_remark === '') {
+//             errors.agent_remark = "Agent remark cannot be empty for agent updates";
+//         }
+//         if ((data.lead_created_by === 2 || data.lead_created_by === 3) && data.bdm_remark === '') {
+//             errors.bdm_remark = "BDM remark cannot be empty for BDM/Zonal Manager updates";
+//         }
+
+//     } catch (error) {
+//         console.error('Validation error:', error);
+//         errors.general = "Error during validation";
 //     }
 
-//     res.status(200).json({ lead });
-//   } catch (error) {
-//     console.error("Error fetching lead:", error);
-//     res.status(500).json({ message: "Internal server error" });
-//   }
+//     return errors;
 // };
+
+// // Function to identify significant changes
+// const getSignificantChanges = (oldData, newData) => {
+//     const significantChanges = [];
+//     const fieldsToTrack = [
+//         'category',
+//         'sub_category',
+//         'follow_up_date',
+//         'call_status',
+//         'lead_owner',
+//         'Project',
+//         'CustomerName',
+//         'state_name',
+//         'region_name',
+//         'RegionId'
+//     ];
+
+//     fieldsToTrack.forEach(field => {
+//         if (newData[field] !== undefined && newData[field] !== oldData[field]) {
+//             significantChanges.push(field);
+//         }
+//     });
+
+//     return significantChanges;
+// };
+
+// // Function to generate action type based on changes
+// const generateActionType = (changes, userData) => {
+//     if (changes.includes('category') || changes.includes('sub_category')) {
+//         return 'Category Update';
+//     } else if (changes.includes('follow_up_date')) {
+//         return 'Follow-up Update';
+//     } else if (changes.includes('lead_owner')) {
+//         return 'Lead Transfer';
+//     } else if (changes.includes('call_status')) {
+//         return 'Status Update';
+//     } else {
+//         return 'General Update';
+//     }
+// };
+
+// exports.updateLead = async (req, res) => {
+//     const t = await sequelize.transaction();
+
+//     try {
+//         const { id } = req.params;
+//         const updateData = req.body;
+//      const updatedBy = updateData.updated_by; // Get updated_by from request body
+
+//         // Find existing lead
+//         const existingLead = await Lead_Detail.findByPk(id, { transaction: t });
+        
+//         if (!existingLead) {
+//             await t.rollback();
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Lead not found"
+//             });
+//         }
+
+//         // Validate update data
+//         const validationErrors = validateEditLeadData(updateData, existingLead);
+//         if (Object.keys(validationErrors).length > 0) {
+//             await t.rollback();
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Validation failed",
+//                 errors: validationErrors
+//             });
+//         }
+
+//         // Check for duplicate phone number if being updated
+//         if (updateData.MobileNo && updateData.MobileNo !== existingLead.MobileNo) {
+//             const duplicateLead = await Lead_Detail.findOne({
+//                 where: { 
+//                     MobileNo: updateData.MobileNo,
+//                     id: { [Sequelize.Op.ne]: id }
+//                 },
+//                 include: [{
+//                     model: Employee,
+//                     as: 'Agent',
+//                     attributes: ['EmployeeName']
+//                 }, {
+//                     model: Employee,
+//                     as: 'BDM',
+//                     attributes: ['EmployeeName']
+//                 }],
+//                 transaction: t
+//             });
+
+//             if (duplicateLead) {
+//                 let creatorType = duplicateLead.lead_created_by === 1 ? 'Agent' : 
+//                                 duplicateLead.lead_created_by === 2 ? 'BDM' : 'Zonal Manager';
+//                 let creatorName = duplicateLead.lead_created_by === 1 ? 
+//                                 duplicateLead.Agent?.EmployeeName : 
+//                                 duplicateLead.BDM?.EmployeeName || 'Unknown';
+
+//                 await t.rollback();
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: `A lead with this phone number already exists. Lead was created by ${creatorType} ${creatorName}`,
+//                     duplicateNumber: updateData.MobileNo
+//                 });
+//             }
+//         }
+
+//         // Get significant changes
+//         const significantChanges = getSignificantChanges(existingLead.toJSON(), updateData);
+        
+//         // If no changes, return early
+//         if (significantChanges.length === 0 && !updateData.remarks) {
+//             await t.rollback();
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "No significant changes detected",
+//                 lead: existingLead
+//             });
+//         }
+
+//         // Update lead
+//         const updatedLead = await existingLead.update(updateData, { transaction: t });
+
+//         // Create log entry for the update
+//         const actionType = generateActionType(significantChanges, req.user);
+        
+//         await LeadLog.create({
+//             LeadDetailId: id,
+//             action_type: actionType,
+//             category: updateData.category || existingLead.category,
+//             sub_category: updateData.sub_category || existingLead.sub_category,
+//             remarks: updateData.remarks || `Updated fields: ${significantChanges.join(', ')}`,
+//             performed_by: updatedBy,
+//             follow_up_date: updateData.follow_up_date || existingLead.follow_up_date
+//         }, { transaction: t });
+
+//         await t.commit();
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Lead updated successfully",
+//             lead: updatedLead,
+//             changedFields: significantChanges
+//         });
+
+//     } catch (error) {
+//         await t.rollback();
+//         console.error("Error updating lead:", error);
+
+//         if (error.name === 'SequelizeValidationError') {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Validation error",
+//                 errors: error.errors.map(e => e.message)
+//             });
+//         }
+
+//         return res.status(500).json({
+//             success: false,
+//             message: "Error updating lead",
+//             error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//         });
+//     }
+// };
+
+
+
+// message will be changed---->>>>>
+
+// const validateEditLeadData = (data = {}, originalData = {}) => {
+//     const errors = {};
+    
+//     try {
+//         // Basic field validations
+//         if (data.MobileNo) {
+//             const phoneRegex = /^\d{10}$/;
+//             if (!phoneRegex.test(data.MobileNo)) {
+//                 errors.MobileNo = "Invalid phone number format. Must be 10 digits";
+//             }
+//         }
+
+//         if (data.CustomerMailId) {
+//             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//             if (!emailRegex.test(data.CustomerMailId)) {
+//                 errors.CustomerMailId = "Invalid email format";
+//             }
+//         }
+
+//         // Category specific validations
+//         if (data.category && ['warm', 'hot', 'pending'].includes(data.category.toLowerCase())) {
+//             if (!data.follow_up_date && !originalData.follow_up_date) {
+//                 errors.follow_up_date = "Follow up date is required for warm/hot/pending categories";
+//             }
+//         }
+
+//         // Connected call status validations
+//         if (data.call_status === 'Connected') {
+//             const requiredFields = {
+//                 CustomerName: "Customer name is required for connected calls",
+//                 state_name: "State name is required for connected calls",
+//                 region_name: "Region name is required for connected calls",
+//                 pincode: "Pincode is required for connected calls",
+//                 RegionId: "Region ID is required for connected calls",
+//                 Project: "Project is required for connected calls",
+//                 BDMId: "BDM ID is required for connected calls"
+//             };
+
+//             Object.entries(requiredFields).forEach(([field, message]) => {
+//                 if (!data[field] && !originalData[field]) {
+//                     errors[field] = message;
+//                 }
+//             });
+//         }
+
+//         // Role specific validations for remarks
+//         if (data.lead_created_by === 1 && data.agent_remark === '') {
+//             errors.agent_remark = "Agent remark cannot be empty for agent updates";
+//         }
+//         if ((data.lead_created_by === 2 || data.lead_created_by === 3) && data.bdm_remark === '') {
+//             errors.bdm_remark = "BDM remark cannot be empty for BDM/Zonal Manager updates";
+//         }
+
+//     } catch (error) {
+//         console.error('Validation error:', error);
+//         errors.general = "Error during validation";
+//     }
+
+//     return errors;
+// };
+
+// // Update Lead Controller
+// exports.updateLead = async (req, res) => {
+//     const t = await sequelize.transaction();
+
+//     try {
+//         const { id } = req.params;
+//         const updateData = { ...req.body };
+
+//         // Check if updated_by exists and is valid
+//         if (!updateData.updated_by) {
+//             await t.rollback();
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "updated_by field is required"
+//             });
+//         }
+
+//         // Convert updated_by to number if it's a string
+//         const performedBy = typeof updateData.updated_by === 'string' ? 
+//                         parseInt(updateData.updated_by, 10) : 
+//                         updateData.updated_by;
+
+//         // Remove updated_by from updateData
+//         delete updateData.updated_by;
+
+//         // Find existing lead
+//         const existingLead = await Lead_Detail.findOne({
+//             where: { id },
+//             include: [
+//                 {
+//                     model: Employee,
+//                     as: 'Agent',
+//                     attributes: ['EmployeeId', 'EmployeeName']
+//                 },
+//                 {
+//                     model: Employee,
+//                     as: 'BDM',
+//                     attributes: ['EmployeeId', 'EmployeeName']
+//                 }
+//             ],
+//             transaction: t
+//         });
+
+//         if (!existingLead) {
+//             await t.rollback();
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Lead not found"
+//             });
+//         }
+
+//         // Validate update data
+//         const validationErrors = validateEditLeadData(updateData, existingLead);
+//         if (Object.keys(validationErrors).length > 0) {
+//             await t.rollback();
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Validation failed",
+//                 errors: validationErrors
+//             });
+//         }
+
+//         // Check for duplicate phone number
+//         if (updateData.MobileNo && updateData.MobileNo !== existingLead.MobileNo) {
+//             const duplicateLead = await Lead_Detail.findOne({
+//                 where: { 
+//                     MobileNo: updateData.MobileNo,
+//                     id: { [Sequelize.Op.ne]: id }
+//                 },
+//                 include: [{
+//                     model: Employee,
+//                     as: 'Agent',
+//                     attributes: ['EmployeeName']
+//                 }, {
+//                     model: Employee,
+//                     as: 'BDM',
+//                     attributes: ['EmployeeName']
+//                 }],
+//                 transaction: t
+//             });
+
+//             if (duplicateLead) {
+//                 let creatorType = duplicateLead.lead_created_by === 1 ? 'Agent' : 
+//                                 duplicateLead.lead_created_by === 2 ? 'BDM' : 'Zonal Manager';
+//                 let creatorName = duplicateLead.lead_created_by === 1 ? 
+//                                 duplicateLead.Agent?.EmployeeName : 
+//                                 duplicateLead.BDM?.EmployeeName || 'Unknown';
+
+//                 await t.rollback();
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: `A lead with this phone number already exists. Lead was created by ${creatorType} ${creatorName}`,
+//                     duplicateNumber: updateData.MobileNo
+//                 });
+//             }
+//         }
+
+//         // Track changes
+//         const allChanges = getAllChanges(existingLead.toJSON(), updateData);
+//         if (allChanges.length === 0) {
+//             await t.rollback();
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "No changes detected",
+//                 lead: existingLead
+//             });
+//         }
+
+//         // Get significant changes
+//         const significantChanges = getSignificantChanges(allChanges);
+        
+//         // Update lead
+//         const updatedLead = await existingLead.update(updateData, { transaction: t });
+
+//         // Create log entry
+//         const actionType = generateActionType(significantChanges);
+//         const changeDetails = {
+//             timestamp: new Date().toISOString(),
+//             updater: {
+//                 id: performedBy
+//             },
+//             changes: allChanges
+//         };
+
+//         await LeadLog.create({
+//             LeadDetailId: id,
+//             action_type: actionType,
+//             category: updateData.category || existingLead.category,
+//             sub_category: updateData.sub_category || existingLead.sub_category,
+//             remarks: updateData.remarks || `Updated ${allChanges.length} fields`,
+//             performed_by: performedBy,
+//             follow_up_date: updateData.follow_up_date || existingLead.follow_up_date,
+//             extra_fields3: JSON.stringify(changeDetails)
+//         }, { transaction: t });
+
+//         await t.commit();
+
+//         // Fetch updated lead with associations
+//         const finalLead = await Lead_Detail.findOne({
+//             where: { id },
+//             include: [
+//                 {
+//                     model: Employee,
+//                     as: 'Agent',
+//                     attributes: ['EmployeeId', 'EmployeeName']
+//                 },
+//                 {
+//                     model: Employee,
+//                     as: 'BDM',
+//                     attributes: ['EmployeeId', 'EmployeeName']
+//                 }
+//             ]
+//         });
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Lead updated successfully",
+//             lead: finalLead,
+//             changes: allChanges
+//         });
+
+//     } catch (error) {
+//         await t.rollback();
+//         console.error("Error updating lead:", error);
+
+//         if (error.name === 'SequelizeValidationError') {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Validation error",
+//                 errors: error.errors.map(e => e.message)
+//             });
+//         }
+
+//         return res.status(500).json({
+//             success: false,
+//             message: "Error updating lead",
+//             error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//         });
+//     }
+// };
+
+// // Helper functions
+// function getAllChanges(oldData, newData) {
+//     const changes = [];
+//     const excludeFields = ['updatedAt', 'createdAt', 'id'];
+    
+//     Object.keys(newData).forEach(field => {
+//         if (!excludeFields.includes(field) && newData[field] !== oldData[field]) {
+//             changes.push({
+//                 field,
+//                 from: oldData[field],
+//                 to: newData[field]
+//             });
+//         }
+//     });
+    
+//     return changes;
+// }
+
+// function getSignificantChanges(allChanges) {
+//     const significantFields = [
+//         'category', 'sub_category', 'follow_up_date', 'call_status',
+//         'lead_owner', 'Project', 'CustomerName', 'state_name',
+//         'region_name', 'RegionId', 'MobileNo', 'CustomerMailId',
+//         'pincode', 'location', 'agent_remark', 'bdm_remark',
+//         'AlternateMobileNo', 'WhatsappNo', 'site_location_address',
+//         'BDMId', 'source_of_lead_generated', 'lead_created_by'
+//     ];
+
+//     return allChanges.filter(change => significantFields.includes(change.field));
+// }
+
+// function generateActionType(changes) {
+//     const changedFields = changes.map(c => c.field);
+    
+//     if (changedFields.includes('category') || changedFields.includes('sub_category')) {
+//         return 'Category Update';
+//     } else if (changedFields.includes('follow_up_date')) {
+//         return 'Follow-up Update';
+//     } else if (changedFields.includes('lead_owner')) {
+//         return 'Lead Transfer';
+//     } else if (changedFields.includes('call_status')) {
+//         return 'Status Update';
+//     } else if (changedFields.includes('CustomerName') || changedFields.includes('MobileNo')) {
+//         return 'Customer Info Update';
+//     }
+//     return 'General Update';
+// }
+
+
+
+// Validation function
+const validateEditLeadData = (data = {}, originalData = {}) => {
+    const errors = {};
+    
+    try {
+        // Basic field validations
+        if (data.MobileNo) {
+            const phoneRegex = /^\d{10}$/;
+            if (!phoneRegex.test(data.MobileNo)) {
+                errors.MobileNo = "Invalid phone number format. Must be 10 digits";
+            }
+        }
+
+        if (data.CustomerMailId) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(data.CustomerMailId)) {
+                errors.CustomerMailId = "Invalid email format";
+            }
+        }
+
+        // Category specific validations
+        if (data.category && ['warm', 'hot', 'pending'].includes(data.category.toLowerCase())) {
+            if (!data.follow_up_date && !originalData.follow_up_date) {
+                errors.follow_up_date = "Follow up date is required for warm/hot/pending categories";
+            }
+        }
+
+        // Connected call status validations
+        if (data.call_status === 'Connected') {
+            const requiredFields = {
+                CustomerName: "Customer name is required for connected calls",
+                state_name: "State name is required for connected calls",
+                region_name: "Region name is required for connected calls",
+                pincode: "Pincode is required for connected calls",
+                RegionId: "Region ID is required for connected calls",
+                Project: "Project is required for connected calls",
+                BDMId: "BDM ID is required for connected calls"
+            };
+
+            Object.entries(requiredFields).forEach(([field, message]) => {
+                if (!data[field] && !originalData[field]) {
+                    errors[field] = message;
+                }
+            });
+        }
+
+        // Role specific validations for remarks
+        if (data.lead_created_by === 1 && data.agent_remark === '') {
+            errors.agent_remark = "Agent remark cannot be empty for agent updates";
+        }
+        if ((data.lead_created_by === 2 || data.lead_created_by === 3) && data.bdm_remark === '') {
+            errors.bdm_remark = "BDM remark cannot be empty for BDM/Zonal Manager updates";
+        }
+
+    } catch (error) {
+        console.error('Validation error:', error);
+        errors.general = "Error during validation";
+    }
+
+    return errors;
+};
+
+// Function to track changes
+const getChanges = (oldData, newData) => {
+    const changes = [];
+    const excludeFields = ['updatedAt', 'createdAt', 'id'];
+    
+    Object.keys(newData).forEach(field => {
+        if (!excludeFields.includes(field) && newData[field] !== oldData[field]) {
+            // Format date values for comparison
+            const oldValue = oldData[field] instanceof Date ? 
+                           oldData[field].toISOString() : 
+                           oldData[field];
+            const newValue = newData[field] instanceof Date ? 
+                           new Date(newData[field]).toISOString() : 
+                           newData[field];
+
+            if (oldValue !== newValue) {
+                changes.push({
+                    field,
+                    from: oldValue,
+                    to: newValue
+                });
+            }
+        }
+    });
+    
+    return changes;
+};
+
+// Update Lead Controller
+exports.updateLead = async (req, res) => {
+    const t = await sequelize.transaction();
+
+    try {
+        const { id } = req.params;
+        const updateData = { ...req.body };
+
+        // Check if updated_by exists and is valid
+        if (!updateData.updated_by) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "updated_by field is required"
+            });
+        }
+
+        // Convert updated_by to number if it's a string
+        const performedBy = typeof updateData.updated_by === 'string' ? 
+                        parseInt(updateData.updated_by, 10) : 
+                        updateData.updated_by;
+
+        // Remove updated_by from updateData
+        delete updateData.updated_by;
+
+        // Find existing lead
+        const existingLead = await Lead_Detail.findOne({
+            where: { id },
+            include: [
+                {
+                    model: Employee,
+                    as: 'Agent',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                },
+                {
+                    model: Employee,
+                    as: 'BDM',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                }
+            ],
+            transaction: t
+        });
+
+        if (!existingLead) {
+            await t.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Lead not found"
+            });
+        }
+
+        // Validate update data
+        const validationErrors = validateEditLeadData(updateData, existingLead);
+        if (Object.keys(validationErrors).length > 0) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "Validation failed",
+                errors: validationErrors
+            });
+        }
+
+        // Check for duplicate phone number
+        if (updateData.MobileNo && updateData.MobileNo !== existingLead.MobileNo) {
+            const duplicateLead = await Lead_Detail.findOne({
+                where: { 
+                    MobileNo: updateData.MobileNo,
+                    id: { [Sequelize.Op.ne]: id }
+                },
+                include: [{
+                    model: Employee,
+                    as: 'Agent',
+                    attributes: ['EmployeeName']
+                }, {
+                    model: Employee,
+                    as: 'BDM',
+                    attributes: ['EmployeeName']
+                }],
+                transaction: t
+            });
+
+            if (duplicateLead) {
+                let creatorType = duplicateLead.lead_created_by === 1 ? 'Agent' : 
+                                duplicateLead.lead_created_by === 2 ? 'BDM' : 'Zonal Manager';
+                let creatorName = duplicateLead.lead_created_by === 1 ? 
+                                duplicateLead.Agent?.EmployeeName : 
+                                duplicateLead.BDM?.EmployeeName || 'Unknown';
+
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `A lead with this phone number already exists. Lead was created by ${creatorType} ${creatorName}`,
+                    duplicateNumber: updateData.MobileNo
+                });
+            }
+        }
+
+        // Track changes
+        const changes = getChanges(existingLead.toJSON(), updateData);
+        if (changes.length === 0) {
+            await t.rollback();
+            return res.status(200).json({
+                success: true,
+                message: "No changes detected",
+                lead: existingLead
+            });
+        }
+
+        // Update lead
+        const updatedLead = await existingLead.update(updateData, { transaction: t });
+
+        // Create log entry
+        const changeDetails = {
+            timestamp: new Date().toISOString(),
+            updater: {
+                id: performedBy
+            },
+            changes: changes
+        };
+
+        await LeadLog.create({
+            LeadDetailId: id,
+            action_type: "Lead Detail Update", // Fixed action type for all updates
+            category: updateData.category || existingLead.category,
+            sub_category: updateData.sub_category || existingLead.sub_category,
+            remarks: updateData.remarks || "Lead details updated",
+            performed_by: performedBy,
+            follow_up_date: updateData.follow_up_date || existingLead.follow_up_date,
+            extra_fields3: JSON.stringify(changeDetails)
+        }, { transaction: t });
+
+        await t.commit();
+
+        // Fetch updated lead with associations
+        const finalLead = await Lead_Detail.findOne({
+            where: { id },
+            include: [
+                {
+                    model: Employee,
+                    as: 'Agent',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                },
+                {
+                    model: Employee,
+                    as: 'BDM',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                }
+            ]
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Lead updated successfully",
+            lead: finalLead,
+            changes: changes
+        });
+
+    } catch (error) {
+        await t.rollback();
+        console.error("Error updating lead:", error);
+
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: "Validation error",
+                errors: error.errors.map(e => e.message)
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Error updating lead",
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+};
+
+
+
+
+//for category is pending
+
+exports.updatePendingLead = async (req, res) => {
+    const t = await sequelize.transaction();
+
+    try {
+        const { id } = req.params;
+        const updateData = { ...req.body };
+
+        // Check if updated_by exists and is valid
+        if (!updateData.updated_by) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "updated_by field is required"
+            });
+        }
+
+        // Convert updated_by to number if it's a string
+        const performedBy = typeof updateData.updated_by === 'string' ? 
+                    parseInt(updateData.updated_by, 10) : 
+                        updateData.updated_by;
+
+        // Remove updated_by from updateData
+        delete updateData.updated_by;
+        delete updateData.MobileNo; // Ensure MobileNo cannot be updated
+
+        // Find existing lead
+        const existingLead = await Lead_Detail.findOne({
+            where: { id },
+            include: [
+                {
+                    model: Employee,
+                    as: 'Agent',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                },
+                {
+                    model: Employee,
+                    as: 'BDM',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                }
+            ],
+            transaction: t
+        });
+
+        if (!existingLead) {
+            await t.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Lead not found"
+            });
+        }
+
+        // Check if lead category is pending
+        if (existingLead.category?.toLowerCase() !== 'pending') {
+            await t.rollback();
+            return res.status(403).json({
+                success: false,
+                message: "Only leads with 'pending' category can be edited",
+                currentCategory: existingLead.category
+            });
+        }
+
+        // Validate update data
+        const validationErrors = validateEditLeadData(updateData, existingLead);
+        if (Object.keys(validationErrors).length > 0) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "Validation failed",
+                errors: validationErrors
+            });
+        }
+
+        // Check for duplicate phone number
+        if (updateData.MobileNo && updateData.MobileNo !== existingLead.MobileNo) {
+            const duplicateLead = await Lead_Detail.findOne({
+                where: { 
+                    MobileNo: updateData.MobileNo,
+                    id: { [Sequelize.Op.ne]: id }
+                },
+                include: [{
+                    model: Employee,
+                    as: 'Agent',
+                    attributes: ['EmployeeName']
+                }, {
+                    model: Employee,
+                    as: 'BDM',
+                    attributes: ['EmployeeName']
+                }],
+                transaction: t
+            });
+
+            if (duplicateLead) {
+                let creatorType = duplicateLead.lead_created_by === 1 ? 'Agent' : 
+                                duplicateLead.lead_created_by === 2 ? 'BDM' : 'Zonal Manager';
+                let creatorName = duplicateLead.lead_created_by === 1 ? 
+                                duplicateLead.Agent?.EmployeeName : 
+                                duplicateLead.BDM?.EmployeeName || 'Unknown';
+
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `A lead with this phone number already exists. Lead was created by ${creatorType} ${creatorName}`,
+                    duplicateNumber: updateData.MobileNo
+                });
+            }
+        }
+
+        // Track changes
+        const changes = getChanges(existingLead.toJSON(), updateData);
+        if (changes.length === 0) {
+            await t.rollback();
+            return res.status(200).json({
+                success: true,
+                message: "No changes detected",
+                lead: existingLead
+            });
+        }
+
+        // Update lead
+        const updatedLead = await existingLead.update(updateData, { transaction: t });
+
+        // Create log entry
+        const changeDetails = {
+            timestamp: new Date().toISOString(),
+            updater: {
+                id: performedBy
+            },
+            changes: changes
+        };
+
+        await LeadLog.create({
+            LeadDetailId: id,
+            action_type: "Pending Lead Update", // Specific action type for pending lead updates
+            category: updateData.category || existingLead.category,
+            sub_category: updateData.sub_category || existingLead.sub_category,
+            remarks: updateData.remarks || "Pending lead details updated",
+            performed_by: performedBy,
+            follow_up_date: updateData.follow_up_date || existingLead.follow_up_date,
+            extra_fields3: JSON.stringify(changeDetails)
+        }, { transaction: t });
+
+        await t.commit();
+
+        // Fetch updated lead with associations
+        const finalLead = await Lead_Detail.findOne({
+            where: { id },
+            include: [
+                {
+                    model: Employee,
+                    as: 'Agent',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                },
+                {
+                    model: Employee,
+                    as: 'BDM',
+                    attributes: ['EmployeeId', 'EmployeeName']
+                }
+            ]
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Pending lead updated successfully",
+            lead: finalLead,
+            changes: changes
+        });
+
+    } catch (error) {
+        await t.rollback();
+        console.error("Error updating pending lead:", error);
+
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: "Validation error",
+                errors: error.errors.map(e => e.message)
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Error updating pending lead",
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+};
+
+
+
 
 exports.getLeadByMobileNo = async (req, res) => {
   try {
@@ -706,7 +1663,7 @@ exports.getLeadByMobileNo = async (req, res) => {
 
 //assign lead to bdm --for future
 exports.assignLeadToBDM = async (req, res) => {
-  try {
+  try { 
     const { leadId } = req.params;
     const { BDMId } = req.body;
 
