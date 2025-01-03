@@ -117,7 +117,7 @@ Lead_converted.init(
   {
     sequelize,
     modelName: "LeadConverted",
-    tableName: "Lead_converted",
+    tableName: "lead_converted",
     timestamps: true,
     underscored: true,
   }
