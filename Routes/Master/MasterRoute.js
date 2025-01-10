@@ -7,4 +7,6 @@ router.get('/get-all-region', MasterController.getAllRegions);
 router.get('/get-all-zonal-manager', MasterController.getZonalManagers);
 router.post('/zonal-manager', MasterController.addZonalManager);
 router.post('/zonal-managers/status', MasterController.updateZonalManagerStatus);
+router.get('/campaigns', MasterController.getAllCampaigns);
+ 
 module.exports = router;

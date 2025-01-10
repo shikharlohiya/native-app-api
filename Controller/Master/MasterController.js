@@ -1,5 +1,6 @@
 const Parivartan_Region = require('../../models/Parivartan_Region');
 const Parivartan_BDM = require('../../models/Parivartan_BDM');
+const Campaign = require('../../models/campaign');
 const sequelize = require("../../models/index");
 
 
@@ -273,3 +274,34 @@ exports.addZonalManager = async (req, res) => {
 
 
 //list of all the zonal manager if the zonal manager is yes 
+
+
+
+
+//campaign list------> <---------------------------------------------
+exports.getAllCampaigns = async (req, res) => {
+  try {
+    const campaigns = await Campaign.findAll({
+      attributes: ['CampaignId', 'CampaignName']
+    });
+
+    if (!campaigns.length) {
+      return res.status(404).json({
+        message: "No campaigns found"
+      });
+    }
+
+    res.status(200).json({
+      message: "Campaigns fetched successfully",
+      data: campaigns
+    });
+  } catch (error) {
+    console.error("Error fetching campaigns:", error);
+    res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+};
+
+
+

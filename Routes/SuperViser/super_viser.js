@@ -22,5 +22,7 @@ router.get('/filter/list/:field',SupervisorController.getDistinctValues);
 router.get('/bdm-followup-tasks', SupervisorController.getBDMFollowUpTasks);
 router.get('/bdm-self-tasks', SupervisorController.getBDMSelfTasks);
 router.get('/bdm-daily-tasks/:bdmId', SupervisorController.getBdmDailyTasks);
+router.get('/leads/export', SupervisorController.exportLeads);
+
 
 module.exports = router;

@@ -27,5 +27,7 @@ router.put("/leads/:leadId/bdm-remarks", auth, BDMController.updateBDMRemarks);
 
 router.get("/customer/lead/:employeeId",  BDMController.getEmployeeLeads);
 
+router.get('/distinct/:field/bdm/:bdmId', BDMController.getBdmDistinctValues);
+
 
 module.exports = router;
