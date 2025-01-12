@@ -9,6 +9,11 @@ router.get('/export-agent-detail-report', ReportController.exportAgentDetailRepo
 router.get('/incoming/audit/call-analytics', ReportController.getAuditCallAnalytics);
 router.get('/incoming/audit/call-analytics/download', ReportController.getAgentReportFiltersExport);
 
+
+router.get('/v2/incoming/audit/count', ReportController.getDashboardCallCounts);
+router.get('/v2/incoming/audit/detail', ReportController.getDetailedCallAnalytics);
+
+
 module.exports = router;
 
 

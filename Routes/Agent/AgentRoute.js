@@ -37,7 +37,7 @@ router.get('/incoming/parivartan/call-analytics',AgentController.getCallAnalytic
 //outgoing parivartan/ audit
 
 
-// router.get('/outbound-call-analytics',AgentController.getOutboundCallAnalytics )
+router.get('/outbound-call-analytics',AgentController.getOutboundCallAnalytics )
 
 
 

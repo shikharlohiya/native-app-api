@@ -2,12 +2,16 @@ const Lead_Detail = require("../../models/lead_detail");
 const Employee = require("../../models/employee");
 const Campaign = require("../../models/campaign");
 const LeadLog = require("../../models/leads_logs");
+const AuditLeadTable = require("../../models/AuditLeadTable");
+const LeadDetail  = require("../../models/lead_detail");
+const CallLog = require("../../models/CallLog")
 const { Op,QueryTypes,Sequelize  } = require("sequelize");
 const moment = require("moment");
 const FollowUPByAgent = require("../../models/FollowUpByAgent");
 const sequelize = require("../../models/index");
 const ExcelJS = require('exceljs');
 const Employee_Role = require("../../models/employeRole")
+ 
  
 // const moment = require('moment-timezone');
 // exports.createLead = async (req, res) => {
@@ -4808,220 +4812,470 @@ exports.getAuditCallAnalytics = async (req, res) => {
 
 
 
-const IVR_PAIRS = {
-    '8517009997': ['8517009997', '7610255555'],
-    '8517009998': ['8517009998', '7610233333']
+//main outgoing commenting on 11 jan
+
+// const IVR_PAIRS = {
+//     '8517009997': ['8517009997', '7610255555'],
+//     '8517009998': ['8517009998', '7610233333']
+// };
+
+// exports.getOutboundCallAnalytics = async (req, res) => {
+//     try {
+//         const startDate = req.query.startDate;
+//         const endDate = req.query.endDate || startDate;
+//         const agentName = req.query.agentName;
+//         const ivrNumber = req.query.ivrNumber;
+
+//         if (!startDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid start date required"
+//             });
+//         }
+
+//         if (!ivrNumber || !Object.keys(IVR_PAIRS).includes(ivrNumber)) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Valid IVR number required (8517009997 or 8517009998)"
+//             });
+//         }
+
+//         const startDateTime = moment(startDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+//         const endDateTime = moment(endDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+
+//         const callDetails = await sequelize.query(`
+//             SELECT 
+//                 cl.*,
+//                 emp.EmployeeName as agent_name,
+//                 alt.Farmer_Name as lead_name,
+//                 alt.Zone_Name,
+//                 alt.Branch_Name,
+//                 alt.Lot_Number,
+//                 alt.Vendor,
+//                 alt.Shed_Type,
+//                 alt.Placed_Qty,
+//                 alt.Hatch_Date,
+//                 alt.Total_Mortality,
+//                 alt.Total_Mortality_Percentage,
+//                 alt.status as lead_status,
+//                 alr.REMARKS as audit_remarks,
+//                 CASE 
+//                     WHEN cl.eventType = 'Call End' 
+//                     AND cl.bDialStatus = 'Connected' 
+//                     AND alr.Lot_Number IS NOT NULL 
+//                     THEN 'Connected'
+//                     WHEN cl.eventType = 'Call End' THEN 'Not Connected'
+//                     ELSE NULL
+//                 END as call_status,
+//                 CASE 
+//                     WHEN cl.bPartyConnectedTime IS NOT NULL 
+//                     AND cl.bPartyEndTime IS NOT NULL 
+//                     AND alr.Lot_Number IS NOT NULL
+//                     THEN TIMESTAMPDIFF(SECOND, cl.bPartyConnectedTime, cl.bPartyEndTime)
+//                     ELSE 0
+//                 END as call_duration_seconds
+//             FROM call_logs cl
+//             LEFT JOIN employee_table emp ON cl.aPartyNo = emp.EmployeePhone
+//             LEFT JOIN audit_lead_table alt ON cl.bPartyNo = alt.Mobile
+//             LEFT JOIN audit_lead_remarks alr ON alt.Lot_Number = alr.Lot_Number
+//             WHERE cl.dni IN (:ivrNumber1, :ivrNumber2)
+//             AND cl.eventType = 'Call End'
+//             AND cl.callStartTime BETWEEN :startDateTime AND :endDateTime
+//             ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
+//             ORDER BY cl.callStartTime DESC
+//         `, {
+//             replacements: { 
+//                 startDateTime, 
+//                 endDateTime,
+//                 ivrNumber1: IVR_PAIRS[ivrNumber][0],
+//                 ivrNumber2: IVR_PAIRS[ivrNumber][1],
+//                 ...(agentName && { agentName })
+//             },
+//             type: QueryTypes.SELECT
+//         });
+
+//         const agentMap = new Map();
+//         let totalCalls = 0;
+//         let totalConnected = 0;
+//         let totalNotConnected = 0;
+//         let uniqueLeads = new Set();
+//         let processedCallIds = new Map(); // Track unique call_id + lot combinations
+
+//         callDetails.forEach(call => {
+//             if (!call.agent_name) return;
+
+//             // Create unique key combining call_id and lot_number
+//             const uniqueKey = `${call.callId}_${call.Lot_Number || 'no_lot'}`;
+            
+//             // Only process if this call+lot combination hasn't been processed
+//             if (!processedCallIds.has(uniqueKey)) {
+//                 processedCallIds.set(uniqueKey, true);
+//                 totalCalls++;
+
+//                 if (call.Lot_Number) {
+//                     uniqueLeads.add(call.Lot_Number);
+//                 }
+
+//                 if (call.call_status === 'Connected') {
+//                     totalConnected++;
+//                 } else if (call.call_status === 'Not Connected') {
+//                     totalNotConnected++;
+//                 }
+
+//                 if (!agentMap.has(call.agent_name)) {
+//                     agentMap.set(call.agent_name, {
+//                         agent_name: call.agent_name,
+//                         agent_number: call.aPartyNo,
+//                         total_calls: 0,
+//                         connected_calls: 0,
+//                         not_connected_calls: 0,
+//                         total_duration_minutes: 0,
+//                         connected_details: [],
+//                         not_connected_details: []
+//                     });
+//                 }
+
+//                 const agentData = agentMap.get(call.agent_name);
+//                 agentData.total_calls++;
+
+//                 const callDetail = {
+//                     call_id: call.callId,
+//                     date: moment(call.callStartTime).format('YYYY-MM-DD'),
+//                     time: moment(call.callStartTime).format('HH:mm:ss'),
+//                     customer_number: call.bPartyNo,
+//                     duration_minutes: (call.call_duration_seconds / 60).toFixed(2),
+//                     dial_status: call.bDialStatus,
+//                     release_reason: call.bPartyReleaseReason || 'N/A',
+//                     lot_number: call.Lot_Number || 'N/A'
+//                 };
+
+//                 const customerDetail = call.lead_name ? {
+//                     farmer_name: call.lead_name,
+//                     lot_number: call.Lot_Number,
+//                     zone: call.Zone_Name,
+//                     branch: call.Branch_Name,
+//                     vendor: call.Vendor,
+//                     shed_type: call.Shed_Type,
+//                     placed_qty: call.Placed_Qty,
+//                     hatch_date: call.Hatch_Date,
+//                     total_mortality: call.Total_Mortality,
+//                     mortality_percentage: call.Total_Mortality_Percentage,
+//                     status: call.lead_status
+//                 } : null;
+
+//                 if (call.call_status === 'Connected') {
+//                     agentData.connected_calls++;
+//                     agentData.total_duration_minutes += call.call_duration_seconds / 60;
+//                     callDetail.connected_at = moment(call.bPartyConnectedTime).format('YYYY-MM-DD HH:mm:ss');
+//                     callDetail.ended_at = moment(call.bPartyEndTime).format('YYYY-MM-DD HH:mm:ss');
+//                     agentData.connected_details.push({
+//                         ...callDetail,
+//                         customer_details: customerDetail
+//                     });
+//                 } else {
+//                     agentData.not_connected_calls++;
+//                     agentData.not_connected_details.push({
+//                         ...callDetail,
+//                         customer_details: customerDetail
+//                     });
+//                 }
+//             }
+//         });
+
+//         const agentStats = Array.from(agentMap.values()).map(agent => ({
+//             agent_name: agent.agent_name,
+//             agent_number: agent.agent_number,
+//             total_calls: agent.total_calls,
+//             connected_calls: agent.connected_calls,
+//             not_connected_calls: agent.not_connected_calls,
+//             total_duration_minutes: agent.total_duration_minutes.toFixed(2),
+//             avg_call_duration_minutes: agent.connected_calls > 0 ? 
+//                 (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+//             connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
+//             connected_details: agent.connected_details,
+//             not_connected_details: agent.not_connected_details
+//         }));
+
+//         agentStats.sort((a, b) => b.total_calls - a.total_calls);
+
+//         const response = {
+//             success: true,
+//             data: {
+//                 summary: {
+//                     period: {
+//                         start_date: startDate,
+//                         end_date: endDate
+//                     },
+//                     ivr_number: ivrNumber,
+//                     metrics: {
+//                         total_calls: totalCalls,
+//                         unique_leads: uniqueLeads.size,
+//                         connected_calls: totalConnected,
+//                         not_connected_calls: totalNotConnected,
+//                         connection_rate: totalCalls ? 
+//                             ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+//                     }
+//                 },
+//                 agents: agentStats
+//             }
+//         };
+
+//         res.status(200).json(response);
+
+//     } catch (error) {
+//         console.error('Error in getOutboundCallAnalytics:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Internal server error',
+//             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//         });
+//     }
+// }; 
+
+
+
+
+
+const IVR_CONFIG = {
+  '8517009997': {
+      numbers: ['8517009997', '7610255555'],
+      type: 'STANDARD'
+  },
+  '8517009998': {
+      numbers: ['8517009998', '7610233333'],
+      type: 'AUDIT'
+  }
+};
+
+const getQueryOptions = (ivrType, startDateTime, endDateTime, ivrNumbers, agentName) => {
+  const baseOptions = {
+      where: {
+          dni: { [Op.in]: ivrNumbers },
+          eventType: 'Call End',
+          callStartTime: {
+              [Op.between]: [startDateTime, endDateTime]
+          }
+      },
+      include: [{
+          model: Employee,
+          as: 'agent',
+          required: false,
+          where: agentName ? { EmployeeName: agentName } : {},
+          attributes: ['EmployeeName', 'EmployeePhone']
+      }],
+      order: [['callStartTime', 'DESC']]
+  };
+
+  if (ivrType === 'STANDARD') {
+      baseOptions.include.push({
+          model: LeadDetail,
+          as: 'leadDetail',
+          required: false,
+          attributes: [
+              'CustomerName',
+              'Project',
+              'state_name',
+              'region_name',
+              'category',
+              'sub_category'
+          ]
+      });
+  } else {
+      baseOptions.include.push({
+          model: AuditLeadTable,
+          as: 'auditLead',
+          required: false,
+          attributes: [
+              'Farmer_Name',
+              'Zone_Name',
+              'Branch_Name',
+              'Lot_Number',
+              'Vendor',
+              'Shed_Type',
+              'Placed_Qty',
+              'Hatch_Date',
+              'Total_Mortality',
+              'Total_Mortality_Percentage',
+              'status'
+          ]
+      });
+  }
+
+  return baseOptions;
+};
+
+const processCallData = (calls, ivrType) => {
+  const agentMap = new Map();
+  let totalCalls = 0;
+  let totalConnected = 0;
+  let totalNotConnected = 0;
+  let uniqueLeads = new Set();
+  let processedCallIds = new Map();
+
+  calls.forEach(call => {
+      const agent = call.agent;
+      if (!agent) return;
+
+      const leadData = ivrType === 'STANDARD' ? call.leadDetail : call.auditLead;
+      const uniqueKey = `${call.callId}_${leadData?.Lot_Number || 'no_lot'}`;
+      
+      if (!processedCallIds.has(uniqueKey)) {
+          processedCallIds.set(uniqueKey, true);
+          totalCalls++;
+
+          if (leadData) {
+              uniqueLeads.add(ivrType === 'STANDARD' ? leadData.id : leadData.Lot_Number);
+          }
+
+          const isConnected = call.bDialStatus === 'Connected' && leadData;
+          if (isConnected) {
+              totalConnected++;
+          } else {
+              totalNotConnected++;
+          }
+
+          if (!agentMap.has(agent.EmployeeName)) {
+              agentMap.set(agent.EmployeeName, {
+                  agent_name: agent.EmployeeName,
+                  agent_number: agent.EmployeePhone,
+                  total_calls: 0,
+                  connected_calls: 0,
+                  not_connected_calls: 0,
+                  total_duration_minutes: 0,
+                  connected_details: [],
+                  not_connected_details: []
+              });
+          }
+
+          const agentData = agentMap.get(agent.EmployeeName);
+          agentData.total_calls++;
+
+          const callDuration = call.bPartyConnectedTime && call.bPartyEndTime ?
+              moment(call.bPartyEndTime).diff(moment(call.bPartyConnectedTime), 'seconds') : 0;
+
+          const callDetail = {
+              call_id: call.callId,
+              date: moment(call.callStartTime).format('YYYY-MM-DD'),
+              time: moment(call.callStartTime).format('HH:mm:ss'),
+              customer_number: call.bPartyNo,
+              duration_minutes: (callDuration / 60).toFixed(2),
+              dial_status: call.bDialStatus,
+              release_reason: call.bPartyReleaseReason || 'N/A',
+              customer_details: leadData ? {
+                  ...(ivrType === 'STANDARD' ? {
+                      customer_name: leadData.CustomerName,
+                      project: leadData.Project,
+                      region: leadData.region_name,
+                      category: leadData.category
+                  } : {
+                      farmer_name: leadData.Farmer_Name,
+                      lot_number: leadData.Lot_Number,
+                      zone: leadData.Zone_Name,
+                      branch: leadData.Branch_Name,
+                      status: leadData.status
+                  })
+              } : null
+          };
+
+          if (isConnected) {
+              agentData.connected_calls++;
+              agentData.total_duration_minutes += callDuration / 60;
+              callDetail.connected_at = moment(call.bPartyConnectedTime).format('YYYY-MM-DD HH:mm:ss');
+              callDetail.ended_at = moment(call.bPartyEndTime).format('YYYY-MM-DD HH:mm:ss');
+              agentData.connected_details.push(callDetail);
+          } else {
+              agentData.not_connected_calls++;
+              agentData.not_connected_details.push(callDetail);
+          }
+      }
+  });
+
+  return {
+      agentMap,
+      totalCalls,
+      totalConnected,
+      totalNotConnected,
+      uniqueLeads: uniqueLeads.size
+  };
 };
 
 exports.getOutboundCallAnalytics = async (req, res) => {
-    try {
-        const startDate = req.query.startDate;
-        const endDate = req.query.endDate || startDate;
-        const agentName = req.query.agentName;
-        const ivrNumber = req.query.ivrNumber;
+  try {
+      const { startDate, endDate = startDate, agentName, ivrNumber } = req.query;
 
-        if (!startDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
-            return res.status(400).json({
-                success: false,
-                message: "Valid start date required"
-            });
-        }
+      if (!startDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
+          return res.status(400).json({
+              success: false,
+              message: "Valid start date required"
+          });
+      }
 
-        if (!ivrNumber || !Object.keys(IVR_PAIRS).includes(ivrNumber)) {
-            return res.status(400).json({
-                success: false,
-                message: "Valid IVR number required (8517009997 or 8517009998)"
-            });
-        }
+      if (!ivrNumber || !IVR_CONFIG[ivrNumber]) {
+          return res.status(400).json({
+              success: false,
+              message: "Valid IVR number required (8517009997 or 8517009998)"
+          });
+      }
 
-        const startDateTime = moment(startDate).startOf('day').format('YYYY-MM-DD HH:mm:ss');
-        const endDateTime = moment(endDate).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+      const startDateTime = moment(startDate).startOf('day').toDate();
+      const endDateTime = moment(endDate).endOf('day').toDate();
+      const ivrConfig = IVR_CONFIG[ivrNumber];
 
-        const callDetails = await sequelize.query(`
-            SELECT 
-                cl.*,
-                emp.EmployeeName as agent_name,
-                alt.Farmer_Name as lead_name,
-                alt.Zone_Name,
-                alt.Branch_Name,
-                alt.Lot_Number,
-                alt.Vendor,
-                alt.Shed_Type,
-                alt.Placed_Qty,
-                alt.Hatch_Date,
-                alt.Total_Mortality,
-                alt.Total_Mortality_Percentage,
-                alt.status as lead_status,
-                alr.REMARKS as audit_remarks,
-                CASE 
-                    WHEN cl.eventType = 'Call End' 
-                    AND cl.bDialStatus = 'Connected' 
-                    AND alr.Lot_Number IS NOT NULL 
-                    THEN 'Connected'
-                    WHEN cl.eventType = 'Call End' THEN 'Not Connected'
-                    ELSE NULL
-                END as call_status,
-                CASE 
-                    WHEN cl.bPartyConnectedTime IS NOT NULL 
-                    AND cl.bPartyEndTime IS NOT NULL 
-                    AND alr.Lot_Number IS NOT NULL
-                    THEN TIMESTAMPDIFF(SECOND, cl.bPartyConnectedTime, cl.bPartyEndTime)
-                    ELSE 0
-                END as call_duration_seconds
-            FROM call_logs cl
-            LEFT JOIN employee_table emp ON cl.aPartyNo = emp.EmployeePhone
-            LEFT JOIN audit_lead_table alt ON cl.bPartyNo = alt.Mobile
-            LEFT JOIN audit_lead_remarks alr ON alt.Lot_Number = alr.Lot_Number
-            WHERE cl.dni IN (:ivrNumber1, :ivrNumber2)
-            AND cl.eventType = 'Call End'
-            AND cl.callStartTime BETWEEN :startDateTime AND :endDateTime
-            ${agentName ? 'AND emp.EmployeeName = :agentName' : ''}
-            ORDER BY cl.callStartTime DESC
-        `, {
-            replacements: { 
-                startDateTime, 
-                endDateTime,
-                ivrNumber1: IVR_PAIRS[ivrNumber][0],
-                ivrNumber2: IVR_PAIRS[ivrNumber][1],
-                ...(agentName && { agentName })
-            },
-            type: QueryTypes.SELECT
-        });
+      const queryOptions = getQueryOptions(
+          ivrConfig.type,
+          startDateTime,
+          endDateTime,
+          ivrConfig.numbers,
+          agentName
+      );
 
-        const agentMap = new Map();
-        let totalCalls = 0;
-        let totalConnected = 0;
-        let totalNotConnected = 0;
-        let uniqueLeads = new Set();
-        let processedCallIds = new Map(); // Track unique call_id + lot combinations
+      const calls = await CallLog.findAll(queryOptions);
 
-        callDetails.forEach(call => {
-            if (!call.agent_name) return;
+      const {
+          agentMap,
+          totalCalls,
+          totalConnected,
+          totalNotConnected,
+          uniqueLeads
+      } = processCallData(calls, ivrConfig.type);
 
-            // Create unique key combining call_id and lot_number
-            const uniqueKey = `${call.callId}_${call.Lot_Number || 'no_lot'}`;
-            
-            // Only process if this call+lot combination hasn't been processed
-            if (!processedCallIds.has(uniqueKey)) {
-                processedCallIds.set(uniqueKey, true);
-                totalCalls++;
+      const agentStats = Array.from(agentMap.values())
+          .map(agent => ({
+              ...agent,
+              avg_call_duration_minutes: agent.connected_calls > 0 ? 
+                  (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
+              connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%'
+          }))
+          .sort((a, b) => b.total_calls - a.total_calls);
 
-                if (call.Lot_Number) {
-                    uniqueLeads.add(call.Lot_Number);
-                }
+      res.status(200).json({
+          success: true,
+          data: {
+              summary: {
+                  period: {
+                      start_date: startDate,
+                      end_date: endDate
+                  },
+                  ivr_number: ivrNumber,
+                  metrics: {
+                      total_calls: totalCalls,
+                      unique_leads: uniqueLeads,
+                      connected_calls: totalConnected,
+                      not_connected_calls: totalNotConnected,
+                      connection_rate: totalCalls ? 
+                          ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
+                  }
+              },
+              agents: agentStats
+          }
+      });
 
-                if (call.call_status === 'Connected') {
-                    totalConnected++;
-                } else if (call.call_status === 'Not Connected') {
-                    totalNotConnected++;
-                }
-
-                if (!agentMap.has(call.agent_name)) {
-                    agentMap.set(call.agent_name, {
-                        agent_name: call.agent_name,
-                        agent_number: call.aPartyNo,
-                        total_calls: 0,
-                        connected_calls: 0,
-                        not_connected_calls: 0,
-                        total_duration_minutes: 0,
-                        connected_details: [],
-                        not_connected_details: []
-                    });
-                }
-
-                const agentData = agentMap.get(call.agent_name);
-                agentData.total_calls++;
-
-                const callDetail = {
-                    call_id: call.callId,
-                    date: moment(call.callStartTime).format('YYYY-MM-DD'),
-                    time: moment(call.callStartTime).format('HH:mm:ss'),
-                    customer_number: call.bPartyNo,
-                    duration_minutes: (call.call_duration_seconds / 60).toFixed(2),
-                    dial_status: call.bDialStatus,
-                    release_reason: call.bPartyReleaseReason || 'N/A',
-                    lot_number: call.Lot_Number || 'N/A'
-                };
-
-                const customerDetail = call.lead_name ? {
-                    farmer_name: call.lead_name,
-                    lot_number: call.Lot_Number,
-                    zone: call.Zone_Name,
-                    branch: call.Branch_Name,
-                    vendor: call.Vendor,
-                    shed_type: call.Shed_Type,
-                    placed_qty: call.Placed_Qty,
-                    hatch_date: call.Hatch_Date,
-                    total_mortality: call.Total_Mortality,
-                    mortality_percentage: call.Total_Mortality_Percentage,
-                    status: call.lead_status
-                } : null;
-
-                if (call.call_status === 'Connected') {
-                    agentData.connected_calls++;
-                    agentData.total_duration_minutes += call.call_duration_seconds / 60;
-                    callDetail.connected_at = moment(call.bPartyConnectedTime).format('YYYY-MM-DD HH:mm:ss');
-                    callDetail.ended_at = moment(call.bPartyEndTime).format('YYYY-MM-DD HH:mm:ss');
-                    agentData.connected_details.push({
-                        ...callDetail,
-                        customer_details: customerDetail
-                    });
-                } else {
-                    agentData.not_connected_calls++;
-                    agentData.not_connected_details.push({
-                        ...callDetail,
-                        customer_details: customerDetail
-                    });
-                }
-            }
-        });
-
-        const agentStats = Array.from(agentMap.values()).map(agent => ({
-            agent_name: agent.agent_name,
-            agent_number: agent.agent_number,
-            total_calls: agent.total_calls,
-            connected_calls: agent.connected_calls,
-            not_connected_calls: agent.not_connected_calls,
-            total_duration_minutes: agent.total_duration_minutes.toFixed(2),
-            avg_call_duration_minutes: agent.connected_calls > 0 ? 
-                (agent.total_duration_minutes / agent.connected_calls).toFixed(2) : "0",
-            connection_rate: ((agent.connected_calls / agent.total_calls) * 100).toFixed(2) + '%',
-            connected_details: agent.connected_details,
-            not_connected_details: agent.not_connected_details
-        }));
-
-        agentStats.sort((a, b) => b.total_calls - a.total_calls);
-
-        const response = {
-            success: true,
-            data: {
-                summary: {
-                    period: {
-                        start_date: startDate,
-                        end_date: endDate
-                    },
-                    ivr_number: ivrNumber,
-                    metrics: {
-                        total_calls: totalCalls,
-                        unique_leads: uniqueLeads.size,
-                        connected_calls: totalConnected,
-                        not_connected_calls: totalNotConnected,
-                        connection_rate: totalCalls ? 
-                            ((totalConnected / totalCalls) * 100).toFixed(2) + '%' : '0%'
-                    }
-                },
-                agents: agentStats
-            }
-        };
-
-        res.status(200).json(response);
-
-    } catch (error) {
-        console.error('Error in getOutboundCallAnalytics:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
-}; 
+  } catch (error) {
+      console.error('Error in getOutboundCallAnalytics:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+  }
+};

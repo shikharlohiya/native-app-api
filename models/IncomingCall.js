@@ -1,6 +1,9 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
 const sequelize = require("./index"); // Adjust this path to your Sequelize instance
 
+const Employee = require("./employee");
+const AuditLeadTable = require("./AuditLeadTable")
+
 class IncomingCall extends Model {}
 
 IncomingCall.init(
@@ -49,5 +52,17 @@ IncomingCall.init(
     underscored: true,
   }
 );
+
+IncomingCall.belongsTo(Employee, {
+  foreignKey: 'agent_number',
+  targetKey: 'EmployeePhone',
+  as: 'agent'
+});
+
+IncomingCall.belongsTo(AuditLeadTable, {
+  foreignKey: 'caller_number',
+  targetKey: 'Mobile',
+  as: 'leadDetails'
+});
 
 module.exports = IncomingCall;
