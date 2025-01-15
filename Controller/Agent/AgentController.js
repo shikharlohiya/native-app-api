@@ -10,7 +10,8 @@ const moment = require("moment");
 const FollowUPByAgent = require("../../models/FollowUpByAgent");
 const sequelize = require("../../models/index");
 const ExcelJS = require('exceljs');
-const Employee_Role = require("../../models/employeRole")
+const Employee_Role = require("../../models/employeRole");
+
  
  
 // const moment = require('moment-timezone');
@@ -1330,6 +1331,8 @@ const getValue = (field, data, originalData) => {
 
 
 
+//live code 14jan
+
 
 const validateEditLeadData = (data = {}, originalData = {}) => {
   const errors = {};
@@ -1384,6 +1387,12 @@ const validateEditLeadData = (data = {}, originalData = {}) => {
           });
       }
 
+      if ('AgentId' in data) {
+        if (originalData.AgentId && (data.AgentId === null || data.AgentId === undefined || data.AgentId === '')) {
+            errors.AgentId = "AgentId cannot be removed or set to empty when it already exists";
+        }
+    }
+
       // Follow up date validation for pending category
       if (currentCategory === 'pending') {
           const followUpDate = getValue('follow_up_date', data, originalData);
@@ -1434,6 +1443,112 @@ const validateEditLeadData = (data = {}, originalData = {}) => {
   return errors;
 };
 
+
+
+// const validateEditLeadData = (data = {}, originalData = {}) => {
+//   const errors = {};
+  
+//   try {
+//       // Email validation if being updated
+//       if (data.CustomerMailId) {
+//           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//           if (!emailRegex.test(data.CustomerMailId)) {
+//               errors.CustomerMailId = "Invalid email format";
+//           }
+//       }
+
+//       // Category specific validations
+//       if (data.category && ['warm', 'hot', 'pending'].includes(data.category.toLowerCase())) {
+//           if (!data.follow_up_date && !originalData.follow_up_date) {
+//               errors.follow_up_date = "Follow up date is required for warm/hot/pending categories";
+//           }
+//       }
+
+//       // Connected call status validations - except for pending leads
+//       if (data.call_status === 'Connected' && 
+//           (!originalData.category || originalData.category.toLowerCase() !== 'pending')) {
+//           const requiredFields = {
+//               CustomerName: "Customer name is required for connected calls",
+//               state_name: "State name is required for connected calls",
+//               region_name: "Region name is required for connected calls",
+//               pincode: "Pincode is required for connected calls",
+//               RegionId: "Region ID is required for connected calls",
+//               Project: "Project is required for connected calls",
+//               BDMId: "BDM ID is required for connected calls"
+//           };
+
+//           Object.entries(requiredFields).forEach(([field, message]) => {
+//               if (!data[field] && !originalData[field]) {
+//                   errors[field] = message;
+//               }
+//           });
+//       }
+
+//       // AgentId validation - prevent empty/null if exists
+//       if ('AgentId' in data) {
+//           if (originalData.AgentId && (data.AgentId === null || data.AgentId === undefined || data.AgentId === '')) {
+//               errors.AgentId = "AgentId cannot be removed or set to empty when it already exists";
+//           }
+//       }
+
+//       // Role specific validations for remarks
+//       if (data.lead_created_by === 1 && data.agent_remark === '') {
+//           errors.agent_remark = "Agent remark cannot be empty for agent updates";
+//       }
+//       if ((data.lead_created_by === 2 || data.lead_created_by === 3) && data.bdm_remark === '') {
+//           errors.bdm_remark = "BDM remark cannot be empty for BDM/Zonal Manager updates";
+//       }
+
+//       // WhatsApp number validation if provided
+//       if (data.WhatsappNo) {
+//           const phoneRegex = /^\d{10}$/;
+//           if (!phoneRegex.test(data.WhatsappNo)) {
+//               errors.WhatsappNo = "Invalid WhatsApp number format. Must be 10 digits";
+//           }
+//       }
+
+//       // Alternate mobile number validation if provided
+//       if (data.AlternateMobileNo) {
+//           const phoneRegex = /^\d{10}$/;
+//           if (!phoneRegex.test(data.AlternateMobileNo)) {
+//               errors.AlternateMobileNo = "Invalid alternate mobile number format. Must be 10 digits";
+//           }
+//       }
+
+//       // Pincode validation if provided (not mandatory for pending + connected)
+//       if (data.pincode) {
+//           const pincodeRegex = /^\d{6}$/;
+//           if (!pincodeRegex.test(data.pincode)) {
+//               errors.pincode = "Invalid pincode format. Must be 6 digits";
+//           }
+//       }
+
+//       // Follow up date validation
+//       if (data.follow_up_date) {
+//         const followUpDate = new Date(data.follow_up_date);
+//         if (isNaN(followUpDate.getTime())) {
+//             errors.follow_up_date = "Invalid follow up date format";
+//         }
+//     }
+
+
+//       // Validate action_type is provided
+//       if (!data.action_type) {
+//           errors.action_type = "action_type is required for updating pending leads";
+//       }
+
+//       // Validate remarks
+//       if (!data.remarks) {
+//           errors.remarks = "remarks are required for updating pending leads";
+//       }
+
+//   } catch (error) {
+//       console.error('Validation error:', error);
+//       errors.general = "Error during validation";
+//   }
+
+//   return errors;
+// };
 
 
 
@@ -2014,210 +2129,392 @@ exports.assignLeadToBDM = async (req, res) => {
 // v2
 
 
+// exports.getLeadsByAgentId = async (req, res) => {
+//     try {
+//       const { agentId } = req.params;
+  
+//       // Pagination parameters
+//       const page = parseInt(req.query.page) || 1;
+//       const limit = parseInt(req.query.limit) || 10;
+//       const offset = (page - 1) * limit;
+  
+//       // First, find the employee and their assigned campaigns
+//       const employee = await Employee.findOne({
+//         where: { EmployeeId: agentId },
+//         include: [
+//           {
+//             model: Campaign,
+//             through: { attributes: [] },
+//             attributes: ["CampaignId"],
+//           },
+//         ],
+//       });
+  
+//       if (!employee) {
+//         return res.status(404).json({ message: "Agent not found" });
+//       }
+  
+//       const assignedCampaignIds = employee.Campaigns.map(
+//         (campaign) => campaign.CampaignId
+//       );
+  
+//       // Get category counts (unaffected by filters)
+//       const categoryCounts = await Promise.all([
+//         Lead_Detail.count({
+//           where: {
+//             AgentId: agentId,
+//             source_of_lead_generated: { [Op.in]: assignedCampaignIds },
+//             category: 'hot'
+//           }
+//         }),
+//         Lead_Detail.count({
+//           where: {
+//             AgentId: agentId,
+//             source_of_lead_generated: { [Op.in]: assignedCampaignIds },
+//             category: 'warm'
+//           }
+//         }),
+//         Lead_Detail.count({
+//           where: {
+//             AgentId: agentId,
+//             source_of_lead_generated: { [Op.in]: assignedCampaignIds },
+//             category: 'cold'
+//           }
+//         }),
+//         Lead_Detail.count({
+//           where: {
+//             AgentId: agentId,
+//             source_of_lead_generated: { [Op.in]: assignedCampaignIds },
+//             category: 'pending'
+//           }
+//         }),
+//         Lead_Detail.count({
+//           where: {
+//             AgentId: agentId,
+//             source_of_lead_generated: { [Op.in]: assignedCampaignIds },
+//             category: 'closed'
+//           }
+//         })
+//       ]);
+  
+//       // Build the where clause for filtered results
+//       let whereClause = {
+//         AgentId: agentId,
+//         source_of_lead_generated: {
+//           [Op.in]: assignedCampaignIds,
+//         },
+//       };
+  
+//       // Common search functionality
+//       if (req.query.search) {
+//         const searchConditions = [
+//           { InquiryType: { [Op.like]: `%${req.query.search}%` } },
+//           { Project: { [Op.like]: `%${req.query.search}%` } },
+//           { CustomerName: { [Op.like]: `%${req.query.search}%` } },
+//           { MobileNo: { [Op.like]: `%${req.query.search}%` } },
+//           { region_name: { [Op.like]: `%${req.query.search}%` } },
+//           { category: { [Op.like]: `%${req.query.search}%` } },
+//           { close_month: { [Op.like]: `%${req.query.search}%` } },
+//           { '$Campaign.CampaignName$': { [Op.like]: `%${req.query.search}%` } },
+//           { '$BDM.EmployeeName$': { [Op.like]: `%${req.query.search}%` } },
+//         ];
+  
+//         whereClause = {
+//           ...whereClause,
+//           [Op.and]: [
+//             whereClause,
+//             { [Op.or]: searchConditions }
+//           ]
+//         };
+//       } else {
+//         // Apply individual filters
+//         if (req.query.InquiryType) {
+//           whereClause.InquiryType = {
+//             [Op.in]: req.query.InquiryType.split(',').map(v => v.trim())
+//           };
+//         }
+  
+//         if (req.query.Project) {
+//           whereClause.Project = {
+//             [Op.in]: req.query.Project.split(',').map(v => v.trim())
+//           };
+//         }
+  
+//         if (req.query.region) {
+//           whereClause.region_name = {
+//             [Op.in]: req.query.region.split(',').map(v => v.trim())
+//           };
+//         }
+  
+//         if (req.query.category) {
+//           whereClause.category = {
+//             [Op.in]: req.query.category.split(',').map(v => v.trim())
+//           };
+//         }
+  
+//         if (req.query.subcategory) {
+//           whereClause.sub_category = {
+//             [Op.in]: req.query.subcategory.split(',').map(v => v.trim())
+//           };
+//         }
+//       }
+  
+//       // Build include conditions
+//       const includeConditions = [
+//         { model: Employee, as: "Agent" },
+//         { model: Employee, as: "BDM" },
+//         { model: Employee, as: "Superviser" },
+//         {
+//           model: Campaign,
+//           as: "Campaign",
+//           attributes: ["CampaignId", "CampaignName"],
+//         },
+//       ];
+  
+//       // Campaign name filter
+//       if (req.query.campaignName) {
+//         includeConditions.find(inc => inc.as === "Campaign").where = {
+//           CampaignName: {
+//             [Op.in]: req.query.campaignName.split(',').map(v => v.trim())
+//           }
+//         };
+//       }
+  
+//       // BDM filter
+//       if (req.query.BdmID) {
+//         whereClause.BDMId = {
+//           [Op.in]: req.query.BdmID.split(',').map(v => v.trim())
+//         };
+//       }
+  
+//       // Sorting
+//       const order = req.query.sort
+//         ? [[req.query.sort, "ASC"]]
+//         : [["createdAt", "DESC"]];
+  
+//       // Get total count for pagination
+//       const totalCount = await Lead_Detail.count({
+//         where: whereClause,
+//         include: includeConditions,
+//         distinct: true
+//       });
+  
+//       // Get the leads
+//       const leads = await Lead_Detail.findAll({
+//         where: whereClause,
+//         include: includeConditions,
+//         order,
+//         limit,
+//         offset,
+//       });
+  
+//       const totalPages = Math.ceil(totalCount / limit);
+  
+//       // Prepare category counts object
+//       const stats = {
+//         hot: categoryCounts[0],
+//         warm: categoryCounts[1],
+//         cold: categoryCounts[2],
+//         pending: categoryCounts[3],
+//         closed: categoryCounts[4],
+//         total: categoryCounts.reduce((a, b) => a + b, 0)
+//       };
+  
+//       res.status(200).json({
+//         leads,
+//         currentPage: page,
+//         totalPages,
+//         totalLeads: totalCount,
+//         stats // Added category counts to response
+//       });
+  
+//     } catch (error) {
+//       console.error("Error retrieving leads:", error);
+//       res.status(500).json({ message: "Internal server error" });
+//     }
+//   };
+
+
 exports.getLeadsByAgentId = async (req, res) => {
-    try {
-      const { agentId } = req.params;
-  
-      // Pagination parameters
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
-  
-      // First, find the employee and their assigned campaigns
-      const employee = await Employee.findOne({
-        where: { EmployeeId: agentId },
-        include: [
-          {
-            model: Campaign,
-            through: { attributes: [] },
-            attributes: ["CampaignId"],
-          },
-        ],
-      });
-  
-      if (!employee) {
-        return res.status(404).json({ message: "Agent not found" });
-      }
-  
-      const assignedCampaignIds = employee.Campaigns.map(
-        (campaign) => campaign.CampaignId
-      );
-  
-      // Get category counts (unaffected by filters)
-      const categoryCounts = await Promise.all([
-        Lead_Detail.count({
-          where: {
-            AgentId: agentId,
-            source_of_lead_generated: { [Op.in]: assignedCampaignIds },
-            category: 'hot'
-          }
-        }),
-        Lead_Detail.count({
-          where: {
-            AgentId: agentId,
-            source_of_lead_generated: { [Op.in]: assignedCampaignIds },
-            category: 'warm'
-          }
-        }),
-        Lead_Detail.count({
-          where: {
-            AgentId: agentId,
-            source_of_lead_generated: { [Op.in]: assignedCampaignIds },
-            category: 'cold'
-          }
-        }),
-        Lead_Detail.count({
-          where: {
-            AgentId: agentId,
-            source_of_lead_generated: { [Op.in]: assignedCampaignIds },
-            category: 'pending'
-          }
-        }),
-        Lead_Detail.count({
-          where: {
-            AgentId: agentId,
-            source_of_lead_generated: { [Op.in]: assignedCampaignIds },
-            category: 'closed'
-          }
-        })
-      ]);
-  
-      // Build the where clause for filtered results
-      let whereClause = {
-        AgentId: agentId,
-        source_of_lead_generated: {
-          [Op.in]: assignedCampaignIds,
-        },
-      };
-  
-      // Common search functionality
-      if (req.query.search) {
-        const searchConditions = [
-          { InquiryType: { [Op.like]: `%${req.query.search}%` } },
-          { Project: { [Op.like]: `%${req.query.search}%` } },
-          { CustomerName: { [Op.like]: `%${req.query.search}%` } },
-          { MobileNo: { [Op.like]: `%${req.query.search}%` } },
-          { region_name: { [Op.like]: `%${req.query.search}%` } },
-          { category: { [Op.like]: `%${req.query.search}%` } },
-          { close_month: { [Op.like]: `%${req.query.search}%` } },
-          { '$Campaign.CampaignName$': { [Op.like]: `%${req.query.search}%` } },
-          { '$BDM.EmployeeName$': { [Op.like]: `%${req.query.search}%` } },
-        ];
-  
-        whereClause = {
-          ...whereClause,
-          [Op.and]: [
-            whereClause,
-            { [Op.or]: searchConditions }
-          ]
-        };
-      } else {
-        // Apply individual filters
-        if (req.query.InquiryType) {
-          whereClause.InquiryType = {
-            [Op.in]: req.query.InquiryType.split(',').map(v => v.trim())
-          };
-        }
-  
-        if (req.query.Project) {
-          whereClause.Project = {
-            [Op.in]: req.query.Project.split(',').map(v => v.trim())
-          };
-        }
-  
-        if (req.query.region) {
-          whereClause.region_name = {
-            [Op.in]: req.query.region.split(',').map(v => v.trim())
-          };
-        }
-  
-        if (req.query.category) {
-          whereClause.category = {
-            [Op.in]: req.query.category.split(',').map(v => v.trim())
-          };
-        }
-  
-        if (req.query.subcategory) {
-          whereClause.sub_category = {
-            [Op.in]: req.query.subcategory.split(',').map(v => v.trim())
-          };
-        }
-      }
-  
-      // Build include conditions
-      const includeConditions = [
-        { model: Employee, as: "Agent" },
-        { model: Employee, as: "BDM" },
-        { model: Employee, as: "Superviser" },
+  try {
+    const { agentId } = req.params;
+
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // First, find the employee and their assigned campaigns
+    const employee = await Employee.findOne({
+      where: { EmployeeId: agentId },
+      include: [
         {
           model: Campaign,
-          as: "Campaign",
-          attributes: ["CampaignId", "CampaignName"],
+          through: { attributes: [] },
+          attributes: ["CampaignId"],
         },
-      ];
-  
-      // Campaign name filter
-      if (req.query.campaignName) {
-        includeConditions.find(inc => inc.as === "Campaign").where = {
-          CampaignName: {
-            [Op.in]: req.query.campaignName.split(',').map(v => v.trim())
-          }
-        };
-      }
-  
-      // BDM filter
-      if (req.query.BdmID) {
-        whereClause.BDMId = {
-          [Op.in]: req.query.BdmID.split(',').map(v => v.trim())
-        };
-      }
-  
-      // Sorting
-      const order = req.query.sort
-        ? [[req.query.sort, "ASC"]]
-        : [["createdAt", "DESC"]];
-  
-      // Get total count for pagination
-      const totalCount = await Lead_Detail.count({
-        where: whereClause,
-        include: includeConditions,
-        distinct: true
-      });
-  
-      // Get the leads
-      const leads = await Lead_Detail.findAll({
-        where: whereClause,
-        include: includeConditions,
-        order,
-        limit,
-        offset,
-      });
-  
-      const totalPages = Math.ceil(totalCount / limit);
-  
-      // Prepare category counts object
-      const stats = {
-        hot: categoryCounts[0],
-        warm: categoryCounts[1],
-        cold: categoryCounts[2],
-        pending: categoryCounts[3],
-        closed: categoryCounts[4],
-        total: categoryCounts.reduce((a, b) => a + b, 0)
-      };
-  
-      res.status(200).json({
-        leads,
-        currentPage: page,
-        totalPages,
-        totalLeads: totalCount,
-        stats // Added category counts to response
-      });
-  
-    } catch (error) {
-      console.error("Error retrieving leads:", error);
-      res.status(500).json({ message: "Internal server error" });
+      ],
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: "Agent not found" });
     }
+
+    const assignedCampaignIds = employee.Campaigns.map(
+      (campaign) => campaign.CampaignId
+    );
+
+    // Get base stats (unaffected by filters)
+    const stats = await getAgentCategoryCounts(agentId, assignedCampaignIds);
+
+    // Build the where clause starting with required agent and campaign filters
+    let whereClause = {
+      AgentId: agentId,
+      source_of_lead_generated: {
+        [Op.in]: assignedCampaignIds,
+      },
+    };
+
+    // Build include conditions
+    const includeConditions = [
+      { model: Employee, as: "Agent" },
+      { model: Employee, as: "BDM" },
+      { model: Employee, as: "Superviser" },
+      {
+        model: Campaign,
+        as: "Campaign",
+        attributes: ["CampaignId", "CampaignName"],
+      },
+    ];
+
+    // First apply all filters
+    if (req.query.InquiryType) {
+      whereClause.InquiryType = {
+        [Op.in]: req.query.InquiryType.split(',').map(v => v.trim())
+      };
+    }
+
+    if (req.query.Project) {
+      whereClause.Project = {
+        [Op.in]: req.query.Project.split(',').map(v => v.trim())
+      };
+    }
+
+    if (req.query.region) {
+      whereClause.region_name = {
+        [Op.in]: req.query.region.split(',').map(v => v.trim())
+      };
+    }
+
+    if (req.query.category) {
+      whereClause.category = {
+        [Op.in]: req.query.category.split(',').map(v => v.trim())
+      };
+    }
+
+    if (req.query.subcategory) {
+      whereClause.sub_category = {
+        [Op.in]: req.query.subcategory.split(',').map(v => v.trim())
+      };
+    }
+
+    if (req.query.BdmID) {
+      whereClause.BDMId = {
+        [Op.in]: req.query.BdmID.split(',').map(v => v.trim())
+      };
+    }
+
+    // Campaign name filter
+    if (req.query.campaignName) {
+      includeConditions.find(inc => inc.as === "Campaign").where = {
+        CampaignName: {
+          [Op.in]: req.query.campaignName.split(',').map(v => v.trim())
+        }
+      };
+    }
+
+    // Then apply search if exists
+    if (req.query.search) {
+      const searchConditions = [
+        { InquiryType: { [Op.like]: `%${req.query.search}%` } },
+        { Project: { [Op.like]: `%${req.query.search}%` } },
+        { CustomerName: { [Op.like]: `%${req.query.search}%` } },
+        { MobileNo: { [Op.like]: `%${req.query.search}%` } },
+        { region_name: { [Op.like]: `%${req.query.search}%` } },
+        { category: { [Op.like]: `%${req.query.search}%` } },
+        { close_month: { [Op.like]: `%${req.query.search}%` } },
+        { '$Campaign.CampaignName$': { [Op.like]: `%${req.query.search}%` } },
+        { '$BDM.EmployeeName$': { [Op.like]: `%${req.query.search}%` } },
+      ];
+
+      whereClause = {
+        [Op.and]: [
+          whereClause,  // Keep all existing filters
+          { [Op.or]: searchConditions }  // Add search within filtered data
+        ]
+      };
+    }
+
+    // Sorting
+    const order = req.query.sort
+      ? [[req.query.sort, "ASC"]]
+      : [["createdAt", "DESC"]];
+
+    // Get total count for pagination
+    const totalCount = await Lead_Detail.count({
+      where: whereClause,
+      include: includeConditions,
+      distinct: true
+    });
+
+    // Get the leads
+    const leads = await Lead_Detail.findAll({
+      where: whereClause,
+      include: includeConditions,
+      order,
+      limit,
+      offset,
+    });
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    res.status(200).json({
+      leads,
+      currentPage: page,
+      totalPages,
+      totalLeads: totalCount,
+      stats
+    });
+
+  } catch (error) {
+    console.error("Error retrieving leads:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const getAgentCategoryCounts = async (agentId, assignedCampaignIds) => {
+  const categories = ['hot', 'warm', 'cold', 'pending', 'closed'];
+  const counts = await Promise.all(
+    categories.map(category =>
+      Lead_Detail.count({
+        where: {
+          AgentId: agentId,
+          source_of_lead_generated: { [Op.in]: assignedCampaignIds },
+          category
+        }
+      })
+    )
+  );
+
+  return {
+    hot: counts[0],
+    warm: counts[1],
+    cold: counts[2],
+    pending: counts[3],
+    closed: counts[4],
+    total: counts.reduce((a, b) => a + b, 0)
   };
+};
 
 
   //for to export the data
@@ -5031,8 +5328,6 @@ exports.getAuditCallAnalytics = async (req, res) => {
 //         });
 //     }
 // }; 
-
-
 
 
 

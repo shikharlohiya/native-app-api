@@ -458,6 +458,10 @@ exports.uploadLeads = async (req, res) => {
   }
 };
 
+
+
+
+
 //27-09-2024---for debugging to upload
 // function formatDateForMySQL(excelDate) {
 //   if (!excelDate || (typeof excelDate === 'string' && excelDate.trim() === '')) {
@@ -1874,17 +1878,18 @@ exports.getBdmDailyTasks = async (req, res) => {
 };
 
 
-const addMultiValueFilter = (field, value, operatorType = Op.like) => {
-  if (value) {
-    const values = value.split(',').map(v => v.trim());
-    return {
-      [field]: {
-        [Op.or]: values.map(val => ({ [operatorType]: `%${val}%` }))
-      }
-    };
-  }
-  return null;
-};
+// const addMultiValueFilter = (field, value, operatorType = Op.like) => {
+//   if (value) {
+//     const values = value.split(',').map(v => v.trim());
+//     return {
+//       [field]: {
+//         [Op.or]: values.map(val => ({ [operatorType]: `%${val}%` }))
+//       }
+//     };
+//   }
+//   return null;
+// };
+
 
 const buildFilterAndIncludes = (req) => {
   let filter = {};
@@ -1975,27 +1980,76 @@ const buildFilterAndIncludes = (req) => {
 };
 
 // Get category counts
-const getCategoryCounts = async () => {
-  const categories = ['hot', 'warm', 'cold', 'pending', 'closed'];
-  const counts = await Promise.all(
-    categories.map(category =>
-      Lead_Detail.count({
-        where: { category }
-      })
-    )
-  );
 
-  return {
-    hot: counts[0],
-    warm: counts[1],
-    cold: counts[2],
-    pending: counts[3],
-    closed: counts[4],
-    total: counts.reduce((a, b) => a + b, 0)
-  };
-};
 
-// Main API Endpoints
+// const getCategoryCounts = async () => {
+//   const categories = ['hot', 'warm', 'cold', 'pending', 'closed'];
+//   const counts = await Promise.all(
+//     categories.map(category =>
+//       Lead_Detail.count({
+//         where: { category }
+//       })
+//     )
+//   );
+
+//   return {
+//     hot: counts[0],
+//     warm: counts[1],
+//     cold: counts[2],
+//     pending: counts[3],
+//     closed: counts[4],
+//     total: counts.reduce((a, b) => a + b, 0)
+//   };
+// };
+
+
+
+
+// // Main API Endpoints
+// exports.getLeads = async (req, res) => {
+//   try {
+//     // Pagination parameters
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const offset = (page - 1) * limit;
+
+//     // Get category counts
+//     const stats = await getCategoryCounts();
+
+//     // Get filters and includes
+//     const { filter, includeConditions } = buildFilterAndIncludes(req);
+
+//     // Sorting parameter
+//     const order = req.query.sort
+//       ? [[req.query.sort, "ASC"]]
+//       : [["createdAt", "DESC"]];
+
+//     // Get leads with pagination
+//     const { count, rows } = await Lead_Detail.findAndCountAll({
+//       where: filter,
+//       limit,
+//       offset,
+//       order,
+//       include: includeConditions,
+//       distinct: true,
+//     });
+
+//     const totalPages = Math.ceil(count / limit);
+
+//     res.json({
+//       leads: rows,
+//       currentPage: page,
+//       totalPages,
+//       totalLeads: count,
+//       stats
+//     });
+//   } catch (error) {
+//     console.error("Error fetching leads:", error);
+//     res.status(500).json({ message: "An error occurred while fetching leads" });
+//   }
+// };
+
+
 exports.getLeads = async (req, res) => {
   try {
     // Pagination parameters
@@ -2006,8 +2060,11 @@ exports.getLeads = async (req, res) => {
     // Get category counts
     const stats = await getCategoryCounts();
 
-    // Get filters and includes
-    const { filter, includeConditions } = buildFilterAndIncludes(req);
+    // Get base filters first (without search)
+    const { baseFilter, includeConditions } = buildBaseFilterAndIncludes(req);
+
+    // Apply search within filtered data if filters exist
+    const finalFilter = buildFinalFilter(req.query.search, baseFilter);
 
     // Sorting parameter
     const order = req.query.sort
@@ -2016,7 +2073,7 @@ exports.getLeads = async (req, res) => {
 
     // Get leads with pagination
     const { count, rows } = await Lead_Detail.findAndCountAll({
-      where: filter,
+      where: finalFilter,
       limit,
       offset,
       order,
@@ -2039,6 +2096,151 @@ exports.getLeads = async (req, res) => {
   }
 };
 
+
+const buildBaseFilterAndIncludes = (req) => {
+  let baseFilter = {};
+  const includeConditions = [];
+
+  // Apply individual filters
+  const filterConditions = {
+    ...(req.query.InquiryType && { 
+      InquiryType: { 
+        [Op.in]: req.query.InquiryType.split(',').map(v => v.trim()) 
+      } 
+    }),
+    ...(req.query.Project && { 
+      Project: { 
+        [Op.in]: req.query.Project.split(',').map(v => v.trim()) 
+      } 
+    }),
+    ...(req.query.region && { 
+      region_name: { 
+        [Op.in]: req.query.region.split(',').map(v => v.trim()) 
+      } 
+    }),
+    ...(req.query.category && { 
+      category: { 
+        [Op.in]: req.query.category.split(',').map(v => v.trim()) 
+      } 
+    }),
+    ...(req.query.subcategory && { 
+      sub_category: { 
+        [Op.in]: req.query.subcategory.split(',').map(v => v.trim()) 
+      } 
+    }),
+  };
+
+  baseFilter = filterConditions;
+
+  // Campaign name filter
+  if (req.query.campaignName) {
+    includeConditions.push({
+      model: Campaign,
+      as: "Campaign",
+      where: {
+        CampaignName: {
+          [Op.in]: req.query.campaignName.split(',').map(v => v.trim())
+        }
+      }
+    });
+  }
+
+  // BDM ID filter
+  if (req.query.BdmID) {
+    includeConditions.push({
+      model: Employee,
+      as: "BDM",
+      where: {
+        EmployeeId: {
+          [Op.in]: req.query.BdmID.split(',').map(v => v.trim())
+        }
+      }
+    });
+  }
+
+  // Agent ID filter
+  if (req.query.agentName) {
+    includeConditions.push({
+      model: Employee,
+      as: "Agent",
+      where: {
+        EmployeeId: {
+          [Op.in]: req.query.agentName.split(',').map(v => v.trim())
+        }
+      }
+    });
+  }
+
+  // Base includes
+  const baseIncludes = [
+    { model: Campaign, as: "Campaign" },
+    { model: Employee, as: "BDM" },
+    { model: Employee, as: "Agent" }
+  ];
+
+  // Add base includes if not already present
+  baseIncludes.forEach(include => {
+    if (!includeConditions.some(condition => condition.as === include.as)) {
+      includeConditions.push(include);
+    }
+  });
+
+  return { baseFilter, includeConditions };
+};
+
+const buildFinalFilter = (searchTerm, baseFilter) => {
+  if (!searchTerm) {
+    return baseFilter;
+  }
+
+  const searchConditions = [
+    addMultiValueFilter('InquiryType', searchTerm),
+    addMultiValueFilter('Project', searchTerm),
+    addMultiValueFilter('CustomerName', searchTerm),
+    addMultiValueFilter('MobileNo', searchTerm),
+    addMultiValueFilter('region_name', searchTerm),
+    addMultiValueFilter('category', searchTerm),
+    addMultiValueFilter('close_month', searchTerm),
+    { '$Campaign.CampaignName$': { [Op.like]: `%${searchTerm}%` } },
+    { '$BDM.EmployeeName$': { [Op.like]: `%${searchTerm}%` } },
+    { '$Agent.EmployeeName$': { [Op.like]: `%${searchTerm}%` } },
+  ].filter(condition => condition !== null);
+
+  // If there are base filters, combine them with search conditions using AND
+  if (Object.keys(baseFilter).length > 0) {
+    return {
+      [Op.and]: [
+        baseFilter,
+        { [Op.or]: searchConditions }
+      ]
+    };
+  }
+
+  // If no base filters, just use search conditions
+  return { [Op.or]: searchConditions };
+};
+
+
+
+const addMultiValueFilter = (field, value) => {
+  return value ? { [field]: { [Op.like]: `%${value}%` } } : null;
+};
+
+// Get category counts (unchanged)
+const getCategoryCounts = async () => {
+  const categories = ['hot', 'warm', 'cold', 'pending', 'closed'];
+  const counts = await Promise.all(
+    categories.map(category =>
+      Lead_Detail.count({
+        where: { category }
+      })
+    )
+  );
+    return categories.reduce((acc, category, index) => {
+    acc[category] = counts[index];
+    return acc;
+  }, {});
+};
 
 
 exports.exportLeads = async (req, res) => {
