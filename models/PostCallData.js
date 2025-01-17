@@ -29,11 +29,11 @@ PostCallData.init(
     },
     callStartTime: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     callEndTime: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     dtmf: {
       type: DataTypes.STRING,
@@ -41,15 +41,15 @@ PostCallData.init(
     },
     ogStartTime: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     ogEndTime: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     ogCallStatus: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     agentNumber: {
       type: DataTypes.STRING,
@@ -57,7 +57,7 @@ PostCallData.init(
     },
     totalCallDuration: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
     },
     voiceRecording: {
       type: DataTypes.STRING,
