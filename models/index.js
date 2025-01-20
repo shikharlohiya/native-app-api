@@ -39,10 +39,10 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: process.env.DB_DIALECT,
     pool: {
-      max: 15,        // Conservative setting for production
-      min: 2,
-      acquire: 60000,
-      idle: 10000,
+      max: 25,        // Conservative setting for production
+      min: 5,
+      acquire: 60000, 
+      idle: 20000,
     },
     retry: {
       max: 2
