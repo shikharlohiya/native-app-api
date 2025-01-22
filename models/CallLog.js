@@ -1,15 +1,9 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
-
-
-
 const Employee = require("./employee");
 const AuditLeadTable = require('./AuditLeadTable');
 const LeadDetail = require('./lead_detail');
-
+const AuditNewFarmer = require('./AuditNewFarmer')
 const sequelize = require("./index");
-
-
-
 class CallLog extends Model {}
 
 CallLog.init(
@@ -117,26 +111,28 @@ CallLog.init(
     timestamps: true,
   }
 );
-
-// CallLog Associations
 CallLog.belongsTo(Employee, {
-  foreignKey: 'aPartyNo',
-  targetKey: 'EmployeePhone',
-  as: 'agent'
+    foreignKey: 'aPartyNo',
+    targetKey: 'EmployeePhone',
+    as: 'agent'
 });
 
-// For Standard IVR (8517009997)
 CallLog.belongsTo(LeadDetail, {
-  foreignKey: 'bPartyNo',
-  targetKey: 'MobileNo',
-  as: 'leadDetail'
+    foreignKey: 'bPartyNo',
+    targetKey: 'MobileNo',
+    as: 'leadDetail'
 });
 
-// For Audit IVR (8517009998)
 CallLog.belongsTo(AuditLeadTable, {
-  foreignKey: 'bPartyNo',
-  targetKey: 'Mobile',
-  as: 'auditLead'
+    foreignKey: 'bPartyNo',
+    targetKey: 'Mobile',
+    as: 'auditLead'
+});
+
+CallLog.belongsTo(AuditNewFarmer, {
+    foreignKey: 'bPartyNo',
+    targetKey: 'Mobile',
+    as: 'auditFarmer'
 });
 
 

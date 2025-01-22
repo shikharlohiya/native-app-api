@@ -17,7 +17,7 @@ PostCallData.init(
     },
     event: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: false, 
     },
     ivrNumber: {
       type: DataTypes.STRING,
@@ -61,6 +61,10 @@ PostCallData.init(
     },
     voiceRecording: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+    isOutGoingDone: {
+      type: DataTypes.BOOLEAN,
       allowNull: true,
     },
   },

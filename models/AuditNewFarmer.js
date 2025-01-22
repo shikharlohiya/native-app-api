@@ -1,5 +1,6 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
 const sequelize = require("./index");
+const Employee = require('./employee'); 
 
 class AuditNewFarmer extends Model {}
 
@@ -93,11 +94,11 @@ AuditNewFarmer.init(
       defaultValue: 'farmer'
     },
     // Extra fields for future use
-    extra1: {
+    call_id: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: true,  
     },
-    extra2: {
+    Lot_Number: {
       type: DataTypes.STRING,
       allowNull: true,
     },
@@ -125,10 +126,9 @@ AuditNewFarmer.init(
 );
 
 // Define the relationship with Employee model
-AuditNewFarmer.belongsTo(require('./employee'), {
+AuditNewFarmer.belongsTo(Employee, {   // Don't use require() here
   foreignKey: 'AgentId',
   targetKey: 'EmployeeId',
   as: 'agent'
 });
-
 module.exports = AuditNewFarmer;

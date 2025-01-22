@@ -961,6 +961,8 @@ exports.createAuditLeadRemark = async (req, res) => {
         AgentId,
         status,
         follow_up_date,
+        call_id,
+        user_type,
         // Fields for type = 'running'
         CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
         IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
@@ -1000,7 +1002,8 @@ exports.createAuditLeadRemark = async (req, res) => {
           FEED_ENT, MORT_ENT, BWT_ENT, MED_ENT, REMARKS,
           DATE, Lot_Number, AgentId,
           closure_status: status,
-          follow_up_date
+          follow_up_date,
+          call_id
         }, { transaction });
 
         // Update AuditLeadDetail
@@ -1030,6 +1033,7 @@ exports.createAuditLeadRemark = async (req, res) => {
           AgentId,
           status,
           follow_up_date: status === 'closed' ? null : follow_up_date,
+          call_id,
           ABWT: type === 'old' ? ABWT : null,
           Avg_Lift_Wt: type === 'old' ? Avg_Lift_Wt : null,
           Total_Mortality: type === 'old' ? Total_Mortality : null,
@@ -1038,12 +1042,13 @@ exports.createAuditLeadRemark = async (req, res) => {
           branch_Name: type === 'new' ? branch_Name : null,
           previousCompanyName: type === 'new' ? previousCompanyName : null,
           previousPoultryExperience: type === 'new' ? previousPoultryExperience : null,
+          Lot_Number,
           Mobile,
           Zone_Name,
           farmer_name,
           followUpBy,
           remarks: REMARKS,
-          user_type: 'farmer'
+          user_type: user_type
         }, { transaction });
 
       } else {

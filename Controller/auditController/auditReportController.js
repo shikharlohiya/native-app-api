@@ -1,8 +1,9 @@
 const express = require('express');
-const { QueryTypes, Op,fn, literal } = require('sequelize');
+const { QueryTypes, Op,fn, literal, Sequelize,  } = require('sequelize');
 const Employee = require('../../models/employee');
 const AuditLeadRemark = require('../../models/AuditLeadRemark');
 const AuditLeadTable = require('../../models/AuditLeadTable');
+const AuditNewFarmer = require('../../models/AuditNewFarmer');
 const IncomingCall = require("../../models/IncomingCall")
 const Employee_Role = require('../../models/employeRole');
 const sequelize = require("../../models/index");
@@ -11,7 +12,9 @@ const path = require('path');
 const pdf = require('pdf-creator-node');
 const fs = require('fs-extra');
 const { Parser } = require('json2csv');
+const CallLog = require('../../models/CallLog');
 const moment = require("moment");
+const PostCallData = require('../../models/PostCallData');
 
 
 Employee.belongsTo(Employee_Role, {
@@ -78,6 +81,7 @@ Employee.belongsTo(Employee_Role, {
         SELECT 
           alt.Lot_Number,
           alt.Farmer_Name,
+          alt.Mobile,
           alt.Zone_Name,
           alt.Branch_Name,
           alt.follow_up_date,
@@ -1311,6 +1315,2323 @@ exports.getDetailedCallAnalytics = async (req, res) => {
             success: false,
             message: 'Internal server error',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+
+// new out going report api
+
+
+ 
+
+
+
+
+
+
+
+ 
+// const formatDateTime = (dateTimeString) => {
+//     if (!dateTimeString) return null;
+//     const date = new Date(dateTimeString);
+//     return {
+//         date: date.toLocaleDateString('en-GB'),  // DD/MM/YYYY
+//         time: date.toLocaleTimeString('en-US', { hour12: true })  // HH:MM:SS AM/PM
+//     };
+// };
+
+// const calculateDuration = (endTime, startTime) => {
+//     if (!endTime || !startTime) return null;
+//     const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000); // in seconds
+//     const minutes = Math.floor(duration / 60);
+//     const seconds = duration % 60;
+//     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+// };
+
+// const transformCallData = (call) => {
+//     const startDateTime = formatDateTime(call.callStartTime);
+//     return {
+//         agentNumber: call.aPartyNo,
+//         agentDetails: call.agent ? {
+//             name: call.agent.EmployeeName,
+//             region: call.agent.EmployeeRegion,
+//             employeeId: call.agent.EmployeeId
+//         } : null,
+//         customerNumber: call.bPartyNo,
+//         customerDetails: call.auditLead ? {
+//             lotNumber: call.auditLead.Lot_Number,
+//             zoneName: call.auditLead.Zone_Name,
+//             branchName: call.auditLead.Branch_Name,
+//             farmerName: call.auditLead.Farmer_Name,
+//             vendor: call.auditLead.Vendor,
+//             shedType: call.auditLead.Shed_Type,
+//             status: call.auditLead.status,
+//             followUpDate: formatDateTime(call.auditLead.follow_up_date)
+//         } : null,
+//         callStartDate: startDateTime?.date,
+//         callStartTime: startDateTime?.time,
+//         callStatus: call.bDialStatus,
+//         callDuration: calculateDuration(call.bPartyEndTime, call.bPartyConnectedTime),
+//         disconnectedBy: call.disconnectedBy,
+//         recordingUrl: call.recordVoice
+//     };
+// };
+
+// exports.getCallAnalysis = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             pageSize = 10,
+//             startDate,
+//             endDate,
+//             dni = "7610233333",
+//             aPartyNo
+//         } = req.query;
+
+//         let whereClause = {
+//             dni: dni,
+//             eventType: 'call End'
+//         };
+
+//         if (aPartyNo) {
+//             whereClause.aPartyNo = aPartyNo;
+//         }
+
+//         if (startDate && endDate) {
+//             whereClause.createdAt = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+
+//         const includeOptions = [
+//             {
+//                 model: Employee,
+//                 as: 'agent',
+//                 attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone', 'EmployeeRegion'],
+//                 required: false
+//             },
+//             {
+//                 model: AuditLeadTable,
+//                 as: 'auditLead',
+//                 attributes: [
+//                     'Lot_Number',
+//                     'Zone_Name',
+//                     'Branch_Name',
+//                     'Farmer_Name',
+//                     'Vendor',
+//                     'Shed_Type',
+//                     'status',
+//                     'follow_up_date'
+//                 ],
+//                 required: false
+//             }
+//         ];
+
+//         // Get total calls count
+//         const totalCalls = await CallLog.count({
+//             where: whereClause
+//         });
+
+//         // Get connected calls
+//         const connectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 bDialStatus: 'Connected'
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         // Get not connected calls
+//         const notConnectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 [Op.or]: [
+//                     { bDialStatus: { [Op.ne]: 'Connected' } },
+//                     { bDialStatus: null }
+//                 ]
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         // Transform the data
+//         const transformedConnectedCalls = connectedCalls.rows.map(transformCallData);
+//         const transformedNotConnectedCalls = notConnectedCalls.rows.map(transformCallData);
+
+//         res.json({
+//             success: true,
+//             filters: {
+//                 dni,
+//                 agentNumber: aPartyNo || 'All',
+//                 dateRange: startDate && endDate ? {
+//                     start: startDate,
+//                     end: endDate
+//                 } : null
+//             },
+//             pagination: {
+//                 page: parseInt(page),
+//                 pageSize: parseInt(pageSize),
+//                 totalPages: Math.ceil(totalCalls / parseInt(pageSize))
+//             },
+//             totalCalls,
+//             connected: {
+//                 totalCount: connectedCalls.count,
+//                 calls: transformedConnectedCalls
+//             },
+//             notConnected: {
+//                 totalCount: notConnectedCalls.count,
+//                 calls: transformedNotConnectedCalls
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getCallAnalysis:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching call analysis',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
+
+
+
+// const formatDateTime = (dateTimeString) => {
+//     if (!dateTimeString) return null;
+//     const date = new Date(dateTimeString);
+//     return {
+//         date: date.toLocaleDateString('en-GB'),
+//         time: date.toLocaleTimeString('en-US', { hour12: true })
+//     };
+// };
+
+// const calculateDuration = (endTime, startTime) => {
+//     if (!endTime || !startTime) return null;
+//     const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
+//     const minutes = Math.floor(duration / 60);
+//     const seconds = duration % 60;
+//     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+// };
+
+// const getCustomerDetails = (call) => {
+//     // First check AuditLeadTable
+//     if (call.auditLead) {
+//         return {
+//             source: 'AuditLeadTable',
+//             lotNumber: call.auditLead.Lot_Number,
+//             zoneName: call.auditLead.Zone_Name,
+//             branchName: call.auditLead.Branch_Name,
+//             farmerName: call.auditLead.Farmer_Name,
+//             vendor: call.auditLead.Vendor,
+//             shedType: call.auditLead.Shed_Type,
+//             status: call.auditLead.status,
+//             followUpDate: formatDateTime(call.auditLead.follow_up_date)
+//         };
+//     }
+    
+//     // Then check AuditNewFarmer
+//     if (call.auditNewFarmer) {
+//         const details = {
+//             source: 'AuditNewFarmer',
+//             zoneName: call.auditNewFarmer.Zone_Name,
+//             branchName: call.auditNewFarmer.branch_Name,
+//             farmerName: call.auditNewFarmer.farmer_name,
+//             shedType: call.auditNewFarmer.Shed_Type,
+//             status: call.auditNewFarmer.status,
+//             followUpDate: formatDateTime(call.auditNewFarmer.follow_up_date),
+//             type: call.auditNewFarmer.type,
+//             followUpBy: call.auditNewFarmer.followUpBy,
+//             remarks: call.auditNewFarmer.remarks
+//         };
+
+//         // Add fields specific to old farmers
+//         if (call.auditNewFarmer.type === 'old') {
+//             details.oldFarmerDetails = {
+//                 ABWT: call.auditNewFarmer.ABWT,
+//                 avgLiftWt: call.auditNewFarmer.Avg_Lift_Wt,
+//                 totalMortality: call.auditNewFarmer.Total_Mortality,
+//                 firstWeekM: call.auditNewFarmer.first_Week_M
+//             };
+//         }
+
+//         // Add fields specific to new farmers
+//         if (call.auditNewFarmer.type === 'new') {
+//             details.newFarmerDetails = {
+//                 previousCompanyName: call.auditNewFarmer.previousCompanyName,
+//                 previousPoultryExperience: call.auditNewFarmer.previousPoultryExperience
+//             };
+//         }
+
+//         return details;
+//     }
+
+//     return null;
+// };
+
+// const transformCallData = (call) => {
+//     const startDateTime = formatDateTime(call.callStartTime);
+//     return {
+//         agentNumber: call.aPartyNo,
+//         agentDetails: call.agent ? {
+//             name: call.agent.EmployeeName,
+//             region: call.agent.EmployeeRegion,
+//             employeeId: call.agent.EmployeeId
+//         } : null,
+//         customerNumber: call.bPartyNo,
+//         customerDetails: getCustomerDetails(call),
+//         callStartDate: startDateTime?.date,
+//         callStartTime: startDateTime?.time,
+//         callStatus: call.bDialStatus,
+//         callDuration: calculateDuration(call.bPartyEndTime, call.bPartyConnectedTime),
+//         disconnectedBy: call.disconnectedBy,
+//         recordingUrl: call.recordVoice
+//     };
+// };
+
+// exports.getCallAnalysis = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             pageSize = 10,
+//             startDate,
+//             endDate,
+//             dni = "7610233333",
+//             aPartyNo
+//         } = req.query;
+
+//         let whereClause = {
+//             dni: dni,
+//             eventType: 'call End'
+//         };
+
+//         if (aPartyNo) {
+//             whereClause.aPartyNo = aPartyNo;
+//         }
+
+//         if (startDate && endDate) {
+//             whereClause.createdAt = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+
+//         const includeOptions = [
+//             {
+//                 model: Employee,
+//                 as: 'agent',
+//                 attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone', 'EmployeeRegion'],
+//                 required: false
+//             },
+//             {
+//                 model: AuditNewFarmer,
+//                 as: 'auditFarmer',
+//                 attributes: ['Mobile', 'Zone_Name', 'farmer_name', /* other fields */],
+//                 required: false
+//             },
+//             {
+//                 model: AuditLeadTable,
+//                 as: 'auditLead',
+//                 required: false
+//             }
+//         ];
+        
+//         const calls = await CallLog.findAndCountAll({
+//             where: whereClause,
+//             include: includeOptions,
+//             distinct: true  // Important when using multiple includes
+//         });
+
+//         // Get total calls count
+//         const totalCalls = await CallLog.count({
+//             where: whereClause
+//         });
+
+//         // Get connected calls
+//         const connectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 bDialStatus: 'Connected'
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         // Get not connected calls
+//         const notConnectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 [Op.or]: [
+//                     { bDialStatus: { [Op.ne]: 'Connected' } },
+//                     { bDialStatus: null }
+//                 ]
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         const transformedConnectedCalls = connectedCalls.rows.map(transformCallData);
+//         const transformedNotConnectedCalls = notConnectedCalls.rows.map(transformCallData);
+
+//         res.json({
+//             success: true,
+//             filters: {
+//                 dni,
+//                 agentNumber: aPartyNo || 'All',
+//                 dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+//             },
+//             pagination: {
+//                 page: parseInt(page),
+//                 pageSize: parseInt(pageSize),
+//                 totalPages: Math.ceil(totalCalls / parseInt(pageSize))
+//             },
+//             totalCalls,
+//             connected: {
+//                 totalCount: connectedCalls.count,
+//                 calls: transformedConnectedCalls
+//             },
+//             notConnected: {
+//                 totalCount: notConnectedCalls.count,
+//                 calls: transformedNotConnectedCalls
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getCallAnalysis:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching call analysis',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
+
+
+
+// const formatDateTime = (dateTimeString) => {
+//     if (!dateTimeString) return null;
+//     const date = new Date(dateTimeString);
+//     return {
+//         date: date.toLocaleDateString('en-GB'),  // DD/MM/YYYY
+//         time: date.toLocaleTimeString('en-US', { hour12: true })  // HH:MM:SS AM/PM
+//     };
+// };
+
+// const calculateDuration = (endTime, startTime) => {
+//     if (!endTime || !startTime) return null;
+//     const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000); // in seconds
+//     const minutes = Math.floor(duration / 60);
+//     const seconds = duration % 60;
+//     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+// };
+
+// const transformCallData = (call) => {
+//     const startDateTime = formatDateTime(call.callStartTime);
+//     return {
+//         agentNumber: call.aPartyNo,
+//         agentDetails: call.agent ? {
+//             name: call.agent.EmployeeName,
+//             region: call.agent.EmployeeRegion,
+//             employeeId: call.agent.EmployeeId
+//         } : null,
+//         customerNumber: call.bPartyNo,
+//         customerDetails: call.auditLead ? {
+//             lotNumber: call.auditLead.Lot_Number,
+//             zoneName: call.auditLead.Zone_Name,
+//             branchName: call.auditLead.Branch_Name,
+//             farmerName: call.auditLead.Farmer_Name,
+//             vendor: call.auditLead.Vendor,
+//             shedType: call.auditLead.Shed_Type,
+//             status: call.auditLead.status,
+//             followUpDate: formatDateTime(call.auditLead.follow_up_date)
+//         } : null,
+//         callStartDate: startDateTime?.date,
+//         callStartTime: startDateTime?.time,
+//         callStatus: call.bDialStatus,
+//         callDuration: calculateDuration(call.bPartyEndTime, call.bPartyConnectedTime),
+//         disconnectedBy: call.disconnectedBy,
+//         recordingUrl: call.recordVoice
+//     };
+// };
+
+
+
+// exports.getCallAnalysis = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             pageSize = 10,
+//             startDate,
+//             endDate,
+//             dni = "7610233333",
+//             aPartyNo
+//         } = req.query;
+
+//         let whereClause = {
+//             dni: dni,
+//             eventType: 'call End'
+//         };
+
+//         if (aPartyNo) {
+//             whereClause.aPartyNo = aPartyNo;
+//         }
+
+//         if (startDate && endDate) {
+//             whereClause.createdAt = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+
+//         const includeOptions = [
+//             {
+//                 model: Employee,
+//                 as: 'agent',
+//                 attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone', 'EmployeeRegion'],
+//                 required: false
+//             },
+
+//             {
+//                 model: AuditLeadTable,
+//                 as: 'auditLead',
+//                 attributes: [
+//                     'Lot_Number',
+//                     'Zone_Name',
+//                     'Branch_Name',
+//                     'Farmer_Name',
+//                     'Vendor',
+//                     'Shed_Type',
+//                     'status',
+//                     'follow_up_date'
+//                 ],
+//                 required: false
+//             }
+//         ];
+
+//         // Get total calls count
+//         const totalCalls = await CallLog.count({
+//             where: whereClause
+//         });
+
+//         // Get connected calls
+//         const connectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 bDialStatus: 'Connected'
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         // Get not connected calls
+//         const notConnectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 [Op.or]: [
+//                     { bDialStatus: { [Op.ne]: 'Connected' } },
+//                     { bDialStatus: null }
+//                 ]
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         // Transform the data
+//         const transformedConnectedCalls = connectedCalls.rows.map(transformCallData);
+//         const transformedNotConnectedCalls = notConnectedCalls.rows.map(transformCallData);
+
+//         res.json({
+//             success: true,
+//             filters: {
+//                 dni,
+//                 agentNumber: aPartyNo || 'All',
+//                 dateRange: startDate && endDate ? {
+//                     start: startDate,
+//                     end: endDate
+//                 } : null
+//             },
+//             pagination: {
+//                 page: parseInt(page),
+//                 pageSize: parseInt(pageSize),
+//                 totalPages: Math.ceil(totalCalls / parseInt(pageSize))
+//             },
+//             totalCalls,
+//             connected: {
+//                 totalCount: connectedCalls.count,
+//                 calls: transformedConnectedCalls
+//             },
+//             notConnected: {
+//                 totalCount: notConnectedCalls.count,
+//                 calls: transformedNotConnectedCalls
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getCallAnalysis:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching call analysis',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
+
+
+
+
+const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return null;
+    const date = new Date(dateTimeString);
+    return {
+        date: date.toLocaleDateString('en-GB'),
+        time: date.toLocaleTimeString('en-US', { hour12: true })
+    };
+};
+
+const calculateDuration = (endTime, startTime) => {
+    if (!endTime || !startTime) return null;
+    const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
+    const minutes = Math.floor(duration / 60);
+    const seconds = duration % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const getCustomerDetails = (call) => {
+    // First check AuditLeadTable
+    if (call.auditLead) {
+        return {
+            source: 'AuditLeadTable',
+            lotNumber: call.auditLead.Lot_Number,
+            zoneName: call.auditLead.Zone_Name,
+            branchName: call.auditLead.Branch_Name,
+            farmerName: call.auditLead.Farmer_Name,
+            vendor: call.auditLead.Vendor,
+            shedType: call.auditLead.Shed_Type,
+            status: call.auditLead.status,
+            followUpDate: formatDateTime(call.auditLead.follow_up_date)
+        };
+    }
+    
+    // Then check AuditNewFarmer
+    if (call.auditNewFarmer) {
+        const details = {
+            source: 'AuditNewFarmer',
+            zoneName: call.auditNewFarmer.Zone_Name,
+            branchName: call.auditNewFarmer.branch_Name,
+            farmerName: call.auditNewFarmer.farmer_name,
+            shedType: call.auditNewFarmer.Shed_Type,
+            status: call.auditNewFarmer.status,
+            followUpDate: formatDateTime(call.auditNewFarmer.follow_up_date),
+            type: call.auditNewFarmer.type,
+            followUpBy: call.auditNewFarmer.followUpBy,
+            remarks: call.auditNewFarmer.remarks
+        };
+
+        // Add fields specific to old farmers
+        if (call.auditNewFarmer.type === 'old') {
+            details.oldFarmerDetails = {
+                ABWT: call.auditNewFarmer.ABWT,
+                avgLiftWt: call.auditNewFarmer.Avg_Lift_Wt,
+                totalMortality: call.auditNewFarmer.Total_Mortality,
+                firstWeekM: call.auditNewFarmer.first_Week_M
+            };
+        }
+
+        // Add fields specific to new farmers
+        if (call.auditNewFarmer.type === 'new') {
+            details.newFarmerDetails = {
+                previousCompanyName: call.auditNewFarmer.previousCompanyName,
+                previousPoultryExperience: call.auditNewFarmer.previousPoultryExperience
+            };
+        }
+
+        return details;
+    }
+
+    return null;
+};
+
+const transformCallData = (call) => {
+    const startDateTime = formatDateTime(call.callStartTime);
+    return {
+        agentNumber: call.aPartyNo,
+        agentDetails: call.agent ? {
+            name: call.agent.EmployeeName,
+            region: call.agent.EmployeeRegion,
+            employeeId: call.agent.EmployeeId
+        } : null,
+        customerNumber: call.bPartyNo,
+        customerDetails: getCustomerDetails(call),
+        callStartDate: startDateTime?.date,
+        callStartTime: startDateTime?.time,
+        callStatus: call.bDialStatus,
+        callDuration: calculateDuration(call.bPartyEndTime, call.bPartyConnectedTime),
+        disconnectedBy: call.disconnectedBy,
+        recordingUrl: call.recordVoice
+    };
+};
+
+
+
+
+// exports.getCallAnalysis = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             pageSize = 10,
+//             startDate,
+//             endDate,
+//             dni = "7610233333",
+//             aPartyNo
+//         } = req.query;
+
+//         let whereClause = {
+//             dni: dni,
+//             eventType: 'call End'
+//         };
+
+//         if (aPartyNo) {
+//             whereClause.aPartyNo = aPartyNo;
+//         }
+
+//         if (startDate && endDate) {
+//             whereClause.createdAt = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+
+//         const includeOptions = [
+//             {
+//                 model: Employee,
+//                 as: 'agent',
+//                 attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone'],
+//                 required: false
+//             },
+//             {
+//                 model: AuditLeadTable,
+//                 as: 'auditLead',
+//                 attributes: [
+//                     'Lot_Number', 'Zone_Name', 'Branch_Name', 'Farmer_Name',
+//                     'Vendor', 'Shed_Type', 'status', 'follow_up_date'
+//                 ],
+//                 required: false
+//             },
+//             {
+//                 model: AuditNewFarmer,
+//                 as: 'auditFarmer',
+//                 attributes: [
+//                     'Zone_Name', 'branch_Name', 'farmer_name', 'Shed_Type',
+//                     'status', 'follow_up_date', 'type', 'followUpBy', 'remarks',
+//                     'ABWT', 'Avg_Lift_Wt', 'Total_Mortality', 'first_Week_M',
+//                     'previousCompanyName', 'previousPoultryExperience'
+//                 ],
+//                 required: false
+//             }
+//         ];
+
+//         // Get total calls count
+//         const totalCalls = await CallLog.count({
+//             where: whereClause
+//         });
+
+//         // Get connected calls
+//         const connectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 bDialStatus: 'Connected'
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         // Get not connected calls
+//         const notConnectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 [Op.or]: [
+//                     { bDialStatus: { [Op.ne]: 'Connected' } },
+//                     { bDialStatus: null }
+//                 ]
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         const transformedConnectedCalls = connectedCalls.rows.map(transformCallData);
+//         const transformedNotConnectedCalls = notConnectedCalls.rows.map(transformCallData);
+
+//         res.json({
+//             success: true,
+//             filters: {
+//                 dni,
+//                 agentNumber: aPartyNo || 'All',
+//                 dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+//             },
+//             pagination: {
+//                 page: parseInt(page),
+//                 pageSize: parseInt(pageSize),
+//                 totalPages: Math.ceil(totalCalls / parseInt(pageSize))
+//             },
+//             totalCalls,
+//             connected: {
+//                 totalCount: connectedCalls.count,
+//                 calls: transformedConnectedCalls
+//             },
+//             notConnected: {
+//                 totalCount: notConnectedCalls.count,
+//                 calls: transformedNotConnectedCalls
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getCallAnalysis:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching call analysis',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
+
+
+
+
+//changes in 22 jan 
+
+
+
+
+// exports.getCallAnalysis = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             pageSize = 10,
+//             startDate,
+//             endDate,
+//             dni = "7610233333",
+//             aPartyNo
+//         } = req.query;
+
+//         let whereClause = {
+//             dni: dni,
+//             eventType: 'call End'
+//         };
+
+//         if (aPartyNo) {
+//             whereClause.aPartyNo = aPartyNo;
+//         }
+
+//         if (startDate && endDate) {
+//             whereClause.createdAt = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+
+//         // Modified include options - using subquery for AuditLeadTable
+//         const includeOptions = [
+//             {
+//                 model: Employee,
+//                 as: 'agent',
+//                 attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone'],
+//                 required: false
+//             },
+//             {
+//                 model: AuditLeadTable,
+//                 as: 'auditLead',
+//                 attributes: [
+//                     'Lot_Number', 'Zone_Name', 'Branch_Name', 'Farmer_Name',
+//                     'Vendor', 'Shed_Type', 'status', 'follow_up_date'
+//                 ],
+//                 required: false,
+//                 // Add subquery to get only the latest record
+//                 where: Sequelize.where(
+//                     Sequelize.col('auditLead.Lot_Number'),
+//                     'IN',
+//                     Sequelize.literal(`(
+//                         SELECT t1.Lot_Number
+//                         FROM audit_lead_table t1
+//                         JOIN (
+//                             SELECT Mobile, MAX(Lot_Number) as max_lot
+//                             FROM audit_lead_table
+//                             GROUP BY Mobile
+//                         ) t2 ON t1.Mobile = t2.Mobile AND t1.Lot_Number = t2.max_lot
+//                         WHERE t1.Mobile = auditLead.Mobile
+//                     )`)
+//                 )
+            
+//             },
+//             {
+//                 model: AuditNewFarmer,
+//                 as: 'auditFarmer',
+//                 attributes: [
+//                     'Zone_Name', 'branch_Name', 'farmer_name', 'Shed_Type',
+//                     'status', 'follow_up_date', 'type', 'followUpBy', 'remarks',
+//                     'ABWT', 'Avg_Lift_Wt', 'Total_Mortality', 'first_Week_M',
+//                     'previousCompanyName', 'previousPoultryExperience'
+//                 ],
+//                 required: false
+//             }
+//         ];
+
+//         // Rest of the code remains the same
+//         const totalCalls = await CallLog.count({
+//             where: whereClause
+//         });
+
+//         const connectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 bDialStatus: 'Connected'
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         const notConnectedCalls = await CallLog.findAndCountAll({
+//             where: {
+//                 ...whereClause,
+//                 [Op.or]: [
+//                     { bDialStatus: { [Op.ne]: 'Connected' } },
+//                     { bDialStatus: null }
+//                 ]
+//             },
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         const transformedConnectedCalls = connectedCalls.rows.map(transformCallData);
+//         const transformedNotConnectedCalls = notConnectedCalls.rows.map(transformCallData);
+
+//         res.json({
+//             success: true,
+//             filters: {
+//                 dni,
+//                 agentNumber: aPartyNo || 'All',
+//                 dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+//             },
+//             pagination: {
+//                 page: parseInt(page),
+//                 pageSize: parseInt(pageSize),
+//                 totalPages: Math.ceil(totalCalls / parseInt(pageSize))
+//             },
+//             totalCalls,
+//             connected: {
+//                 totalCount: connectedCalls.count,
+//                 calls: transformedConnectedCalls
+//             },
+//             notConnected: {
+//                 totalCount: notConnectedCalls.count,
+//                 calls: transformedNotConnectedCalls
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getCallAnalysis:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching call analysis',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+exports.getCallAnalysis = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            pageSize = 10,
+            startDate,
+            endDate,
+            dni = "7610233333",
+            aPartyNo,
+            callStatus // 'Connected' or 'NotConnected'
+        } = req.query;
+
+        let whereClause = {
+            dni: dni,
+            eventType: 'call End'
+        };
+
+        if (aPartyNo) {
+            whereClause.aPartyNo = aPartyNo;
+        }
+
+        // Add call status filter
+        if (callStatus === 'Connected') {
+            whereClause.bDialStatus = 'Connected';
+        } else if (callStatus === 'NotConnected') {
+            whereClause = {
+                ...whereClause,
+                [Op.or]: [
+                    { bDialStatus: { [Op.ne]: 'Connected' } },
+                    { bDialStatus: null }
+                ]
+            };
+        }
+
+        if (startDate && endDate) {
+            whereClause.createdAt = {
+                [Op.between]: [new Date(startDate), new Date(endDate)]
+            };
+        }
+
+        const includeOptions = [
+            {
+                model: Employee,
+                as: 'agent',
+                attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone'],
+                required: false
+            },
+            {
+                model: AuditLeadTable,
+                as: 'auditLead',
+                attributes: [
+                    'Lot_Number', 'Zone_Name', 'Branch_Name', 'Farmer_Name',
+                    'Vendor', 'Shed_Type', 'status', 'follow_up_date'
+                ],
+                required: false,
+                where: Sequelize.where(
+                    Sequelize.col('auditLead.Lot_Number'),
+                    'IN',
+                    Sequelize.literal(`(
+                        SELECT t1.Lot_Number
+                        FROM audit_lead_table t1
+                        JOIN (
+                            SELECT Mobile, MAX(Lot_Number) as max_lot
+                            FROM audit_lead_table
+                            GROUP BY Mobile
+                        ) t2 ON t1.Mobile = t2.Mobile AND t1.Lot_Number = t2.max_lot
+                        WHERE t1.Mobile = auditLead.Mobile
+                    )`)
+                )
+            },
+            {
+                model: AuditNewFarmer,
+                as: 'auditFarmer',
+                attributes: [
+                    'Zone_Name', 'branch_Name', 'farmer_name', 'Shed_Type',
+                    'status', 'follow_up_date', 'type', 'followUpBy', 'remarks',
+                    'ABWT', 'Avg_Lift_Wt', 'Total_Mortality', 'first_Week_M',
+                    'previousCompanyName', 'previousPoultryExperience'
+                ],
+                required: false
+            }
+        ];
+
+        // Get total calls for summary
+        const totalCalls = await CallLog.count({
+            where: {
+                dni: dni,
+                eventType: 'call End',
+                ...(aPartyNo && { aPartyNo }),
+                ...(startDate && endDate && {
+                    createdAt: {
+                        [Op.between]: [new Date(startDate), new Date(endDate)]
+                    }
+                })
+            }
+        });
+
+        // Get connected calls count and duration
+        const connectedCallsData = await CallLog.findAll({
+            where: {
+                dni: dni,
+                eventType: 'call End',
+                bDialStatus: 'Connected',
+                ...(aPartyNo && { aPartyNo }),
+                ...(startDate && endDate && {
+                    createdAt: {
+                        [Op.between]: [new Date(startDate), new Date(endDate)]
+                    }
+                })
+            },
+            attributes: [
+                [sequelize.fn('COUNT', sequelize.col('*')), 'count'],
+                [
+                    sequelize.fn(
+                        'SUM',
+                        sequelize.fn(
+                            'TIMESTAMPDIFF',
+                            sequelize.literal('SECOND'),
+                            sequelize.col('bPartyConnectedTime'),
+                            sequelize.col('bPartyEndTime')
+                        )
+                    ),
+                    'total_duration'
+                ]
+            ],
+            raw: true
+        });
+
+        const connectedCount = parseInt(connectedCallsData[0].count || 0);
+        const totalDurationSeconds = Math.abs(Number(connectedCallsData[0].total_duration || 0));
+
+        // Format duration
+        const formatDuration = (seconds) => {
+            if (!seconds) return '00:00:00';
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        // Get paginated calls based on callStatus
+        const calls = await CallLog.findAndCountAll({
+            where: whereClause,
+            include: includeOptions,
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(pageSize),
+            offset: (parseInt(page) - 1) * parseInt(pageSize)
+        });
+
+        const transformedCalls = calls.rows.map(transformCallData);
+
+        // Calculate connection rate
+        const connectionRate = totalCalls ? ((connectedCount / totalCalls) * 100).toFixed(2) : '0.00';
+
+        res.json({
+            success: true,
+            filters: {
+                dni,
+                agentNumber: aPartyNo || 'All',
+                callStatus: callStatus || 'All',
+                dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+            },
+            pagination: {
+                page: parseInt(page),
+                pageSize: parseInt(pageSize),
+                totalPages: Math.ceil(calls.count / parseInt(pageSize)),
+                 totalRecords : totalCalls 
+            },
+            summary: {
+                totalCalls,
+                connectedCalls: connectedCount,
+                missedCalls: totalCalls - connectedCount,
+                connectionRate: `${connectionRate}%`,
+                totalDuration: formatDuration(totalDurationSeconds)
+            },
+            totalCalls,
+            connected: {
+                totalCount: connectedCount,
+                calls: callStatus === 'Connected' ? transformedCalls : []
+            },
+            notConnected: {
+                totalCount: totalCalls - connectedCount,
+                calls: callStatus === 'NotConnected' ? transformedCalls : []
+            }
+        });
+
+    } catch (error) {
+        console.error('Error in getCallAnalysis:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching call analysis',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+
+
+
+ 
+
+
+
+
+
+
+
+exports.getEmployeeCallStats = async (req, res) => {
+    try {
+        const {
+            startDate,
+            endDate,
+        } = req.query;
+
+      
+        let dateFilter = {};
+        if (startDate && endDate) {
+            // Create Date objects for start and end
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);  // Set to beginning of day
+
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);  // Set to end of day
+
+            dateFilter = {
+                createdAt: {
+                    [Op.between]: [start, end]
+                }
+            };
+        }
+
+        // Get all employees with RoleID 100
+        const employees = await Employee.findAll({
+            where: {
+                EmployeeRoleID: 100
+            },
+            attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+        });
+
+        // Get call statistics for each employee
+        const employeeStats = await Promise.all(employees.map(async (employee) => {
+            // Get connected calls stats
+            const connectedCalls = await CallLog.findAll({
+                where: {
+                    aPartyNo: employee.EmployeePhone,
+                    bDialStatus: 'Connected',
+                    eventType: 'call End',
+                    bPartyConnectedTime: { [Op.not]: null },
+                    bPartyEndTime: { [Op.not]: null },
+                    ...dateFilter
+                },
+                attributes: [
+                    [sequelize.fn('COUNT', sequelize.col('*')), 'total_calls'],
+                    [
+                        sequelize.fn(
+                            'SUM',
+                            sequelize.fn(
+                                'TIMESTAMPDIFF',
+                                sequelize.literal('SECOND'),
+                                sequelize.col('bPartyConnectedTime'),
+                                sequelize.col('bPartyEndTime')
+                            )
+                        ),
+                        'total_duration'
+                    ],
+                    [
+                        sequelize.fn(
+                            'AVG',
+                            sequelize.fn(
+                                'TIMESTAMPDIFF',
+                                sequelize.literal('SECOND'),
+                                sequelize.col('bPartyConnectedTime'),
+                                sequelize.col('bPartyEndTime')
+                            )
+                        ),
+                        'avg_duration'
+                    ]
+                ],
+                raw: true
+            });
+
+            // Get not connected calls count
+            const notConnectedCalls = await CallLog.count({
+                where: {
+                    aPartyNo: employee.EmployeePhone,
+                    [Op.or]: [
+                        { bDialStatus: { [Op.ne]: 'Connected' } },
+                        { bDialStatus: null }
+                    ],
+                    eventType: 'call End',
+                    ...dateFilter
+                }
+            });
+
+            // Calculate percentages and format durations
+            const totalCalls = parseInt(connectedCalls[0].total_calls || 0) + notConnectedCalls;
+            const connectionRate = totalCalls ? 
+                ((parseInt(connectedCalls[0].total_calls || 0) / totalCalls) * 100).toFixed(2) : 0;
+
+            // Convert seconds to hours:minutes:seconds
+            const formatDuration = (seconds) => {
+                if (!seconds) return '00:00:00';
+                seconds = Math.abs(Math.floor(Number(seconds))); // Using abs to handle negative differences
+                const hrs = Math.floor(seconds / 3600);
+                const mins = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            return {
+                employeeId: employee.EmployeeId,
+                employeeName: employee.EmployeeName,
+                employeePhone: employee.EmployeePhone,
+                callStats: {
+                    totalCalls,
+                    connectedCalls: parseInt(connectedCalls[0].total_calls || 0),
+                    notConnectedCalls,
+                    connectionRate: `${connectionRate}%`,
+                    duration: {
+                        total: formatDuration(connectedCalls[0].total_duration),
+                        average: formatDuration(connectedCalls[0].avg_duration)
+                    }
+                }
+            };
+        }));
+
+        // Sort employees by total calls in descending order
+        const sortedStats = employeeStats.sort((a, b) => 
+            b.callStats.totalCalls - a.callStats.totalCalls
+        );
+
+        // Calculate overall statistics
+        const overallStats = {
+            totalEmployees: employees.length,
+            totalCalls: sortedStats.reduce((sum, emp) => sum + emp.callStats.totalCalls, 0),
+            totalConnectedCalls: sortedStats.reduce((sum, emp) => sum + emp.callStats.connectedCalls, 0),
+            totalNotConnectedCalls: sortedStats.reduce((sum, emp) => sum + emp.callStats.notConnectedCalls, 0),
+            averageConnectionRate: (
+                sortedStats.reduce((sum, emp) => sum + parseFloat(emp.callStats.connectionRate), 0) / 
+                employees.length
+            ).toFixed(2) + '%'
+        };
+
+        res.json({
+            success: true,
+            filters: {
+                roleId: 100,
+                dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+            },
+            overallStats,
+            employeeStats: sortedStats
+        });
+
+    } catch (error) {
+        console.error('Error in getEmployeeCallStats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching employee call statistics',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+
+
+
+
+
+// exports.getWorkingHoursReport = async (req, res) => {
+
+//     try {
+//         const {
+//             startDate,
+//             endDate,
+//         } = req.query;
+
+//         if (!startDate || !endDate) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Start date and end date are required'
+//             });
+//         }
+
+//         // Constants for working hours calculation
+//         const HOURS_PER_DAY = 7.5;
+//         const HOURS_PER_SATURDAY = 4;
+        
+//         // Get all employees with RoleID 100
+//         const employees = await Employee.findAll({
+//             where: {
+//                 EmployeeRoleID: 100
+//             },
+//             attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+//         });
+
+//         // Function to count weekdays and Saturdays between two dates
+//         const getWorkingDays = (startDate, endDate) => {
+//             let weekdays = 0;
+//             let saturdays = 0;
+//             let current = new Date(startDate);
+//             const end = new Date(endDate);
+
+//             while (current <= end) {
+//                 const day = current.getDay();
+//                 if (day !== 0) { // Skip Sundays
+//                     if (day === 6) { // Saturday
+//                         saturdays++;
+//                     } else { // Monday to Friday
+//                         weekdays++;
+//                     }
+//                 }
+//                 current.setDate(current.getDate() + 1);
+//             }
+//             return { weekdays, saturdays };
+//         };
+
+//         // Calculate working days for the date range
+//         const { weekdays, saturdays } = getWorkingDays(startDate, endDate);
+
+//         const employeeStats = await Promise.all(employees.map(async (employee) => {
+//             // Get total call duration for the employee
+//             const callDuration = await CallLog.findAll({
+//                 where: {
+//                     aPartyNo: employee.EmployeePhone,
+//                     bDialStatus: 'Connected',
+//                     eventType: 'call End',
+//                     bPartyConnectedTime: { [Op.not]: null },
+//                     bPartyEndTime: { [Op.not]: null },
+//                     createdAt: {
+//                         [Op.between]: [
+//                             new Date(startDate + 'T00:00:00'),
+//                             new Date(endDate + 'T23:59:59')
+//                         ]
+//                     }
+//                 },
+//                 attributes: [
+//                     [
+//                         sequelize.fn(
+//                             'SUM',
+//                             sequelize.fn(
+//                                 'TIMESTAMPDIFF',
+//                                 sequelize.literal('SECOND'),
+//                                 sequelize.col('bPartyConnectedTime'),
+//                                 sequelize.col('bPartyEndTime')
+//                             )
+//                         ),
+//                         'total_duration'
+//                     ]
+//                 ],
+//                 raw: true
+//             });
+
+//             // Calculate expected and actual working hours
+//             const weekdayHours = weekdays * HOURS_PER_DAY;
+//             const saturdayHours = saturdays * HOURS_PER_SATURDAY;
+//             const totalExpectedHours = weekdayHours + saturdayHours;
+
+//             // Convert call duration from seconds to hours
+//             const totalWorkedSeconds = Math.abs(Number(callDuration[0].total_duration || 0));
+//             const totalWorkedHours = totalWorkedSeconds / 3600;
+
+//             // Calculate percentage of target achieved
+//             const workedPercentage = (totalWorkedHours / totalExpectedHours) * 100;
+
+//             return {
+//                 employeeName: employee.EmployeeName,
+//                 totalWeekdays: weekdays,
+//                 hoursPerDay: HOURS_PER_DAY,
+//                 totalWeekdayHours: weekdayHours,
+//                 saturdays: saturdays,
+//                 hoursPerSaturday: HOURS_PER_SATURDAY,
+//                 totalSaturdayHours: saturdayHours,
+//                 totalExpectedHours: totalExpectedHours,
+//                 totalWorkedHours: parseFloat(totalWorkedHours.toFixed(2)),
+//                 totalWorkedPercentage: parseFloat(workedPercentage.toFixed(2))
+//             };
+//         }));
+
+//         // Calculate grand totals
+//         const grandTotal = employeeStats.reduce((total, emp) => ({
+//             totalExpectedHours: total.totalExpectedHours + emp.totalExpectedHours,
+//             totalWorkedHours: total.totalWorkedHours + emp.totalWorkedHours
+//         }), { totalExpectedHours: 0, totalWorkedHours: 0 });
+
+//         // Add percentage for grand total
+//         grandTotal.totalWorkedPercentage = parseFloat(
+//             ((grandTotal.totalWorkedHours / grandTotal.totalExpectedHours) * 100).toFixed(2)
+//         );
+
+//         res.json({
+//             success: true,
+//             dateRange: {
+//                 startDate,
+//                 endDate
+//             },
+//             workingDays: {
+//                 weekdays,
+//                 saturdays
+//             },
+//             employeeStats,
+//             grandTotal
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getWorkingHoursReport:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error generating working hours report',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
+
+//changes on 22jan  --- workinghours report
+
+//main code 
+
+
+
+// exports.getWorkingHoursReport = async (req, res) => {
+//     try {
+//         const {
+//             startDate,
+//             endDate,
+//         } = req.query;
+
+//         if (!startDate || !endDate) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Start date and end date are required'
+//             });
+//         }
+
+//         // Constants for working hours calculation
+//         const HOURS_PER_DAY = 7.5;
+//         const HOURS_PER_SATURDAY = 4;
+        
+//         // Get all employees with RoleID 100
+//         const employees = await Employee.findAll({
+//             where: {
+//                 EmployeeRoleID: 100
+//             },
+//             attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+//         });
+
+//         // Function to count weekdays and Saturdays between two dates
+//         const getWorkingDays = (startDate, endDate) => {
+//             let weekdays = 0;
+//             let saturdays = 0;
+//             let current = new Date(startDate);
+//             const end = new Date(endDate);
+
+//             while (current <= end) {
+//                 const day = current.getDay();
+//                 if (day !== 0) { // Skip Sundays
+//                     if (day === 6) { // Saturday
+//                         saturdays++;
+//                     } else { // Monday to Friday
+//                         weekdays++;
+//                     }
+//                 }
+//                 current.setDate(current.getDate() + 1);
+//             }
+//             return { weekdays, saturdays };
+//         };
+
+//         // Calculate working days for the date range
+//         const { weekdays, saturdays } = getWorkingDays(startDate, endDate);
+
+//         const employeeStats = await Promise.all(employees.map(async (employee) => {
+//             // Get outgoing calls duration from CallLog
+//             const outgoingCalls = await CallLog.findAll({
+//                 where: {
+//                     aPartyNo: employee.EmployeePhone,
+//                     bDialStatus: 'Connected',
+//                     eventType: 'call End',
+//                     bPartyConnectedTime: { [Op.not]: null },
+//                     bPartyEndTime: { [Op.not]: null },
+//                     createdAt: {
+//                         [Op.between]: [
+//                             new Date(startDate + 'T00:00:00'),
+//                             new Date(endDate + 'T23:59:59')
+//                         ]
+//                     }
+//                 },
+//                 attributes: [
+//                     [
+//                         sequelize.fn(
+//                             'SUM',
+//                             sequelize.fn(
+//                                 'TIMESTAMPDIFF',
+//                                 sequelize.literal('SECOND'),
+//                                 sequelize.col('bPartyConnectedTime'),
+//                                 sequelize.col('bPartyEndTime')
+//                             )
+//                         ),
+//                         'total_duration'
+//                     ]
+//                 ],
+//                 raw: true
+//             });
+
+//             // Get incoming calls duration from PostCallData
+//             const incomingCalls = await PostCallData.findAll({
+//                 where: {
+//                     agentNumber: employee.EmployeePhone,
+//                     ogCallStatus: 'Connected',
+//                     createdAt: {
+//                         [Op.between]: [
+//                             new Date(startDate + 'T00:00:00'),
+//                             new Date(endDate + 'T23:59:59')
+//                         ]
+//                     }
+//                 },
+//                 attributes: [
+//                     [sequelize.fn('SUM', sequelize.col('total_Call_Duration')), 'total_duration']
+//                 ],
+//                 raw: true
+//             });
+
+//             // Calculate total duration from both sources
+//             const totalOutgoingSeconds = Math.abs(Number(outgoingCalls[0].total_duration || 0));
+//             const totalIncomingSeconds = Number(incomingCalls[0].total_duration || 0);
+//             const totalSeconds = totalOutgoingSeconds + totalIncomingSeconds;
+
+//             // Calculate expected and actual working hours
+//             const weekdayHours = weekdays * HOURS_PER_DAY;
+//             const saturdayHours = saturdays * HOURS_PER_SATURDAY;
+//             const totalExpectedHours = weekdayHours + saturdayHours;
+
+//             // Convert total seconds to hours
+//             const totalWorkedHours = totalSeconds / 3600;
+
+//             // Calculate percentage of target achieved
+//             const workedPercentage = (totalWorkedHours / totalExpectedHours) * 100;
+
+//             return {
+//                 employeeName: employee.EmployeeName,
+//                 employeePhone: employee.EmployeePhone,
+//                 totalWeekdays: weekdays,
+//                 hoursPerDay: HOURS_PER_DAY,
+//                 totalWeekdayHours: weekdayHours,
+//                 saturdays: saturdays,
+//                 hoursPerSaturday: HOURS_PER_SATURDAY,
+//                 totalSaturdayHours: saturdayHours,
+//                 totalExpectedHours: totalExpectedHours,
+//                 totalWorkedHours: parseFloat(totalWorkedHours.toFixed(2)),
+//                 totalWorkedPercentage: parseFloat(workedPercentage.toFixed(2)),
+//                 callDetails: {
+//                     outgoingHours: parseFloat((totalOutgoingSeconds / 3600).toFixed(2)),
+//                     incomingHours: parseFloat((totalIncomingSeconds / 3600).toFixed(2))
+//                 }
+//             };
+//         }));
+
+//         // Calculate grand totals
+//         const grandTotal = employeeStats.reduce((total, emp) => ({
+//             totalExpectedHours: total.totalExpectedHours + emp.totalExpectedHours,
+//             totalWorkedHours: total.totalWorkedHours + emp.totalWorkedHours,
+//             outgoingHours: total.outgoingHours + emp.callDetails.outgoingHours,
+//             incomingHours: total.incomingHours + emp.callDetails.incomingHours
+//         }), { 
+//             totalExpectedHours: 0, 
+//             totalWorkedHours: 0,
+//             outgoingHours: 0,
+//             incomingHours: 0
+//         });
+
+//         // Add percentage for grand total
+//         grandTotal.totalWorkedPercentage = parseFloat(
+//             ((grandTotal.totalWorkedHours / grandTotal.totalExpectedHours) * 100).toFixed(2)
+//         );
+
+//         res.json({
+//             success: true,
+//             dateRange: {
+//                 startDate,
+//                 endDate
+//             },
+//             workingDays: {
+//                 weekdays,
+//                 saturdays
+//             },
+//             employeeStats: employeeStats.sort((a, b) => b.totalWorkedHours - a.totalWorkedHours),
+//             grandTotal
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getWorkingHoursReport:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error generating working hours report',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
+
+// update code 
+exports.getWorkingHoursReport = async (req, res) => {
+    try {
+        const {
+            startDate,
+            endDate,
+            agentNumber
+        } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Start date and end date are required'
+            });
+        }
+
+        // Constants for working hours calculation
+        const HOURS_PER_DAY = 7.5;
+        const HOURS_PER_SATURDAY = 4;
+        
+        // Get employees with RoleID 100 and optional agentNumber filter
+        let employeeWhere = {
+            EmployeeRoleID: 100
+        };
+        
+        // Add agentNumber filter if provided
+        if (agentNumber) {
+            employeeWhere.EmployeePhone = agentNumber;
+        }
+
+        const employees = await Employee.findAll({
+            where: employeeWhere,
+            attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+        });
+
+        // Check if employees were found
+        if (employees.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: agentNumber ? 'Agent not found' : 'No employees found'
+            });
+        }
+
+        // Function to count weekdays and Saturdays between two dates
+        const getWorkingDays = (startDate, endDate) => {
+            let weekdays = 0;
+            let saturdays = 0;
+            let current = new Date(startDate);
+            const end = new Date(endDate);
+
+            while (current <= end) {
+                const day = current.getDay();
+                if (day !== 0) { // Skip Sundays
+                    if (day === 6) { // Saturday
+                        saturdays++;
+                    } else { // Monday to Friday
+                        weekdays++;
+                    }
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return { weekdays, saturdays };
+        };
+
+        // Calculate working days for the date range
+        const { weekdays, saturdays } = getWorkingDays(startDate, endDate);
+
+        const employeeStats = await Promise.all(employees.map(async (employee) => {
+            // Get outgoing calls duration from CallLog
+            const outgoingCalls = await CallLog.findAll({
+                where: {
+                    aPartyNo: employee.EmployeePhone,
+                    bDialStatus: 'Connected',
+                    eventType: 'call End',
+                    bPartyConnectedTime: { [Op.not]: null },
+                    bPartyEndTime: { [Op.not]: null },
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate + 'T00:00:00'),
+                            new Date(endDate + 'T23:59:59')
+                        ]
+                    }
+                },
+                attributes: [
+                    [
+                        sequelize.fn(
+                            'SUM',
+                            sequelize.fn(
+                                'TIMESTAMPDIFF',
+                                sequelize.literal('SECOND'),
+                                sequelize.col('bPartyConnectedTime'),
+                                sequelize.col('bPartyEndTime')
+                            )
+                        ),
+                        'total_duration'
+                    ]
+                ],
+                raw: true
+            });
+
+            // Get incoming calls duration from PostCallData
+            const incomingCalls = await PostCallData.findAll({
+                where: {
+                    agentNumber: employee.EmployeePhone,
+                    ogCallStatus: 'Connected',
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate + 'T00:00:00'),
+                            new Date(endDate + 'T23:59:59')
+                        ]
+                    }
+                },
+                attributes: [
+                    [sequelize.fn('SUM', sequelize.col('total_call_duration')), 'total_duration']
+                ],
+                raw: true
+            });
+
+            // Calculate total duration from both sources
+            const totalOutgoingSeconds = Math.abs(Number(outgoingCalls[0].total_duration || 0));
+            const totalIncomingSeconds = Number(incomingCalls[0].total_duration || 0);
+            const totalSeconds = totalOutgoingSeconds + totalIncomingSeconds;
+
+            // Calculate expected and actual working hours
+            const weekdayHours = weekdays * HOURS_PER_DAY;
+            const saturdayHours = saturdays * HOURS_PER_SATURDAY;
+            const totalExpectedHours = weekdayHours + saturdayHours;
+
+            // Convert total seconds to hours
+            const totalWorkedHours = totalSeconds / 3600;
+
+            // Calculate percentage of target achieved
+            const workedPercentage = (totalWorkedHours / totalExpectedHours) * 100;
+
+            // Get call counts
+            const outgoingCallCount = await CallLog.count({
+                where: {
+                    aPartyNo: employee.EmployeePhone,
+                    bDialStatus: 'Connected',
+                    eventType: 'call End',
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate + 'T00:00:00'),
+                            new Date(endDate + 'T23:59:59')
+                        ]
+                    }
+                }
+            });
+
+            const incomingCallCount = await PostCallData.count({
+                where: {
+                    agentNumber: employee.EmployeePhone,
+                    ogCallStatus: 'Connected',
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate + 'T00:00:00'),
+                            new Date(endDate + 'T23:59:59')
+                        ]
+                    }
+                }
+            });
+
+            return {
+                employeeId: employee.EmployeeId,
+                employeeName: employee.EmployeeName,
+                employeePhone: employee.EmployeePhone,
+                totalWeekdays: weekdays,
+                hoursPerDay: HOURS_PER_DAY,
+                totalWeekdayHours: weekdayHours,
+                saturdays: saturdays,
+                hoursPerSaturday: HOURS_PER_SATURDAY,
+                totalSaturdayHours: saturdayHours,
+                totalExpectedHours: totalExpectedHours,
+                totalWorkedHours: parseFloat(totalWorkedHours.toFixed(2)),
+                totalWorkedPercentage: parseFloat(workedPercentage.toFixed(2)),
+                callDetails: {
+                    outgoing: {
+                        count: outgoingCallCount,
+                        hours: parseFloat((totalOutgoingSeconds / 3600).toFixed(2))
+                    },
+                    incoming: {
+                        count: incomingCallCount,
+                        hours: parseFloat((totalIncomingSeconds / 3600).toFixed(2))
+                    },
+                    total: {
+                        count: outgoingCallCount + incomingCallCount,
+                        hours: parseFloat((totalSeconds / 3600).toFixed(2))
+                    }
+                }
+            };
+        }));
+
+        // Calculate grand totals
+        const grandTotal = employeeStats.reduce((total, emp) => ({
+            totalExpectedHours: total.totalExpectedHours + emp.totalExpectedHours,
+            totalWorkedHours: total.totalWorkedHours + emp.totalWorkedHours,
+            outgoing: {
+                count: total.outgoing?.count || 0 + emp.callDetails.outgoing.count,
+                hours: total.outgoing?.hours || 0 + emp.callDetails.outgoing.hours
+            },
+            incoming: {
+                count: total.incoming?.count || 0 + emp.callDetails.incoming.count,
+                hours: total.incoming?.hours || 0 + emp.callDetails.incoming.hours
+            }
+        }), { 
+            totalExpectedHours: 0, 
+            totalWorkedHours: 0,
+            outgoing: { count: 0, hours: 0 },
+            incoming: { count: 0, hours: 0 }
+        });
+
+        // Add percentage and total calls for grand total
+        grandTotal.totalWorkedPercentage = parseFloat(
+            ((grandTotal.totalWorkedHours / grandTotal.totalExpectedHours) * 100).toFixed(2)
+        );
+        grandTotal.totalCalls = {
+            count: grandTotal.outgoing.count + grandTotal.incoming.count,
+            hours: parseFloat((grandTotal.outgoing.hours + grandTotal.incoming.hours).toFixed(2))
+        };
+
+        res.json({
+            success: true,
+            filters: {
+                dateRange: {
+                    start: startDate,
+                    end: endDate
+                },
+                agentNumber: agentNumber || 'All'
+            },
+            workingDays: {
+                weekdays,
+                saturdays,
+                totalDays: weekdays + saturdays,
+                totalExpectedHours: (weekdays * HOURS_PER_DAY) + (saturdays * HOURS_PER_SATURDAY)
+            },
+            employeeStats: employeeStats.sort((a, b) => b.totalWorkedHours - a.totalWorkedHours),
+            grandTotal
+        });
+
+    } catch (error) {
+        console.error('Error in getWorkingHoursReport:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error generating working hours report',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+
+
+
+
+
+
+
+
+
+//incoming v3
+exports.getIncomingCallStats = async (req, res) => {
+    try {
+        const {
+            startDate,
+            endDate,
+            page = 1,
+            pageSize = 10
+        } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Start date and end date are required'
+            });
+        }
+
+        // Get all employees with RoleID 100
+        const employees = await Employee.findAll({
+            where: {
+                EmployeeRoleID: 100
+            },
+            attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+        });
+
+        const employeeStats = await Promise.all(employees.map(async (employee) => {
+            // Get connected calls
+            const connectedCalls = await PostCallData.findAll({
+                where: {
+                    agentNumber: employee.EmployeePhone,
+                    ogCallStatus: 'Connected',
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate + 'T00:00:00'),
+                            new Date(endDate + 'T23:59:59')
+                        ]
+                    }
+                },
+                attributes: [
+                    [sequelize.fn('COUNT', sequelize.col('*')), 'call_count'],
+                    [sequelize.fn('SUM', sequelize.col('total_call_Duration')), 'total_duration'],
+                    [sequelize.fn('AVG', sequelize.col('total_Call_Duration')), 'avg_duration']
+                ],
+                raw: true
+            });
+
+            // Get missed calls (where agent_number exists but call not connected)
+            const missedCalls = await PostCallData.count({
+                where: {
+                    agentNumber: employee.EmployeePhone,
+                    ogCallStatus: {
+                        [Op.and]: [
+                            { [Op.ne]: 'Connected' },
+                            { [Op.ne]: null }
+                        ]
+                    },
+
+                    isOutGoingDone: {
+                        [Op.or]: [0, null]
+                    },
+                    createdAt: {
+                        [Op.between]: [
+                            new Date(startDate + 'T00:00:00'),
+                            new Date(endDate + 'T23:59:59')
+                        ]
+                    }
+                }
+            });
+
+            // Format durations to hours:minutes:seconds
+            const formatDuration = (seconds) => {
+                if (!seconds) return '00:00:00';
+                seconds = Math.floor(Number(seconds));
+                const hrs = Math.floor(seconds / 3600);
+                const mins = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            // Calculate total calls and connection rate
+            const totalCalls = parseInt(connectedCalls[0].call_count || 0) + missedCalls;
+            const connectionRate = totalCalls ? 
+                ((parseInt(connectedCalls[0].call_count || 0) / totalCalls) * 100).toFixed(2) : 0;
+
+            return {
+                employeeId: employee.EmployeeId,
+                employeeName: employee.EmployeeName,
+                employeePhone: employee.EmployeePhone,
+                callStats: {
+                    totalCalls,
+                    connectedCalls: parseInt(connectedCalls[0].call_count || 0),
+                    missedCalls,
+                    connectionRate: `${connectionRate}%`,
+                    duration: {
+                        total: formatDuration(connectedCalls[0].total_duration),
+                        average: formatDuration(connectedCalls[0].avg_duration)
+                    }
+                }
+            };
+        }));
+
+        // Sort employees by total calls in descending order
+        const sortedStats = employeeStats.sort((a, b) => 
+            b.callStats.totalCalls - a.callStats.totalCalls
+        );
+
+        // Calculate overall statistics
+        const overallStats = {
+            totalEmployees: employees.length,
+            totalCalls: sortedStats.reduce((sum, emp) => sum + emp.callStats.totalCalls, 0),
+            totalConnectedCalls: sortedStats.reduce((sum, emp) => sum + emp.callStats.connectedCalls, 0),
+            totalMissedCalls: sortedStats.reduce((sum, emp) => sum + emp.callStats.missedCalls, 0),
+            averageConnectionRate: (
+                sortedStats.reduce((sum, emp) => sum + parseFloat(emp.callStats.connectionRate), 0) / 
+                employees.length
+            ).toFixed(2) + '%'
+        };
+
+        // Implement pagination
+        const totalRecords = sortedStats.length;
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        const paginatedStats = sortedStats.slice(
+            (page - 1) * pageSize,
+            page * pageSize
+        );
+
+        res.json({
+            success: true,
+            filters: {
+                dateRange: {
+                    start: startDate,
+                    end: endDate
+                }
+            },
+            pagination: {
+                page: parseInt(page),
+                pageSize: parseInt(pageSize),
+                totalPages,
+                totalRecords
+            },
+            overallStats,
+            employeeStats: paginatedStats
+        });
+
+    } catch (error) {
+        console.error('Error in getIncomingCallStats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching incoming call statistics',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+
+
+
+
+//incoming call detail
+
+
+exports.getAgentCallDetails = async (req, res) => {
+    try {
+        const {
+            startDate,
+            endDate,
+            agentNumber,
+            page = 1,
+            pageSize = 10,
+            callStatus // optional: 'Connected' or 'Missed'
+        } = req.query;
+
+        if (!startDate || !endDate || !agentNumber) {
+            return res.status(400).json({
+                success: false,
+                message: 'Start date, end date, and agent number are required'
+            });
+        }
+
+        // Base where clause
+        let whereClause = {
+            agentNumber,
+            createdAt: {
+                [Op.between]: [
+                    new Date(startDate + 'T00:00:00'),
+                    new Date(endDate + 'T23:59:59')
+                ]
+            }
+        };
+
+    // Add call status filter if provided
+if (callStatus) {
+    if (callStatus === 'Connected') {
+        whereClause.ogCallStatus = 'Connected';
+    } else if (callStatus === 'Missed') {
+        whereClause = {
+            ...whereClause,
+            ogCallStatus: {
+                [Op.and]: [
+                    { [Op.ne]: 'Connected' },
+                    { [Op.ne]: null }
+                ]
+            },
+            isOutGoingDone: {
+                [Op.or]: [0, null]
+            }
+        };
+    }
+}
+
+
+
+        // Get employee details
+        const employee = await Employee.findOne({
+            where: {
+                EmployeePhone: agentNumber
+            },
+            attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone']
+        });
+
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employee not found'
+            });
+        }
+
+        // Get total count of records
+        const totalRecords = await PostCallData.count({
+            where: whereClause
+        });
+
+        // Get paginated call details
+        const calls = await PostCallData.findAll({
+            where: whereClause,
+            attributes: [
+                'id',
+                'callId',
+                'callerNumber',
+                'callStartTime',
+                'callEndTime',
+                'ogStartTime',
+                'ogEndTime',
+                'ogCallStatus',
+                'totalCallDuration',
+                'createdAt'
+            ],
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(pageSize),
+            offset: (parseInt(page) - 1) * parseInt(pageSize)
+        });
+
+        // Format call records
+        const formattedCalls = calls.map(call => {
+            const callData = call.get({ plain: true });
+            
+            // Format duration to HH:MM:SS
+            const formatDuration = (seconds) => {
+                if (!seconds) return '00:00:00';
+                seconds = Math.floor(Number(seconds));
+                const hrs = Math.floor(seconds / 3600);
+                const mins = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            return {
+                ...callData,
+                duration: formatDuration(callData.totalCallDuration),
+                isConnected: callData.ogCallStatus === 'Connected',
+                callDate: new Date(callData.createdAt).toISOString().split('T')[0],
+                callTime: new Date(callData.createdAt).toISOString().split('T')[1].split('.')[0]
+            };
+        });
+
+        // Calculate summary statistics
+        const connectedCalls = await PostCallData.count({
+            where: {
+                ...whereClause,
+                ogCallStatus: 'Connected'
+            }
+        });
+
+        const missedCalls = await PostCallData.count({
+            where: {
+                ...whereClause,
+                ogCallStatus: {
+                    [Op.and]: [
+                        { [Op.ne]: 'Connected' },
+                        { [Op.ne]: null }
+                    ]
+                }
+            }
+        });
+
+        const totalDuration = await PostCallData.sum('totalCallDuration', {
+            where: {
+                ...whereClause,
+                ogCallStatus: 'Connected'
+            }
+        });
+
+        const formatTotalDuration = (seconds) => {
+            if (!seconds) return '00:00:00';
+            seconds = Math.floor(Number(seconds));
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        res.json({
+            success: true,
+            employeeDetails: {
+                ...employee.get({ plain: true })
+            },
+            summary: {
+                totalCalls: totalRecords,
+                connectedCalls,
+                missedCalls,
+                connectionRate: `${((connectedCalls / totalRecords) * 100).toFixed(2)}%`,
+                totalDuration: formatTotalDuration(totalDuration)
+            },
+            pagination: {
+                page: parseInt(page),
+                pageSize: parseInt(pageSize),
+                totalPages: Math.ceil(totalRecords / parseInt(pageSize)),
+                totalRecords
+            },
+            calls: formattedCalls
+        });
+
+    } catch (error) {
+        console.error('Error in getAgentCallDetails:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching agent call details',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+
+
+
+//removed missed call api
+exports.updateOutgoingDoneStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Record ID is required'
+            });
+        }
+
+        // Update the record using the exact column name from database
+        const [updatedRows] = await PostCallData.update(
+            { isOutGoingDone: true },  // Exact column name from database
+            {
+                where: {
+                    id: id,
+                    isOutGoingDone: {  // Exact column name from database
+                        [Op.or]: [false, null]
+                    }
+                }
+            }
+        );
+
+        if (updatedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Record not found or already marked as outgoing done'
+            });
+        }
+
+        // Get the updated record
+        const updatedRecord = await PostCallData.findByPk(id);
+
+        res.json({
+            success: true,
+            message: 'Record updated successfully',
+            updatedId: id,
+            record: updatedRecord
+        });
+
+    } catch (error) {
+        console.error('Error updating isOutGoingDone status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating outgoing done status',
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };

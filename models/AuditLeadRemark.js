@@ -80,6 +80,10 @@ AuditLeadRemark.init(
     closure_status:{
       type: DataTypes.STRING,
     },
+    call_id: {
+      type: DataTypes.STRING,
+      allowNull: true,  
+    },
     
 
   },
