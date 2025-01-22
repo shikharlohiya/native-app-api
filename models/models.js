@@ -41,7 +41,7 @@ const chicks_inquiry = require('./ChicksInquiry.js');
 const Parivartan_BDM = require('./Parivartan_BDM.js');
 const source = require('./Source.js'); 
 const AuditNewFarmer = require('./AuditNewFarmer.js');
-const BdmTravelDetail = require('./BdmTravelDetail.js'); 
+// const BdmTravelDetail = require('./BdmTravelDetail.js'); 
 const sequelize = require('./index.js');
 
 
