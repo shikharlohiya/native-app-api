@@ -310,6 +310,8 @@ exports.uploadAuditLeads = async (req, res) => {
 
 
 //v2
+
+
 exports.getAuditLeads = async (req, res) => {
   try {
     const { 
@@ -389,24 +391,7 @@ exports.getAuditLeads = async (req, res) => {
         const numericFields = ['CA', 'FCR', 'Age_SAP', 'Total_Mortality'];
 
 
-      //   switch (condition.toLowerCase()) {
-      //     case 'contains':
-      //       return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
-      //     case 'equal':
-      //       return { [field]: { [Op.eq]: value } }; // Exact match
-      //     case 'greaterthanequal':
-      //       return { [field]: { [Op.gte]: value } };
-      //     case 'lessthanequal':
-      //       return { [field]: { [Op.lte]: value } };
-      //     case 'greaterthan':
-      //       return { [field]: { [Op.gt]: value } };
-      //     case 'lessthan':
-      //       return { [field]: { [Op.lt]: value } };
-      //     default:
-      //       return null;
-      //   }
-      // }).filter(condition => condition !== null);
-
+  
       switch (condition.toLowerCase()) {
         case 'contains':
           return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
@@ -518,6 +503,8 @@ exports.getAuditLeads = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
+//v3
 
 
 
@@ -1407,6 +1394,46 @@ exports.updateAuditLeadStatus = async (req, res) => {
 };
 
 
+//v1
+
+// exports.getAllLeadsForSupervisor = async (req, res) => {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 10,
+//       region,
+//       status,
+//       sortBy = "updatedAt",
+//       sortOrder = "DESC",
+//     } = req.query;
+
+//     const offset = (page - 1) * limit;
+
+//     let whereClause = {};
+//     if (region) whereClause.Zone_Name = region;
+//     if (status) whereClause.status = status;
+
+//     const { count, rows: auditLeads } = await AuditLeadDetail.findAndCountAll({
+//       where: whereClause,
+//       order: [[sortBy, sortOrder]],
+//       limit: parseInt(limit),
+//       offset: parseInt(offset),
+//     });
+
+//     res.status(200).json({
+//       data: auditLeads,
+//       totalCount: count,
+//       currentPage: parseInt(page),
+//       totalPages: Math.ceil(count / limit),
+//     });
+//   } catch (error) {
+//     console.error("Error retrieving audit leads:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
+
+//v2
 
 exports.getAllLeadsForSupervisor = async (req, res) => {
   try {
@@ -1417,17 +1444,111 @@ exports.getAllLeadsForSupervisor = async (req, res) => {
       status,
       sortBy = "updatedAt",
       sortOrder = "DESC",
+      filters = [],
+      sortFCR,
+      sortBirdAge,
+      commonSearch
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    // Parse filters if it's a string
+    let parsedFilters = filters;
+    if (typeof filters === 'string') {
+      try {
+        parsedFilters = JSON.parse(filters);
+      } catch (error) {
+        console.error("Error parsing filters:", error);
+        return res.status(400).json({ message: "Invalid filters format" });
+      }
+    }
 
+    // Base where clause
     let whereClause = {};
     if (region) whereClause.Zone_Name = region;
     if (status) whereClause.status = status;
 
+    // Add common search
+    if (commonSearch) {
+      whereClause[Op.or] = [
+        { Zone_Name: { [Op.like]: `%${commonSearch}%` } },
+        { Branch_Name: { [Op.like]: `%${commonSearch}%` } },
+        { Farmer_Name: { [Op.like]: `%${commonSearch}%` } },
+        { Shed_Type: { [Op.like]: `%${commonSearch}%` } },
+        { Lot_Number: { [Op.like]: `%${commonSearch}%` } },
+        { Line: { [Op.like]: `%${commonSearch}%` } },
+        { Hatchery_Name: { [Op.like]: `%${commonSearch}%` } },
+        { FCR: { [Op.like]: `%${commonSearch}%` } },
+        { Age_SAP: { [Op.like]: `%${commonSearch}%` } },
+        { Mobile: { [Op.like]: `%${commonSearch}%` } },
+      ];
+    }
+
+    // Process dynamic filters
+    if (Array.isArray(parsedFilters) && parsedFilters.length > 0) {
+      const filterConditions = parsedFilters.map(filter => {
+        const { field, condition, value } = filter;
+        
+        if (!field || !condition || value === undefined) {
+          return null;
+        }
+
+        const numericFields = ['CA', 'FCR', 'Age_SAP', 'Total_Mortality'];
+  
+        switch (condition.toLowerCase()) {
+          case 'contains':
+            return sequelize.where(sequelize.fn('LOWER', sequelize.col(field)), 'LIKE', `%${value.toLowerCase()}%`);
+          case 'equal':
+            if (numericFields.includes(field)) {
+              return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), value);
+            }
+            return { [field]: { [Op.eq]: value } };
+          case 'greaterthan':
+            if (numericFields.includes(field)) {
+              return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.gt, parseFloat(value));
+            }
+            return { [field]: { [Op.gt]: value } };
+          case 'greaterthanequal':
+            if (numericFields.includes(field)) {
+              return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.gte, parseFloat(value));
+            }
+            return { [field]: { [Op.gte]: value } };
+          case 'lessthan':
+            if (numericFields.includes(field)) {
+              return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.lt, parseFloat(value));
+            }
+            return { [field]: { [Op.lt]: value } };
+          case 'lessthanequal':
+            if (numericFields.includes(field)) {
+              return sequelize.where(sequelize.cast(sequelize.col(field), 'DECIMAL'), Op.lte, parseFloat(value));
+            }
+            return { [field]: { [Op.lte]: value } };
+          default:
+            return null;
+        }
+      }).filter(condition => condition !== null);
+
+      if (filterConditions.length > 0) {
+        whereClause[Op.and] = filterConditions;
+      }
+    }
+
+    // Handle sorting
+    const order = [];
+    if (sortFCR) {
+      order.push([literal('CAST(FCR AS DECIMAL)'), sortFCR.toUpperCase()]);
+    }
+    if (sortBirdAge) {
+      order.push([literal('CAST(Age_SAP AS DECIMAL)'), sortBirdAge.toUpperCase()]);
+    }
+    if (order.length === 0 && sortBy) {
+      order.push([sortBy, sortOrder]);
+    }
+
+    const offset = (page - 1) * limit;
+
+    // Get filtered results
     const { count, rows: auditLeads } = await AuditLeadDetail.findAndCountAll({
       where: whereClause,
-      order: [[sortBy, sortOrder]],
+      order: order,
       limit: parseInt(limit),
       offset: parseInt(offset),
     });
@@ -1440,9 +1561,11 @@ exports.getAllLeadsForSupervisor = async (req, res) => {
     });
   } catch (error) {
     console.error("Error retrieving audit leads:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
+
 
 
 //for trader ------------------------
