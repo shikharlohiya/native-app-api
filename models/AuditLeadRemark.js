@@ -84,6 +84,10 @@ AuditLeadRemark.init(
       type: DataTypes.STRING,
       allowNull: true,  
     },
+    call_type : {
+      type: DataTypes.STRING(45),
+      allowNull: true,  
+    }
     
 
   },

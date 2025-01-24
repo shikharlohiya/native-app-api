@@ -1425,6 +1425,27 @@ exports.getEmployeeLeads = async (req, res) => {
         [Op.in]: BdmID.split(',').map(v => v.trim())
       };
     }
+    if (req.query.updatedDate) {
+      const date = new Date(req.query.updatedDate);
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      whereClause.updatedAt = {
+        [Op.gte]: date,
+        [Op.lt]: nextDay
+      };
+    }
+    if (req.query.followUpDate) {
+      const date = new Date(req.query.followUpDate);
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      whereClause.follow_up_date = {
+        [Op.gte]: date,
+        [Op.lt]: nextDay
+      };
+    }
+    
 
     // Build include conditions
     const includeConditions = [

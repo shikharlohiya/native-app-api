@@ -39,9 +39,9 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: process.env.DB_DIALECT,
     pool: {
-      max: 25,        // Conservative setting for production
+      max: 35, 
       min: 5,
-      acquire: 60000, 
+      acquire: 40000,
       idle: 20000,
     },
     retry: {
@@ -58,21 +58,22 @@ const sequelize = new Sequelize(
 
 // Better error handling with async/await
 const connectDB = async () => {
-  try {
+  try {  
     await sequelize.authenticate();
     console.log("Connection has been established successfully");
     
     // Monitor pool status
-    setInterval(() => {
+    setInterval(() => { 
       const pool = sequelize.connectionManager.pool;
       if (pool) {
         console.log('Pool Status:', {
+
           total: pool.size,
           available: pool.available,
           borrowed: pool.borrowed,
         });
       }
-    }, 30000);
+    }, 20000);
 
   } catch (error) {
     console.error("Unable to connect to the database:", error);
@@ -82,4 +83,22 @@ const connectDB = async () => {
 // Initialize connection
 connectDB();
 
+
 module.exports = sequelize;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

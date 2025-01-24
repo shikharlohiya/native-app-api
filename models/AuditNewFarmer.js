@@ -102,9 +102,9 @@ AuditNewFarmer.init(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    extra3: {
-      type: DataTypes.STRING,
-      allowNull: true,
+    call_type : {
+      type: DataTypes.STRING(45),
+      allowNull: true,  
     },
     createdAt: {
       type: DataTypes.DATE,

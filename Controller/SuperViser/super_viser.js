@@ -1918,6 +1918,30 @@ const buildFilterAndIncludes = (req) => {
       ...(req.query.region && { region_name: { [Op.in]: req.query.region.split(',').map(v => v.trim()) } }),
       ...(req.query.category && { category: { [Op.in]: req.query.category.split(',').map(v => v.trim()) } }),
       ...(req.query.subcategory && { sub_category: { [Op.in]: req.query.subcategory.split(',').map(v => v.trim()) } }),
+
+
+      ...(req.query.updatedDate && {
+        updatedAt: {
+          [Op.gte]: new Date(req.query.updatedDate),
+          [Op.lt]: (() => {
+            const nextDay = new Date(req.query.updatedDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            return nextDay;
+          })()
+        }
+      }),
+      // Add followUpDate filter
+      ...(req.query.followUpDate && {
+        follow_up_date: {
+          [Op.gte]: new Date(req.query.followUpDate),
+          [Op.lt]: (() => {
+            const nextDay = new Date(req.query.followUpDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            return nextDay;
+          })()
+        }
+      })
+    
     };
 
     filter = filterConditions;
@@ -2128,6 +2152,30 @@ const buildBaseFilterAndIncludes = (req) => {
         [Op.in]: req.query.subcategory.split(',').map(v => v.trim()) 
       } 
     }),
+    ...(req.query.updatedDate && {
+      updatedAt: {
+        [Op.gte]: new Date(req.query.updatedDate),
+        [Op.lt]: (() => {
+          const nextDay = new Date(req.query.updatedDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          return nextDay;
+        })()
+      }
+    }),
+    // Add followUpDate filter
+    ...(req.query.followUpDate && {
+      follow_up_date: {
+        [Op.gte]: new Date(req.query.followUpDate),
+        [Op.lt]: (() => {
+          const nextDay = new Date(req.query.followUpDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          return nextDay;
+        })()
+      }
+    })
+
+
+
   };
 
   baseFilter = filterConditions;

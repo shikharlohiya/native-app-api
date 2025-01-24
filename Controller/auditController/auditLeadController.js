@@ -950,6 +950,7 @@ exports.createAuditLeadRemark = async (req, res) => {
         follow_up_date,
         call_id,
         user_type,
+        call_type,
         // Fields for type = 'running'
         CH, AGE, BWT, M_QTY, REASON, MED, FEED, STOCK,
         IFFT_IN, IFFT_OUT, LS_VISIT, BM_VISIT, DAILY_ENT,
@@ -990,7 +991,8 @@ exports.createAuditLeadRemark = async (req, res) => {
           DATE, Lot_Number, AgentId,
           closure_status: status,
           follow_up_date,
-          call_id
+          call_id,
+          call_type
         }, { transaction });
 
         // Update AuditLeadDetail
@@ -1021,6 +1023,7 @@ exports.createAuditLeadRemark = async (req, res) => {
           status,
           follow_up_date: status === 'closed' ? null : follow_up_date,
           call_id,
+          call_type,
           ABWT: type === 'old' ? ABWT : null,
           Avg_Lift_Wt: type === 'old' ? Avg_Lift_Wt : null,
           Total_Mortality: type === 'old' ? Total_Mortality : null,

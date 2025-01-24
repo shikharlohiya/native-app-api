@@ -2335,6 +2335,8 @@ exports.assignLeadToBDM = async (req, res) => {
 //   };
 
 
+
+
 exports.getLeadsByAgentId = async (req, res) => {
   try {
     const { agentId } = req.params;
@@ -2433,6 +2435,28 @@ exports.getLeadsByAgentId = async (req, res) => {
       };
     }
 
+    if (req.query.updatedDate) {
+      const date = new Date(req.query.updatedDate);
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      whereClause.updatedAt = {
+        [Op.gte]: date,
+        [Op.lt]: nextDay
+      };
+    }
+    if (req.query.followUpDate) {
+      const date = new Date(req.query.followUpDate);
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      
+      whereClause.follow_up_date = {
+        [Op.gte]: date,
+        [Op.lt]: nextDay
+      };
+    }
+
+
     // Then apply search if exists
     if (req.query.search) {
       const searchConditions = [
@@ -2456,10 +2480,11 @@ exports.getLeadsByAgentId = async (req, res) => {
     }
 
     // Sorting
-    const order = req.query.sort
-      ? [[req.query.sort, "ASC"]]
-      : [["createdAt", "DESC"]];
+    // const order = req.query.sort
+    //   ? [[req.query.sort, "ASC"]]
+    //   : [["createdAt", "DESC"]];
 
+    const order = [["updatedAt", "DESC"]];
     // Get total count for pagination
     const totalCount = await Lead_Detail.count({
       where: whereClause,
@@ -2604,6 +2629,29 @@ exports.exportLeadsByAgentId = async (req, res) => {
           [Op.in]: req.query.subcategory.split(',').map(v => v.trim())
         };
       }
+      if (req.query.updatedDate) {
+        const date = new Date(req.query.updatedDate);
+        const nextDay = new Date(date);
+        nextDay.setDate(date.getDate() + 1);
+        
+        whereClause.updatedAt = {
+          [Op.gte]: date,
+          [Op.lt]: nextDay
+        };
+      }
+      if (req.query.followUpDate) {
+        const date = new Date(req.query.followUpDate);
+        const nextDay = new Date(date);
+        nextDay.setDate(date.getDate() + 1);
+        
+        whereClause.follow_up_date = {
+          [Op.gte]: date,
+          [Op.lt]: nextDay
+        };
+      }
+  
+
+
     }
 
     // Build include conditions
