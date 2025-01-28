@@ -40,7 +40,7 @@ Employee.init(
       type: DataTypes.STRING(100),
     },
     EmployeeRegion: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING(1500),
     },
   },
   {
