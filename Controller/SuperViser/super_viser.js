@@ -20,6 +20,9 @@ const ParivatanRegion = require('../../models/Parivartan_Region')
 const Employee_Role = require('../../models/employeRole');
 const ExcelJS = require('exceljs');
 const moment = require('moment');
+const BdmTravelDetail = require("../../models/BdmTravelDetail");
+const Attendance = require("../../models/Attendence");
+ 
  
  
  
@@ -1679,23 +1682,7 @@ exports.getBDMSelfTasks = async (req, res) => {
           Project: assignment.Project
       }));
 
-      // const whereClause = {
-      //     follow_up_date: {
-      //         [Op.gte]: today,
-      //         [Op.lt]: tomorrow
-      //     },
-      //     [Op.or]: [
-      //         { lead_created_by: 2 }, // Created by BDM
-      //         { lead_created_by: 3 }  // Created by Zonal Manager
-      //     ],
-      //     // BDMId: bdmId,
-      //     [Op.or]: assignments.map(assignment => ({
-      //         [Op.and]: {
-      //             RegionId: assignment.RegionId,
-      //             Project: assignment.Project
-      //         }
-      //     }))
-      // };
+    
 
       const whereClause = {
         follow_up_date: {
@@ -1719,29 +1706,7 @@ exports.getBDMSelfTasks = async (req, res) => {
             }
         ]
     };
-    //   const whereClause = {
-    //     follow_up_date: {
-    //         [Op.gte]: today,
-    //         [Op.lt]: tomorrow
-    //     },
-    //     BDMId: bdmId,  // Add this back
-    //     [Op.and]: [
-    //         {
-    //             [Op.or]: [
-    //                 { lead_created_by: 2 }, // Created by BDM
-    //                 { lead_created_by: 3 }  // Created by Zonal Manager
-    //             ]
-    //         },
-    //         {
-    //             [Op.or]: assignments.map(assignment => ({
-    //                 [Op.and]: {
-    //                     RegionId: assignment.RegionId,
-    //                     Project: assignment.Project
-    //                 }
-    //             }))
-    //         }
-    //     ]
-    // };
+   
 
       const selfTasks = await Lead_Detail.findAndCountAll({
           where: whereClause,
@@ -1795,6 +1760,328 @@ exports.getBDMSelfTasks = async (req, res) => {
 };
 
 
+
+
+
+
+//changes on 28jan
+
+// exports.getBdmDailyTasks = async (req, res) => {
+//   try {
+//     const { bdmId } = req.params;
+
+//     if (!bdmId) {
+//       return res.status(400).json({ message: 'BDM ID is required' });
+//     }
+
+//     // Get today's date range
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
+
+//     const tasks = await BdmLeadAction.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         action_date: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       },
+//       include: [
+//         {
+//           model: Lead_Detail,
+//           as: 'Lead',
+//           attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
+//         }
+//       ],
+//       order: [['action_date', 'ASC']]
+//     });
+
+//     const formattedTasks = {
+//       HO_task: [],
+//       self_task: [],
+//       other_task: []
+//     };
+
+//     tasks.forEach(task => {
+//       const formattedTask = {
+//         id: task.id,
+//         action_type: task.action_type,
+//         specific_action: task.specific_action,
+//         new_follow_up_date: task.new_follow_up_date,
+//         remarks: task.remarks,
+//         action_date: task.action_date,
+//         completion_status: task.completion_status,
+//         lead: task.Lead ? {
+//           Id: task.Lead.id,
+//           CustomerName: task.Lead.CustomerName,
+//           MobileNo: task.Lead.MobileNo,
+//           location: task.Lead.location,
+//           category: task.Lead.category,
+//           sub_category: task.Lead.sub_category,
+//           agent_remark: task.Lead.agent_remark,
+//           bdm_remark: task.Lead.bdm_remark
+//         } : null
+//       };
+
+//       if (task.task_type === 'HO_task') {
+//         formattedTasks.HO_task.push(formattedTask);
+//       } else if (task.task_type === 'self_task') {
+//         formattedTasks.self_task.push(formattedTask);
+//       } else if (task.task_type === 'other_task') {
+//         formattedTasks.other_task.push({
+//           id: task.id,
+//           task_name: task.task_name,
+//           remarks: task.remarks,
+//           action_date: task.action_date
+//         });
+//       }
+//     });
+
+//     res.status(200).json({
+//       message: 'BDM daily tasks retrieved successfully',
+//       tasks: formattedTasks
+//     });
+//   } catch (error) {
+//     console.error('Error retrieving BDM daily tasks:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
+
+
+
+
+// exports.getBdmDailyTasks = async (req, res) => {
+//   try {
+//     const { bdmId } = req.params;
+
+//     if (!bdmId) {
+//       return res.status(400).json({ message: 'BDM ID is required' });
+//     }
+
+//     // Get today's date range
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
+
+//     // Get tasks with travel details
+//     const tasks = await BdmLeadAction.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         action_date: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       },
+//       include: [
+//         {
+//           model: Lead_Detail,
+//           as: 'Lead',
+//           attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
+//         }
+//       ],
+//       order: [['action_date', 'ASC']]
+//     });
+
+//     // Get travel details for the day
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       }
+//     });
+
+//     const formattedTasks = {
+//       HO_task: [],
+//       self_task: [],
+//       other_task: []
+//     };
+
+//     tasks.forEach(task => {
+//       // Find associated travel detail
+//       const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+      
+//       const formattedTask = {
+//         id: task.id,
+//         action_type: task.action_type,
+//         specific_action: task.specific_action,
+//         new_follow_up_date: task.new_follow_up_date,
+//         remarks: task.remarks,
+//         action_date: task.action_date,
+//         completion_status: task.completion_status,
+//         travel_details: travelDetail ? {
+//           checkin_time: travelDetail.checkin_time,
+//           checkout_time: travelDetail.checkout_time,
+//           checkin_location: {
+//             latitude: travelDetail.checkin_latitude,
+//             longitude: travelDetail.checkin_longitude
+//           },
+//           checkout_location: travelDetail.checkout_time ? {
+//             latitude: travelDetail.checkout_latitude,
+//             longitude: travelDetail.checkout_longitude
+//           } : null
+//         } : null,
+//         lead: task.Lead ? {
+//           Id: task.Lead.id,
+//           CustomerName: task.Lead.CustomerName,
+//           MobileNo: task.Lead.MobileNo,
+//           location: task.Lead.location,
+//           category: task.Lead.category,
+//           sub_category: task.Lead.sub_category,
+//           agent_remark: task.Lead.agent_remark,
+//           bdm_remark: task.Lead.bdm_remark
+//         } : null
+//       };
+
+//       if (task.task_type === 'HO_task') {
+//         formattedTasks.HO_task.push(formattedTask);
+//       } else if (task.task_type === 'self_task') {
+//         formattedTasks.self_task.push(formattedTask);
+//       } else if (task.task_type === 'other_task') {
+//         formattedTasks.other_task.push({
+//           id: task.id,
+//           task_name: task.task_name,
+//           remarks: task.remarks,
+//           action_date: task.action_date,
+//           travel_details: formattedTask.travel_details
+//         });
+//       }
+//     });
+
+//     res.status(200).json({
+//       message: 'BDM daily tasks retrieved successfully',
+//       tasks: formattedTasks
+//     });
+//   } catch (error) {
+//     console.error('Error retrieving BDM daily tasks:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
+
+
+//changes on 29jan
+
+// exports.getBdmDailyTasks = async (req, res) => {
+//   try {
+//     const { bdmId } = req.params;
+
+//     if (!bdmId) {
+//       return res.status(400).json({ message: 'BDM ID is required' });
+//     }
+
+//     // Get today's date range
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
+
+//     const tasks = await BdmLeadAction.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         action_date: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       },
+//       include: [
+//         {
+//           model: Lead_Detail,
+//           as: 'Lead',
+//           attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
+//         }
+//       ],
+//       order: [['action_date', 'ASC']]
+//     });
+
+//     // Get travel details for the day
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       }
+//     });
+
+//     const formattedTasks = {
+//       HO_task: [],
+//       self_task: [],
+//       other_task: []
+//     };
+
+//     tasks.forEach(task => {
+//       const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+      
+//       const formattedTask = {
+//         id: task.id,
+//         action_type: task.action_type,
+//         specific_action: task.specific_action,
+//         new_follow_up_date: task.new_follow_up_date ? 
+//           moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//         remarks: task.remarks,
+//         action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//         completion_status: task.completion_status,
+
+//         travel_details: travelDetail ? {
+//           travel_detailsId : travelDetail.id,
+//           checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//           checkout_time: travelDetail.checkout_time ? 
+//             moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//           checkin_location: {
+//             latitude: travelDetail.checkin_latitude,
+//             longitude: travelDetail.checkin_longitude
+//           },
+//           checkout_location: travelDetail.checkout_time ? {
+//             latitude: travelDetail.checkout_latitude,
+//             longitude: travelDetail.checkout_longitude
+//           } : null
+//         } : null,
+//         lead: task.Lead ? {
+//           Id: task.Lead.id,
+//           CustomerName: task.Lead.CustomerName,
+//           MobileNo: task.Lead.MobileNo,
+//           location: task.Lead.location,
+//           category: task.Lead.category,
+//           sub_category: task.Lead.sub_category,
+//           agent_remark: task.Lead.agent_remark,
+//           bdm_remark: task.Lead.bdm_remark
+//         } : null
+//       };
+
+//       if (task.task_type === 'HO_task') {
+//         formattedTasks.HO_task.push(formattedTask);
+//       } else if (task.task_type === 'self_task') {
+//         formattedTasks.self_task.push(formattedTask);
+//       } else if (task.task_type === 'other_task') {
+//         formattedTasks.other_task.push({
+//           id: task.id,
+//           task_name: task.task_name,
+//           remarks: task.remarks,
+//           action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//           travel_details: formattedTask.travel_details
+//         });
+//       }
+//     });
+
+//     res.status(200).json({
+//       message: 'BDM daily tasks retrieved successfully',
+//       tasks: formattedTasks
+//     });
+
+//   } catch (error) {
+//     console.error('Error retrieving BDM daily tasks:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
+
+
+
 exports.getBdmDailyTasks = async (req, res) => {
   try {
     const { bdmId } = req.params;
@@ -1809,6 +2096,17 @@ exports.getBdmDailyTasks = async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Get attendance data for the day
+    const attendance = await Attendance.findOne({
+      where: {
+        EmployeeId: bdmId,
+        AttendanceDate: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
+      }
+    });
+
     const tasks = await BdmLeadAction.findAll({
       where: {
         BDMId: bdmId,
@@ -1821,61 +2119,199 @@ exports.getBdmDailyTasks = async (req, res) => {
         {
           model: Lead_Detail,
           as: 'Lead',
-          attributes: ['CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
+          attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
         }
       ],
       order: [['action_date', 'ASC']]
     });
 
-    const formattedTasks = {
-      HO_task: [],
-      self_task: [],
-      other_task: []
-    };
-
-    tasks.forEach(task => {
-      const formattedTask = {
-        id: task.id,
-        action_type: task.action_type,
-        specific_action: task.specific_action,
-        new_follow_up_date: task.new_follow_up_date,
-        remarks: task.remarks,
-        action_date: task.action_date,
-        completion_status: task.completion_status,
-        lead: task.Lead ? {
-          CustomerName: task.Lead.CustomerName,
-          MobileNo: task.Lead.MobileNo,
-          location: task.Lead.location,
-          category: task.Lead.category,
-          sub_category: task.Lead.sub_category,
-          agent_remark: task.Lead.agent_remark,
-          bdm_remark: task.Lead.bdm_remark
-        } : null
-      };
-
-      if (task.task_type === 'HO_task') {
-        formattedTasks.HO_task.push(formattedTask);
-      } else if (task.task_type === 'self_task') {
-        formattedTasks.self_task.push(formattedTask);
-      } else if (task.task_type === 'other_task') {
-        formattedTasks.other_task.push({
-          id: task.id,
-          task_name: task.task_name,
-          remarks: task.remarks,
-          action_date: task.action_date
-        });
+    // Get travel details for the day
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
       }
     });
 
+//     const formattedTasks = {
+//       HO_task: [],
+//       self_task: [],
+//       other_task: []
+//     };
+
+//     tasks.forEach(task => {
+//       const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+
+//       const formattedTask = {
+//         id: task.id,
+//         action_type: task.action_type,
+//         specific_action: task.specific_action,
+//         new_follow_up_date: task.new_follow_up_date ?
+//           moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//         remarks: task.remarks,
+//         action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//         completion_status: task.completion_status,
+
+//         travel_details: travelDetail ? {
+//           travel_detailsId: travelDetail.id,
+//           checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//           checkout_time: travelDetail.checkout_time ?
+//             moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//           checkin_location: {
+//             latitude: travelDetail.checkin_latitude,
+//             longitude: travelDetail.checkin_longitude
+//           },
+//           checkout_location: travelDetail.checkout_time ? {
+//             latitude: travelDetail.checkout_latitude,
+//             longitude: travelDetail.checkout_longitude
+//           } : null
+//         } : null,
+//         lead: task.Lead ? {
+//           Id: task.Lead.id,
+//           CustomerName: task.Lead.CustomerName,
+//           MobileNo: task.Lead.MobileNo,
+//           location: task.Lead.location,
+//           category: task.Lead.category,
+//           sub_category: task.Lead.sub_category,
+//           agent_remark: task.Lead.agent_remark,
+//           bdm_remark: task.Lead.bdm_remark
+//         } : null
+//       };
+
+//       if (task.task_type === 'HO_task') {
+//         formattedTasks.HO_task.push(formattedTask);
+//       } else if (task.task_type === 'self_task') {
+//         formattedTasks.self_task.push(formattedTask);
+
+
+//   } else if (task.task_type === 'other_task') {
+//   formattedTasks.other_task.push({
+//     id: task.id,
+//     task_name: task.task_name,
+//     action_type: task.action_type,
+//     specific_action: task.specific_action,
+//     new_follow_up_date: task.new_follow_up_date ?  
+//       moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//     remarks: task.remarks,
+//     action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//     travel_details: formattedTask.travel_details,
+//     completion_status: task.completion_status
+//   });
+// }
+//     });
+
+const formattedTasks = {
+  HO_task: [],
+  self_task: [],
+  other_task: {
+    meeting: [],
+    site_visit: [],
+    other: []  // for tasks that aren't meetings or site visits
+  }
+};
+
+tasks.forEach(task => {
+  const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+
+  const formattedTask = {
+    id: task.id,
+    action_type: task.action_type,
+    specific_action: task.specific_action,
+    new_follow_up_date: task.new_follow_up_date ?
+      moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+    remarks: task.remarks,
+    action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+    completion_status: task.completion_status,
+    travel_details: travelDetail ? {
+      travel_detailsId: travelDetail.id,
+      checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+      checkout_time: travelDetail.checkout_time ?
+        moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+      checkin_location: {
+        latitude: travelDetail.checkin_latitude,
+        longitude: travelDetail.checkin_longitude
+      },
+      checkout_location: travelDetail.checkout_time ? {
+        latitude: travelDetail.checkout_latitude,
+        longitude: travelDetail.checkout_longitude
+      } : null
+    } : null,
+    lead: task.Lead ? {
+      Id: task.Lead.id,
+      CustomerName: task.Lead.CustomerName,
+      MobileNo: task.Lead.MobileNo,
+      location: task.Lead.location,
+      category: task.Lead.category,
+      sub_category: task.Lead.sub_category,
+      agent_remark: task.Lead.agent_remark,
+      bdm_remark: task.Lead.bdm_remark
+    } : null
+  };
+
+  if (task.task_type === 'HO_task') {
+    formattedTasks.HO_task.push(formattedTask);
+  } else if (task.task_type === 'self_task') {
+    formattedTasks.self_task.push(formattedTask);
+  } else if (task.task_type === 'other_task') {
+    // For other_task, check specific_action and organize accordingly
+    if (task.specific_action?.toLowerCase() === 'meeting') {
+      formattedTasks.other_task.meeting.push({
+        ...formattedTask,
+        task_name: task.task_name
+      });
+    } else if (task.specific_action?.toLowerCase() === 'site visit') {
+      formattedTasks.other_task.site_visit.push({
+        ...formattedTask,
+        task_name: task.task_name
+      });
+    } else {
+      formattedTasks.other_task.other.push({
+        id: task.id,
+        task_name: task.task_name,
+        action_type: task.action_type,
+        specific_action: task.specific_action,
+        new_follow_up_date: task.new_follow_up_date ? 
+          moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+        remarks: task.remarks,
+        action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+        travel_details: formattedTask.travel_details,
+        completion_status: task.completion_status
+      });
+    }
+  }
+});
+
     res.status(200).json({
       message: 'BDM daily tasks retrieved successfully',
+      attendance: attendance ? {
+        attendanceId: attendance.id,
+        inTime: attendance.AttendanceInTime ? 
+          moment(attendance.AttendanceInTime).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+        outTime: attendance.AttendanceOutTime ? 
+          moment(attendance.AttendanceOutTime).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+        attendanceType: attendance.AttendanceType,
+        location: {
+          latitude: attendance.Latitude,
+          longitude: attendance.Longitude
+        }
+      } : null,
       tasks: formattedTasks
     });
+
   } catch (error) {
     console.error('Error retrieving BDM daily tasks:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+
+
+
+
 
 
 // const addMultiValueFilter = (field, value, operatorType = Op.like) => {

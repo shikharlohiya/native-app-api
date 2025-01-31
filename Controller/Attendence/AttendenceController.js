@@ -1,5 +1,5 @@
 // controllers/bdmActionController.js
-const { QueryTypes, Op } = require("sequelize");
+const { QueryTypes, Op, Sequelize } = require("sequelize");
 const sequelize = require("../../models/index");
 const BdmLeadAction = require("../../models/BdmLeadAction");
 const Lead_Detail = require("../../models/lead_detail");
@@ -12,6 +12,9 @@ const Employee = require('../../models/employee');
 const Estimation = require('../../models/estimation'); // Import the Estimation model
 const Meeting = require('../../models/lead_meeting'); // Import the Meeting model
 const SiteVisit = require('../../models/site_visit'); // Import the SiteVisit model
+const BdmTravelDetail = require("../../models/BdmTravelDetail");
+const { default: axios } = require("axios");
+
 
 
 
@@ -297,21 +300,22 @@ exports.handleBatchLeadActions = async (req, res) => {
             );
 
             // Update Lead_Detail
-            const lead = await Lead_Detail.findByPk(id, { transaction });
-            if (!lead) {
-              throw new Error(`Lead with id ${id} not found`);
-            }
 
-            if (action_type === "confirm") {
-              lead.last_action = specific_action;
-            } else if (action_type === "postpone") {
-              lead.follow_up_date = new Date(new_follow_up_date);
-              lead.bdm_remark = remarks || lead.bdm_remark;
-            }
+            // const lead = await Lead_Detail.findByPk(id, { transaction });
+            // if (!lead) {
+            //   throw new Error(`Lead with id ${id} not found`);
+            // }
 
-            await lead.save({ transaction });
+            // if (action_type === "confirm") {
+            //   lead.last_action = specific_action;
+            // } else if (action_type === "postpone") {
+            //   lead.follow_up_date = new Date(new_follow_up_date);
+            //   lead.bdm_remark = remarks || lead.bdm_remark;
+            // }
 
-            return bdmAction;
+            // await lead.save({ transaction });
+
+            // return bdmAction;
           }
         })
       );
@@ -326,7 +330,7 @@ exports.handleBatchLeadActions = async (req, res) => {
     const processedOtherTasks = other_task
       ? await processActions(other_task, "other_task")
       : [];
-
+      const currentDateTime = new Date();
     // Create an Attendance record with location
     const attendance = await Attendance.create(
       {
@@ -334,9 +338,25 @@ exports.handleBatchLeadActions = async (req, res) => {
         AttendanceType: attendanceType,
         Latitude: latitude,
         Longitude: longitude,
+        AttendanceInTime: currentDateTime,
+        AttendanceDate: currentDateTime
       },
       { transaction }
     );
+    
+    await BdmTravelDetail.create(
+      {
+        bdm_id: bdmId,
+        attendance_id: attendance.id,
+        action: "Attendance In",
+        checkin_latitude: latitude,
+        checkin_longitude: longitude,
+        checkin_time: new Date(),
+      },
+      { transaction }
+    );
+
+
 
     await transaction.commit();
 
@@ -1037,6 +1057,916 @@ exports.getAllBdmStats = async (req, res) => {
   }
 };
 
+
+
+//checkin task
+
+
+
+// exports.handleBdmCheckIn = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+  
+//   try {
+//     const {
+//       bdmId,
+//       leadDetailId,  // Optional
+//       attendanceId,
+//       action,
+//       latitude,
+//       longitude
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!bdmId || !attendanceId || !action || !latitude || !longitude) {
+//       return res.status(400).json({
+//         message: "Missing required fields. bdmId, attendanceId, action, latitude, and longitude are required"
+//       });
+//     }
+
+//     // Create BDM Travel Detail record
+//     const travelDetail = await BdmTravelDetail.create({
+//       bdm_id: bdmId,
+//       leaddetail_id: leadDetailId || null,
+//       attendance_id: attendanceId,
+//       action: action,
+//       checkin_latitude: latitude,
+//       checkin_longitude: longitude,
+//       checkin_time: new Date(),
+//     }, { transaction });
+
+//     await transaction.commit();
+
+//     res.status(200).json({
+//       message: "Check-in recorded successfully",
+//       travelDetail
+//     });
+
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error("Error recording check-in:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+//changes on 28 jan 
+
+// exports.handleBdmCheckIn = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+  
+//   try {
+//     const {
+//       bdmId,
+//       leadDetailId,  // Optional
+//       attendanceId,
+//       action,
+//       latitude,
+//       longitude
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!bdmId || !attendanceId || !action || !latitude || !longitude) {
+//       return res.status(400).json({
+//         message: "Missing required fields. bdmId, attendanceId, action, latitude, and longitude are required"
+//       });
+//     }
+
+//     // Get today's start date
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+
+//     // Validate attendance record
+//     const attendance = await Attendance.findOne({
+//       where: {
+//         id: attendanceId,
+//         EmployeeId: bdmId,
+//         AttendanceDate: {
+//           [Sequelize.Op.gte]: today
+//         },
+//         AttendanceType: 'IN'
+//       }
+//     });
+
+//     if (!attendance) {
+//       return res.status(400).json({
+//         message: "Invalid attendance ID. Please ensure the attendance record exists, belongs to you, and was created today"
+//       });
+//     }
+
+//     // Create BDM Travel Detail record
+//     const travelDetail = await BdmTravelDetail.create({
+//       bdm_id: bdmId,
+//       leaddetail_id: leadDetailId || null,
+//       attendance_id: attendanceId,
+//       action: action,
+//       checkin_latitude: latitude,
+//       checkin_longitude: longitude,
+//       checkin_time: new Date(),
+//       extrafield1: 'default',
+//       extrafield2: 'default',
+//       extrafield3: 'default'
+//     }, { transaction });
+
+//     await transaction.commit();
+
+//     res.status(200).json({
+//       message: "Check-in recorded successfully",
+//       travelDetail
+//     });
+
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error("Error recording check-in:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+
+exports.handleBdmCheckIn = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const {
+      bdmId,
+      leadDetailId,  // Optional
+      attendanceId,
+      action,
+      latitude,
+      longitude,
+      bdmLeadActionId  // Add this new parameter
+    } = req.body;
+
+    // Validate required fields
+    if (!bdmId || !attendanceId || !action || !latitude || !longitude) {
+      return res.status(400).json({
+        message: "Missing required fields. bdmId, attendanceId, action, latitude, and longitude are required"
+      });
+    }
+
+    // Get today's start date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Validate attendance record
+    const attendance = await Attendance.findOne({
+      where: {
+        id: attendanceId,
+        EmployeeId: bdmId,
+        AttendanceDate: {
+          [Sequelize.Op.gte]: today
+        },
+        AttendanceType: 'IN'
+      }
+    });
+
+    if (!attendance) {
+      return res.status(400).json({
+        message: "Invalid attendance ID. Please ensure the attendance record exists, belongs to you, and was created today"
+      });
+    }
+
+    // If bdmLeadActionId is provided, validate it
+    if (bdmLeadActionId) {
+      const leadAction = await BdmLeadAction.findOne({
+        where: {
+          id: bdmLeadActionId,
+          BDMId: bdmId,
+          action_date: {
+            [Sequelize.Op.gte]: today
+          }
+        }
+      });
+
+      if (!leadAction) {
+        return res.status(400).json({
+          message: "Invalid BDM Lead Action ID"
+        });
+      }
+    }
+
+    // Create BDM Travel Detail record
+    const travelDetail = await BdmTravelDetail.create({
+      bdm_id: bdmId,
+      leaddetail_id: leadDetailId || null,
+      attendance_id: attendanceId,
+      bdm_lead_action_id: bdmLeadActionId || null,  // Save the BdmLeadAction id
+      action: action,
+      checkin_latitude: latitude,
+      checkin_longitude: longitude,
+      checkin_time: new Date(),
+      extrafield1: 'default',
+      extrafield2: 'default',
+      extrafield3: 'default'
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.status(200).json({
+      message: "Check-in recorded successfully",
+      travelDetail
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error recording check-in:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+// checkout task 
+exports.handleBdmCheckOut = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const {
+      travelDetailId,
+      latitude,
+      longitude
+    } = req.body;
+
+    // Validate required fields
+    if (!travelDetailId || !latitude || !longitude) {
+      return res.status(400).json({
+        message: "Missing required fields. travelDetailId, latitude, and longitude are required"
+      });
+    }
+
+    // Find the existing travel detail record
+    const travelDetail = await BdmTravelDetail.findByPk(travelDetailId);
+
+    if (!travelDetail) {
+      return res.status(404).json({
+        message: "Travel detail record not found"
+      });
+    }
+
+    if (travelDetail.checkout_time) {
+      return res.status(400).json({
+        message: "Check-out already recorded for this travel detail"
+      });
+    }
+    const checkoutTime = new Date();
+
+
+    // Update travel detail with checkout information
+    await travelDetail.update({
+      checkout_latitude: latitude,
+      checkout_longitude: longitude,
+      checkout_time: checkoutTime
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.status(200).json({
+      message: "Check-out recorded successfully",
+      travelDetail: {
+        ...travelDetail.toJSON(),
+     
+      }
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error recording check-out:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
  
+
+
+//distance calucation
+
+
+
+
+// exports.getBdmDailyDistance = async (req, res) => {
+//   try {
+//     const { bdmId, date } = req.body;
+
+//     if (!bdmId) {
+//       return res.status(400).json({
+//         message: "BDM ID is required"
+//       });
+//     }
+
+//     // If date is not provided, use today's date
+//     const targetDate = date ? new Date(date) : new Date();
+//     targetDate.setHours(0, 0, 0, 0);
+
+//     const nextDate = new Date(targetDate);
+//     nextDate.setDate(nextDate.getDate() + 1);
+
+//     // Get all check-ins for the BDM on the specified date
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Sequelize.Op.gte]: targetDate,
+//           [Sequelize.Op.lt]: nextDate
+//         }
+//       },
+//       order: [['checkin_time', 'ASC']]
+//     });
+
+//     if (travelDetails.length === 0) {
+//       return res.status(200).json({
+//         message: "No travel records found for the specified date",
+//         totalDistanceKm: 0,
+//         locations: [],
+//         date: targetDate
+//       });
+//     }
+
+//     // Calculate distances between consecutive points
+//     const locations = [];
+//     let totalDistanceMeters = 0;
+
+//     for (let i = 0; i < travelDetails.length - 1; i++) {
+//       const point1 = travelDetails[i];
+//       const point2 = travelDetails[i + 1];
+
+//       try {
+//         // Call OSRM API to get route distance
+//         const routeUrl = `http://router.project-osrm.org/route/v1/driving/${point1.checkin_longitude},${point1.checkin_latitude};${point2.checkin_longitude},${point2.checkin_latitude}?overview=false`;
+//         const routeResponse = await axios.get(routeUrl);
+
+//         if (routeResponse.data.routes && routeResponse.data.routes[0]) {
+//           const distance = routeResponse.data.routes[0].distance; // distance in meters
+//           totalDistanceMeters += distance;
+
+//           locations.push({
+//             from: {
+//               latitude: point1.checkin_latitude,
+//               longitude: point1.checkin_longitude,
+//               time: point1.checkin_time,
+//               action: point1.action
+//             },
+//             to: {
+//               latitude: point2.checkin_latitude,
+//               longitude: point2.checkin_longitude,
+//               time: point2.checkin_time,
+//               action: point2.action
+//             },
+//             segmentDistanceKm: +(distance / 1000).toFixed(2)
+//           });
+//         }
+//       } catch (routeError) {
+//         console.error('Error calculating route:', routeError);
+//         // Fallback to direct distance calculation using Haversine formula
+//         const distance = calculateHaversineDistance(
+//           parseFloat(point1.checkin_latitude),
+//           parseFloat(point1.checkin_longitude),
+//           parseFloat(point2.checkin_latitude),
+//           parseFloat(point2.checkin_longitude)
+//         );
+//         totalDistanceMeters += distance;
+
+//         locations.push({
+//           from: {
+//             latitude: point1.checkin_latitude,
+//             longitude: point1.checkin_longitude,
+//             time: point1.checkin_time,
+//             action: point1.action
+//           },
+//           to: {
+//             latitude: point2.checkin_latitude,
+//             longitude: point2.checkin_longitude,
+//             time: point2.checkin_time,
+//             action: point2.action
+//           },
+//           segmentDistanceKm: +(distance / 1000).toFixed(2),
+//           isDirectDistance: true // Flag to indicate this is a direct distance, not route distance
+//         });
+//       }
+//     }
+
+//     res.status(200).json({
+//       message: "Distance calculated successfully",
+//       totalDistanceKm: +(totalDistanceMeters / 1000).toFixed(2),
+//       locations,
+//       date: targetDate,
+//       numberOfLocations: travelDetails.length
+//     });
+
+//   } catch (error) {
+//     console.error("Error calculating distance:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+// // Haversine formula for calculating direct distance between two points
+// const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+//   const R = 6371e3; // Earth's radius in meters
+//   const φ1 = (lat1 * Math.PI) / 180;
+//   const φ2 = (lat2 * Math.PI) / 180;
+//   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+//   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+//   const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+//           Math.cos(φ1) * Math.cos(φ2) *
+//           Math.sin(Δλ/2) * Math.sin(Δλ/2);
+//   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+//   return R * c; // Distance in meters
+// };
  
+
+ 
+exports.getBdmDailyDistance = async (req, res) => {
+  // Helper function to get address from coordinates
+  const getAddressFromCoordinates = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+        {
+          headers: {
+            'User-Agent': 'BDM-Travel-App'
+          }
+        }
+      );
+      return {
+        address: response.data.display_name,
+        city: response.data.address.city || 
+              response.data.address.town || 
+              response.data.address.village || 
+              response.data.address.county || 
+              'Unknown'
+      };
+    } catch (error) {
+      console.error('Error fetching address:', error);
+      return {
+        address: 'Address not found',
+        city: 'Unknown'
+      };
+    }
+  };
+
+  try {
+    const { bdmId, date } = req.body;
+
+    if (!bdmId) {
+      return res.status(400).json({
+        message: "BDM ID is required"
+      });
+    }
+
+    // If date is not provided, use today's date
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    const nextDate = new Date(targetDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    // Get all check-ins for the BDM on the specified date
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Sequelize.Op.gte]: targetDate,
+          [Sequelize.Op.lt]: nextDate
+        }
+      },
+      order: [['checkin_time', 'ASC']]
+    });
+
+    if (travelDetails.length === 0) {
+      return res.status(200).json({
+        message: "No travel records found for the specified date",
+        totalDistanceKm: 0,
+        locations: [],
+        date: targetDate
+      });
+    }
+
+    // Calculate distances between consecutive points
+    const locations = [];
+    let totalDistanceMeters = 0;
+
+    for (let i = 0; i < travelDetails.length - 1; i++) {
+      const point1 = travelDetails[i];
+      const point2 = travelDetails[i + 1];
+
+      // Get addresses for both points
+      const [fromAddress, toAddress] = await Promise.all([
+        getAddressFromCoordinates(point1.checkin_latitude, point1.checkin_longitude),
+        getAddressFromCoordinates(point2.checkin_latitude, point2.checkin_longitude)
+      ]);
+
+      try {
+        // Call OSRM API to get route distance
+        const routeUrl = `http://router.project-osrm.org/route/v1/driving/${point1.checkin_longitude},${point1.checkin_latitude};${point2.checkin_longitude},${point2.checkin_latitude}?overview=false`;
+        const routeResponse = await axios.get(routeUrl);
+
+        if (routeResponse.data.routes && routeResponse.data.routes[0]) {
+          const distance = routeResponse.data.routes[0].distance; // distance in meters
+          totalDistanceMeters += distance;
+
+          locations.push({
+            from: {
+              latitude: point1.checkin_latitude,
+              longitude: point1.checkin_longitude,
+              time: point1.checkin_time,
+              action: point1.action,
+              address: fromAddress.address,
+              city: fromAddress.city
+            },
+            to: {
+              latitude: point2.checkin_latitude,
+              longitude: point2.checkin_longitude,
+              time: point2.checkin_time,
+              action: point2.action,
+              address: toAddress.address,
+              city: toAddress.city
+            },
+            segmentDistanceKm: +(distance / 1000).toFixed(2)
+          });
+        }
+      } catch (routeError) {
+        console.error('Error calculating route:', routeError);
+        // Fallback to direct distance calculation using Haversine formula
+        const distance = calculateHaversineDistance(
+          parseFloat(point1.checkin_latitude),
+          parseFloat(point1.checkin_longitude),
+          parseFloat(point2.checkin_latitude),
+          parseFloat(point2.checkin_longitude)
+        );
+        totalDistanceMeters += distance;
+
+        locations.push({
+          from: {
+            latitude: point1.checkin_latitude,
+            longitude: point1.checkin_longitude,
+            time: point1.checkin_time,
+            action: point1.action,
+            address: fromAddress.address,
+            city: fromAddress.city
+          },
+          to: {
+            latitude: point2.checkin_latitude,
+            longitude: point2.checkin_longitude,
+            time: point2.checkin_time,
+            action: point2.action,
+            address: toAddress.address,
+            city: toAddress.city
+          },
+          segmentDistanceKm: +(distance / 1000).toFixed(2),
+          isDirectDistance: true // Flag to indicate this is a direct distance, not route distance
+        });
+      }
+
+      // Add delay to respect Nominatim's usage policy
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // If there are travel details, include the last point's address
+    if (travelDetails.length > 0) {
+      const lastPoint = travelDetails[travelDetails.length - 1];
+      const lastAddress = await getAddressFromCoordinates(
+        lastPoint.checkin_latitude,
+        lastPoint.checkin_longitude
+      );
+
+      // Add last location to show final destination
+      locations.push({
+        final_location: {
+          latitude: lastPoint.checkin_latitude,
+          longitude: lastPoint.checkin_longitude,
+          time: lastPoint.checkin_time,
+          action: lastPoint.action,
+          address: lastAddress.address,
+          city: lastAddress.city
+        }
+      });
+    }
+
+    res.status(200).json({
+      message: "Distance calculated successfully",
+      totalDistanceKm: +(totalDistanceMeters / 1000).toFixed(2),
+      locations,
+      date: targetDate,
+      numberOfLocations: travelDetails.length
+    });
+
+  } catch (error) {
+    console.error("Error calculating distance:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Haversine formula for calculating direct distance between two points
+const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = toRadians(lat1);
+  const φ2 = toRadians(lat2);
+  const Δφ = toRadians(lat2 - lat1);
+  const Δλ = toRadians(lon2 - lon1);
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c;
+};
+
+const toRadians = (degrees) => {
+  return degrees * (Math.PI / 180);
+};
+
+
+
+
+
+// exports.getBdmDailyDistance = async (req, res) => {
+//   try {
+//     const { bdmId, date } = req.body;
+
+//     if (!bdmId) {
+//       return res.status(400).json({
+//         message: "BDM ID is required"
+//       });
+//     }
+
+//     // If date is not provided, use today's date
+//     const targetDate = date ? new Date(date) : new Date();
+//     targetDate.setHours(0, 0, 0, 0);
+
+//     const nextDate = new Date(targetDate);
+//     nextDate.setDate(nextDate.getDate() + 1);
+
+//     // Get all check-ins for the BDM on the specified date
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Sequelize.Op.gte]: targetDate,
+//           [Sequelize.Op.lt]: nextDate
+//         }
+//       },
+//       order: [['checkin_time', 'ASC']]
+//     });
+
+//     if (travelDetails.length === 0) {
+//       return res.status(200).json({
+//         message: "No travel records found for the specified date",
+//         totalDistanceKm: 0,
+//         locations: [],
+//         date: targetDate
+//       });
+//     }
+
+//     // Calculate distances between consecutive points
+//     const locations = [];
+//     let totalDistanceKm = 0;
+
+//     for (let i = 0; i < travelDetails.length - 1; i++) {
+//       const point1 = travelDetails[i];
+//       const point2 = travelDetails[i + 1];
+
+//       const distance = calculateHaversineDistance(
+//         parseFloat(point1.checkin_latitude),
+//         parseFloat(point1.checkin_longitude),
+//         parseFloat(point2.checkin_latitude),
+//         parseFloat(point2.checkin_longitude)
+//       );
+
+//       totalDistanceKm += distance;
+
+//       locations.push({
+//         from: {
+//           latitude: point1.checkin_latitude,
+//           longitude: point1.checkin_longitude,
+//           time: point1.checkin_time,
+//           action: point1.action
+//         },
+//         to: {
+//           latitude: point2.checkin_latitude,
+//           longitude: point2.checkin_longitude,
+//           time: point2.checkin_time,
+//           action: point2.action
+//         },
+//         segmentDistanceKm: +distance.toFixed(2)
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: "Distance calculated successfully",
+//       totalDistanceKm: +totalDistanceKm.toFixed(2),
+//       locations,
+//       date: targetDate,
+//       numberOfLocations: travelDetails.length
+//     });
+
+//   } catch (error) {
+//     console.error("Error calculating distance:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+// // Haversine formula for calculating direct distance between two points
+// const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+//   // Convert latitude and longitude from degrees to radians
+//   const R = 6371; // Earth's radius in kilometers
+//   const φ1 = toRadians(lat1);
+//   const φ2 = toRadians(lat2);
+//   const Δφ = toRadians(lat2 - lat1);
+//   const Δλ = toRadians(lon2 - lon1);
+
+//   const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+//           Math.cos(φ1) * Math.cos(φ2) *
+//           Math.sin(Δλ/2) * Math.sin(Δλ/2);
+//   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+//   return R * c; // Returns distance in kilometers
+// };
+
+// // Helper function to convert degrees to radians
+// const toRadians = (degrees) => {
+//   return degrees * (Math.PI / 180);
+// };
+
+
+
+
+//attendence out--->
+
+
+exports.handleAttendanceOut = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const {
+      bdmId,
+      attendanceId,
+      latitude,
+      longitude
+    } = req.body;
+
+    // Validate required fields
+    if (!bdmId || !attendanceId || !latitude || !longitude) {
+      return res.status(400).json({
+        message: "Missing required fields. bdmId, attendanceId, latitude, and longitude are required"
+      });
+    }
+
+    // Get today's start date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find and validate the attendance record
+    const attendance = await Attendance.findOne({
+      where: {
+        id: attendanceId,
+        EmployeeId: bdmId,
+        AttendanceDate: {
+          [Sequelize.Op.gte]: today
+        },
+        AttendanceType: 'IN',
+        AttendanceOutTime: null // Make sure attendance out hasn't been marked already
+      }
+    });
+
+    if (!attendance) {
+      return res.status(400).json({
+        message: "Invalid attendance ID or attendance out already marked"
+      });
+    }
+
+    const currentDateTime = new Date();
+
+    // Update attendance record
+    await attendance.update({
+      AttendanceOutTime: currentDateTime,
+      AttendanceOutLatitude: latitude,
+      AttendanceOutLongitude: longitude,
+      AttendanceOut: 'OUT'
+    }, { transaction });
+
+    // Create new travel detail record for attendance out
+    const travelDetail = await BdmTravelDetail.create({
+      bdm_id: bdmId,
+      attendance_id: attendanceId,
+      action: "Attendance Out",
+      checkin_latitude: latitude,
+      checkin_longitude: longitude,
+      checkin_time: currentDateTime,
+   
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.status(200).json({
+      message: "Attendance out marked successfully",
+      attendance,
+      travelDetail
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error marking attendance out:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+//other task for bdm api 
+
+exports.handleOtherTasks = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { bdmId, other_task } = req.body;
+
+    if (!bdmId || !other_task || !Array.isArray(other_task)) {
+      return res.status(400).json({ 
+        message: "Invalid input data. bdmId and other_task array are required" 
+      });
+    }
+
+    // Process other tasks
+    const processedOtherTasks = await Promise.all(
+      other_task.map(async (task) => {
+        const {
+          id,
+          action_type,
+          specific_action,
+          new_follow_up_date,
+          remarks,
+          task_name,
+        } = task;
+
+        // Create BDM Lead Action record
+        const bdmAction = await BdmLeadAction.create(
+          {
+            LeadId: id,
+            BDMId: bdmId,
+            task_type: "other_task",
+            action_type,
+            specific_action:  task_name,
+            new_follow_up_date:  new_follow_up_date,
+            remarks,
+            task_name
+          },
+          { transaction }
+        );
+
+        // Optionally, you can add Lead_Detail update logic here if needed
+        // Similar to your commented code in the original function
+
+        return bdmAction;
+      })
+    );
+
+    await transaction.commit();
+
+    res.status(200).json({
+      message: "Other tasks processed successfully",
+      other_task: processedOtherTasks,
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error processing other tasks:", error);
+    res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
+  }
+};
+
+
 

@@ -21,6 +21,14 @@ Attendance.init({
     type: DataTypes.ENUM('IN', 'OUT'),
     allowNull: false
   },
+  AttendanceInTime: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  AttendanceOutTime: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   AttendanceDate: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -33,7 +41,23 @@ Attendance.init({
   Longitude: {
     type: DataTypes.DECIMAL(11, 8),
     allowNull: false
-  }
+  },
+  
+  AttendanceOutLatitude: {
+    type: DataTypes.DECIMAL(10, 8),
+    allowNull: true
+  },
+
+ AttendanceOutLongitude: {
+  type: DataTypes.DECIMAL(11, 8),
+    allowNull: true
+  },
+
+
+  AttendanceOut: {
+    type: DataTypes.ENUM('OUT'),
+    allowNull: true
+  },
 }, {
   sequelize,
   modelName: 'Attendance',
