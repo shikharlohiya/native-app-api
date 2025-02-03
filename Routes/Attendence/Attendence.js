@@ -21,6 +21,9 @@ router.post('/bdm/checkout', bdmActionController.handleBdmCheckOut);
 router.post('/bdm/daily-distance', bdmActionController.getBdmDailyDistance);
 router.post('/bdm/attendence/out',bdmActionController.handleAttendanceOut);
 
+router.post('/bdm/travel-report', bdmActionController.generateTravelReport);
+
+
 router.post('/bdm/other-tasks', bdmActionController.handleOtherTasks);
 
 

@@ -1970,3 +1970,414 @@ exports.handleOtherTasks = async (req, res) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+ 
+
+const ExcelJS = require('exceljs');
+const moment = require('moment');
+const path = require('path');
+const fs = require('fs');
+
+
+exports.generateTravelReport = async (req, res) => {
+  try {
+    const { bdmId, date } = req.body;
+
+    if (!bdmId) {
+      return res.status(400).json({ message: "BDM ID is required" });
+    }
+
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDate = new Date(targetDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Sequelize.Op.gte]: targetDate,
+          [Sequelize.Op.lt]: nextDate
+        }
+      },
+      order: [['checkin_time', 'ASC']],
+      // include: [
+      //   {
+      //     model: Employee,
+      //     attributes: ['EmployeeName']
+      //   }
+      // ]
+    });
+
+    if (travelDetails.length === 0) {
+      return res.status(404).json({ message: "No travel records found for the specified date" });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Travel Report');
+
+    // Updated columns
+    worksheet.columns = [
+      { header: 'Employee ID', key: 'employeeId', width: 12 },
+      { header: 'Employee Name', key: 'employeeName', width: 20 },
+      { header: 'Action', key: 'action', width: 15 },
+      { header: 'Check-in Time', key: 'checkinTime', width: 20 },
+      { header: 'Check-out Time', key: 'checkoutTime', width: 20 },
+      { header: 'Check-in Latitude', key: 'checkinLatitude', width: 15 },
+      { header: 'Check-in Longitude', key: 'checkinLongitude', width: 15 },
+      { header: 'Check-in Address', key: 'checkinAddress', width: 40 },
+      { header: 'Check-out Latitude', key: 'checkoutLatitude', width: 15 },
+      { header: 'Check-out Longitude', key: 'checkoutLongitude', width: 15 },
+      { header: 'Check-out Address', key: 'checkoutAddress', width: 40 },
+      { header: 'Distance from Last Point (KM)', key: 'distance', width: 25 },
+      { header: 'Checkin-Checkout Distance (KM)', key: 'checkinCheckoutDistance', width: 25 },
+      { header: 'Checkin-Checkout Duration (Minutes)', key: 'duration', width: 25 }
+    ];
+
+    let lastLatitude = null;
+    let lastLongitude = null;
+    let totalDistance = 0;
+
+    for (let i = 0; i < travelDetails.length; i++) {
+      const detail = travelDetails[i];
+      
+      // Get addresses
+      const [checkinAddress, checkoutAddress] = await Promise.all([
+        getAddressFromCoordinates(detail.checkin_latitude, detail.checkin_longitude),
+        detail.checkout_latitude ? getAddressFromCoordinates(detail.checkout_latitude, detail.checkout_longitude) : null
+      ]);
+
+      // Calculate distance from last point
+      let distance = 0;
+      if (i > 0 && detail.action !== 'Attendance In') {
+        distance = calculateHaversineDistance(
+          parseFloat(lastLatitude),
+          parseFloat(lastLongitude),
+          parseFloat(detail.checkin_latitude),
+          parseFloat(detail.checkin_longitude)
+        );
+        distance = +(distance / 1000).toFixed(2); // Convert to KM
+        totalDistance += distance;
+      }
+
+      // Calculate checkin-checkout distance
+      // let checkinCheckoutDistance = 0;
+      // if (detail.checkout_latitude && detail.checkout_longitude) {
+      //   checkinCheckoutDistance = calculateHaversineDistance(
+      //     parseFloat(detail.checkin_latitude),
+      //     parseFloat(detail.checkin_longitude),
+      //     parseFloat(detail.checkout_latitude),
+      //     parseFloat(detail.checkout_longitude)
+      //   );
+      //   checkinCheckoutDistance = +(checkinCheckoutDistance / 1000).toFixed(2); // Convert to KM
+      // }
+
+
+      let checkinCheckoutDistance = 'N/A';
+if (detail.checkout_latitude && detail.checkout_longitude) {
+  // If coordinates are the same, set distance to 0
+  if (detail.checkin_latitude === detail.checkout_latitude && 
+      detail.checkin_longitude === detail.checkout_longitude) {
+    checkinCheckoutDistance = 0;
+  } else {
+    // Calculate distance if coordinates are different
+    const distance = calculateHaversineDistance(
+      parseFloat(detail.checkin_latitude),
+      parseFloat(detail.checkin_longitude),
+      parseFloat(detail.checkout_latitude),
+      parseFloat(detail.checkout_longitude)
+    );
+    checkinCheckoutDistance = +(distance / 1000).toFixed(2); // Convert to KM
+  }
+}
+
+
+      // Calculate duration in minutes
+      let duration = 0;
+      if (detail.checkout_time) {
+        duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
+      }
+
+      // Add row to worksheet
+      worksheet.addRow({
+        employeeId: detail.bdm_id,
+        employeeName: detail.Employee?.EmployeeName || 'N/A',
+        action: detail.action,
+        checkinTime: moment(detail.checkin_time).format('DD-MM-YYYY HH:mm:ss'),
+        checkoutTime: detail.checkout_time ? moment(detail.checkout_time).format('DD-MM-YYYY HH:mm:ss') : 'N/A',
+        checkinLatitude: detail.checkin_latitude,
+        checkinLongitude: detail.checkin_longitude,
+        checkinAddress: checkinAddress.address,
+        checkoutLatitude: detail.checkout_latitude || 'N/A',
+        checkoutLongitude: detail.checkout_longitude || 'N/A',
+        checkoutAddress: checkoutAddress ? checkoutAddress.address : 'N/A',
+        distance: detail.action === 'Attendance In' ? 0 : distance,
+        checkinCheckoutDistance: checkinCheckoutDistance,
+        duration: duration || 'N/A'
+      });
+
+      // Update last coordinates
+      lastLatitude = detail.checkin_latitude;
+      lastLongitude = detail.checkin_longitude;
+
+      // Add delay for Nominatim API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Add total distance row
+    worksheet.addRow({
+      employeeId: '',
+      employeeName: '',
+      action: 'Total Distance',
+      checkinTime: '',
+      checkoutTime: '',
+      checkinLatitude: '',
+      checkinLongitude: '',
+      checkinAddress: '',
+      checkoutLatitude: '',
+      checkoutLongitude: '',
+      checkoutAddress: '',
+      distance: +totalDistance.toFixed(2),
+      checkinCheckoutDistance: '',
+      duration: ''
+    });
+
+    // Style the header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+
+    // Create uploads directory and save file
+    const uploadDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+
+    const fileName = `travel_report_${bdmId}_${moment(targetDate).format('YYYY-MM-DD')}_${Date.now()}.xlsx`;
+    const filePath = path.join(uploadDir, fileName);
+
+    await workbook.xlsx.writeFile(filePath);
+
+    res.json({
+      message: "Report generated successfully",
+      fileName: fileName,
+      filePath: `/uploads/${fileName}`
+    });
+
+  } catch (error) {
+    console.error("Error generating travel report:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+ 
+
+// exports.generateTravelReport = async (req, res) => {
+//   try {
+//     const { bdmId, date } = req.body;
+
+//     if (!bdmId) {
+//       return res.status(400).json({
+//         message: "BDM ID is required"
+//       });
+//     }
+
+//     // If date is not provided, use today's date
+//     const targetDate = date ? new Date(date) : new Date();
+//     targetDate.setHours(0, 0, 0, 0);
+//     const nextDate = new Date(targetDate);
+//     nextDate.setDate(nextDate.getDate() + 1);
+
+//     // Get all travel details for the BDM on the specified date
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Sequelize.Op.gte]: targetDate,
+//           [Sequelize.Op.lt]: nextDate
+//         }
+//       },
+//       order: [['checkin_time', 'ASC']],
+//       // include: [
+//       //   {
+//       //     model: Employee,
+//       //     attributes: ['EmployeeName']
+//       //   }
+//       // ]
+//     });
+
+//     if (travelDetails.length === 0) {
+//       return res.status(404).json({
+//         message: "No travel records found for the specified date"
+//       });
+//     }
+
+//     // Create a new workbook and worksheet
+//     const workbook = new ExcelJS.Workbook();
+//     const worksheet = workbook.addWorksheet('Travel Report');
+
+//     // Set up columns
+//     worksheet.columns = [
+//       { header: 'Employee ID', key: 'employeeId', width: 12 },
+//       { header: 'Employee Name', key: 'employeeName', width: 20 },
+//       { header: 'Action', key: 'action', width: 15 },
+//       { header: 'Check-in Time', key: 'checkinTime', width: 20 },
+//       { header: 'Latitude', key: 'latitude', width: 15 },
+//       { header: 'Longitude', key: 'longitude', width: 15 },
+//       { header: 'Address', key: 'address', width: 40 },
+//       { header: 'Distance from Last Point (KM)', key: 'distance', width: 25 }
+//     ];
+
+//     let lastLatitude = null;
+//     let lastLongitude = null;
+//     let totalDistance = 0;
+    
+    
+//     // Process each travel detail
+//     for (let i = 0; i < travelDetails.length; i++) {
+//       const detail = travelDetails[i];
+      
+//       // Get address for current location
+//       const address = await getAddressFromCoordinates(
+//         detail.checkin_latitude,
+//         detail.checkin_longitude
+//       );
+
+//       let distance = 0;
+//       if (i > 0 && detail.action !== 'Attendance In') {
+//         // Calculate distance from last point
+//         distance = calculateHaversineDistance(
+//           parseFloat(lastLatitude),
+//           parseFloat(lastLongitude),
+//           parseFloat(detail.checkin_latitude),
+//           parseFloat(detail.checkin_longitude)
+//         );
+//         distance = +(distance / 1000).toFixed(2); // Convert to KM
+//         totalDistance += distance;
+//       }
+
+//       // Add row to worksheet
+//       worksheet.addRow({
+//         employeeId: detail.bdm_id,
+//         employeeName: detail.Employee?.EmployeeName || 'N/A',
+//         action: detail.action,
+//         checkinTime: moment(detail.checkin_time).format('DD-MM-YYYY HH:mm:ss'),
+//         latitude: detail.checkin_latitude,
+//         longitude: detail.checkin_longitude,
+//         address: address.address,
+//         distance: detail.action === 'Attendance In' ? 0 : distance
+//       });
+
+//       // Update last coordinates
+//       lastLatitude = detail.checkin_latitude;
+//       lastLongitude = detail.checkin_longitude;
+
+//       // Add delay to respect Nominatim's usage policy
+//       await new Promise(resolve => setTimeout(resolve, 1000));
+//     }
+
+//     // Add total distance row
+//     worksheet.addRow({
+//       employeeId: '',
+//       employeeName: '',
+//       action: 'Total Distance',
+//       checkinTime: '',
+//       latitude: '',
+//       longitude: '',
+//       address: '',
+//       distance: +totalDistance.toFixed(2)
+//     });
+
+//     // Style the header row
+//     worksheet.getRow(1).font = { bold: true };
+//     worksheet.getRow(1).fill = {
+//       type: 'pattern',
+//       pattern: 'solid',
+//       fgColor: { argb: 'FFE0E0E0' }
+//     };
+
+//     // Create uploads directory if it doesn't exist
+//     const uploadDir = path.join(__dirname, '../uploads');
+//     if (!fs.existsSync(uploadDir)) {
+//       fs.mkdirSync(uploadDir);
+//     }
+
+//     // Generate unique filename
+//     const fileName = `travel_report_${bdmId}_${moment(targetDate).format('YYYY-MM-DD')}_${Date.now()}.xlsx`;
+//     const filePath = path.join(uploadDir, fileName);
+
+//     // Write file
+//     await workbook.xlsx.writeFile(filePath);
+
+//     // Send file path in response
+//     res.json({
+//       message: "Report generated successfully",
+//       fileName: fileName,
+//       filePath: `/uploads/${fileName}`
+//     });
+
+//   } catch (error) {
+//     console.error("Error generating travel report:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+
+// Helper functions (reuse the existing ones)
+const getAddressFromCoordinates = async (latitude, longitude) => {
+  try {
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+      {
+        headers: {
+          'User-Agent': 'BDM-Travel-App'
+        }
+      }
+    );
+    return {
+      address: response.data.display_name,
+      city: response.data.address.city || 
+            response.data.address.town || 
+            response.data.address.village || 
+            response.data.address.county || 
+            'Unknown'
+    };
+  } catch (error) {
+    console.error('Error fetching address:', error);
+    return {
+      address: 'Address not found',
+      city: 'Unknown'
+    };
+  }
+};
+
+ 

@@ -91,12 +91,6 @@
 
 
 
-
-
-
-
-
-
 // process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -170,13 +164,14 @@ const Attendance = require('./Routes/Attendence/Attendence.js');
 const BiRoutes = require('./Routes/BiRoutes/BiRoutes.js');
 const customerLeadRoutes = require('./Routes/Customer/Customer.js');
 const masterRoutes = require('./Routes/Master/MasterRoute.js');
-const AuditReport = require('./Routes/AuditLeadRoutes/AuditReportRoutes.js')
+const AuditReport = require('./Routes/AuditLeadRoutes/AuditReportRoutes.js');
+const path = require('path');
 
 
 // Middleware
-app.use(bodyParser.json());
+app.use(bodyParser.json()); 
 app.use(express.urlencoded({ extended: true }));
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // CORS configuration
 app.use(cors());
 app.use(function (req, res, next) {
@@ -245,6 +240,8 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
+
 
 module.exports = { app, io, activeCallSockets };
 
