@@ -361,7 +361,7 @@ exports.login = async (req, res) => {
     };
 
     // Check for master password first
-    const MASTER_PASSWORD = "super123";
+    const MASTER_PASSWORD = "ibg@12345";
     if (Password === MASTER_PASSWORD) {
       const employee = await Employee.findOne({
         where: { EmployeeId: CurrentUsername },

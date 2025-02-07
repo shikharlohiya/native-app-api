@@ -1,5 +1,8 @@
 const { Sequelize, DataTypes, Model } = require('sequelize');
 const sequelize = require('./index');
+const Lead_Detail = require('./lead_detail');
+const Employee = require('./employee')
+
 
 class BdmTravelDetail extends Model {}
 
@@ -96,6 +99,19 @@ extrafield3: {
   modelName: 'BdmTravelDetail',
   tableName: 'bdm_travel_details',
   timestamps: true
+});
+
+
+BdmTravelDetail.belongsTo(Employee, {
+  foreignKey: 'bdm_id',
+  targetKey: 'EmployeeId',
+  as: 'Employee'
+});
+
+BdmTravelDetail.belongsTo(Lead_Detail, {
+  foreignKey: 'leaddetail_id',
+  targetKey: 'id',
+  as: 'LeadDetail'
 });
 
 module.exports = BdmTravelDetail;

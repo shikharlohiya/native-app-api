@@ -1,7 +1,12 @@
 const { Sequelize, DataTypes, Model } = require('sequelize');
 const sequelize = require('./index');
+const Employee = require('./employee')
 
 class Attendance extends Model {}
+
+
+
+
 
 Attendance.init({
   id: {
@@ -64,5 +69,19 @@ Attendance.init({
   tableName: 'attendances',
   timestamps: true
 });
+
+
+Employee.hasMany(Attendance, { 
+  foreignKey: 'EmployeeId',
+  as: 'Attendances'
+});
+
+Attendance.belongsTo(Employee, { 
+  foreignKey: 'EmployeeId',
+  as: 'Employee'
+});
+
+ 
+
 
 module.exports = Attendance;
