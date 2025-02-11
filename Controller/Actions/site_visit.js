@@ -7,6 +7,7 @@ const path = require("path");
 const { uploadFile } = require("../../Library/awsS3");
 const LeadLog = require("../../models/leads_logs");
 const sequelize = require("../../models/index");
+const BdmLeadAction = require("../../models/BdmLeadAction");
 
 // Configure multer for image upload
 const storage = multer.diskStorage({
@@ -42,6 +43,7 @@ exports.createSiteMeeting = async (req, res) => {
       ModelType,
       ActionType,
       remark,
+      bdmLeadActionId
     } = req.body;
 
     // Parse the IDs to integers
@@ -61,6 +63,25 @@ exports.createSiteMeeting = async (req, res) => {
     if (!leadDetailInstance) {
       await t.rollback();
       return res.status(404).json({ error: "Lead detail not found" });
+    }
+
+    
+    if (bdmLeadActionId) { 
+      const bdmLeadAction = await BdmLeadAction.findByPk(bdmLeadActionId, {
+        transaction: t,
+      });
+
+      if (!bdmLeadAction) {
+        await t.rollback();
+        return res.status(400).json({ error: "BdmLeadAction ID not found" });
+      }
+
+      await bdmLeadAction.update(
+        {
+          completion_status: "completed"
+        },
+        { transaction: t }
+      );
     }
 
     let imageUrls = [];

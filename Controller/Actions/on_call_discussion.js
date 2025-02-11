@@ -2,6 +2,7 @@ const Lead_Detail = require("../../models/lead_detail");
 const Employee = require("../../models/employee");
 const OnCallDiscussionByBdm = require("../../models/OnCallDiscussionByBdm");
 const LeadLog = require("../../models/leads_logs");
+const BdmLeadAction = require("../../models/BdmLeadAction");
 const sequelize = require("../../models/index");
 
 exports.createOnCallDiscussionByBdm = async (req, res) => {
@@ -16,7 +17,7 @@ exports.createOnCallDiscussionByBdm = async (req, res) => {
       sub_category,
       remark,
       closure_month,
-      extra_field1,
+      bdmLeadActionId,
       extra_field2,
       extra_field3,
     } = req.body;
@@ -45,6 +46,28 @@ exports.createOnCallDiscussionByBdm = async (req, res) => {
       return res.status(400).json({ error: "BDM is not found" });
     }
 
+    if (bdmLeadActionId) {
+      const bdmLeadAction = await BdmLeadAction.findByPk(bdmLeadActionId, {
+        transaction: t,
+      });
+
+      if (!bdmLeadAction) {
+        await t.rollback();
+        return res.status(400).json({ error: "BdmLeadAction ID not found" });
+      }
+
+      await bdmLeadAction.update(
+        {
+          completion_status: "completed"
+        },
+        { transaction: t }
+      );
+    }
+
+
+
+
+
     // Create the on-call discussion entry
     const onCallDiscussion = await OnCallDiscussionByBdm.create(
       {
@@ -53,7 +76,7 @@ exports.createOnCallDiscussionByBdm = async (req, res) => {
         sub_category,
         remark,
         closure_month,
-        extra_field1,
+        bdmLeadActionId,
         extra_field2,
         extra_field3,
         BDMId: bdmId,
