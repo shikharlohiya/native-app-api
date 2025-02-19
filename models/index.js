@@ -26,8 +26,6 @@
 
 
 
-
-
 const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
@@ -39,7 +37,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: process.env.DB_DIALECT,
     pool: {
-      max: 35, 
+      max: 60, 
       min: 5,
       acquire: 40000,
       idle: 20000,
@@ -72,7 +70,7 @@ const connectDB = async () => {
           available: pool.available,
           borrowed: pool.borrowed,
         });
-      }
+      } 
     }, 20000);
 
   } catch (error) {
@@ -85,20 +83,5 @@ connectDB();
 
 
 module.exports = sequelize;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
