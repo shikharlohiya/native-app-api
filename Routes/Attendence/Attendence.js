@@ -34,4 +34,9 @@ router.get('/bdm/travel-detail', bdmActionController.getBdmTravelDetails);
 
 
 
+router.post('/bdm/create-leave', bdmActionController.createLeave);
+router.get('/bdm/get-leave', bdmActionController.getEmployeeLeaves);
+router.get('/bdm/get-all-employee-leave', bdmActionController.getEmployeesOnLeave);
+
+
 module.exports = router;

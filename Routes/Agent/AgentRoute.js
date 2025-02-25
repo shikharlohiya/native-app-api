@@ -2,6 +2,37 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../../middleware/check-auth');
 const AgentController = require('../../Controller/Agent/AgentController');
+const { sendTestNotification } = require('../../config/firebase');
+
+// Test route for sending notifications
+router.post('/test-notification', async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: 'FCM token is required'
+            });
+        }
+
+        const response = await sendTestNotification(token);
+
+        res.json({
+            success: true,
+            message: 'Notification sent successfully',
+            response
+        });
+
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send notification',
+            error: error.message
+        });
+    }
+});
 
 
 router.post('/create/leads', AgentController.createLead);

@@ -165,6 +165,7 @@ const BiRoutes = require('./Routes/BiRoutes/BiRoutes.js');
 const customerLeadRoutes = require('./Routes/Customer/Customer.js');
 const masterRoutes = require('./Routes/Master/MasterRoute.js');
 const AuditReport = require('./Routes/AuditLeadRoutes/AuditReportRoutes.js');
+const ParivartanDashboard = require('./Routes/ParivartanDashboard/ParivartanDashboard.js')
 const path = require('path');
 
 
@@ -187,6 +188,8 @@ app.use((req, res, next) => {
   req.activeCallSockets = activeCallSockets;
   next();
 });
+
+
 app.set('view engine', 'ejs');
 
 // Routes
@@ -213,6 +216,7 @@ app.use('/api', PincodeRoutes);
 app.use('/api', customerLeadRoutes);
 app.use('/api', masterRoutes);
 app.use('/api',AuditReport )
+app.use('/api', ParivartanDashboard);
 
 // Root route
 app.get('/', function (req, res) {
@@ -226,7 +230,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3003; 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log('WebSocket server is ready for connections');
