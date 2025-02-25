@@ -16,6 +16,7 @@ const ExcelJS = require('exceljs');
 const moment = require('moment');
 const path = require('path');
 const fs = require('fs');
+const Leave = require("../../models/Leave");
 
 
 
@@ -2759,4 +2760,801 @@ exports.getBdmTravelDetails = async (req, res) => {
     });
   }
 };
+
+//leave apply
+
+// Create a new leave request
+exports.createLeave = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const {
+      employeeId,
+      leaveType,
+      startDate,
+      endDate,
+      remarks
+    } = req.body;
+    
+    // Validate required fields
+    if (!employeeId || !leaveType || !startDate || !endDate) {
+      return res.status(400).json({
+        message: "Missing required fields. employeeId, leaveType, startDate, and endDate are required"
+      });
+    }
+    
+    // Validate leave type
+    const validLeaveTypes = ['PAID_LEAVE', 'REGIONAL_HOLIDAY', 'SICK_LEAVE', 'UNPAID_LEAVE'];
+    if (!validLeaveTypes.includes(leaveType)) {
+      return res.status(400).json({
+        message: "Invalid leave type. Must be one of: PAID_LEAVE, REGIONAL_HOLIDAY, SICK_LEAVE, UNPAID_LEAVE"
+      });
+    }
+    
+    // Convert dates to Date objects
+    let parsedStartDate = new Date(startDate);
+    let parsedEndDate = new Date(endDate);
+    
+    // Validate date range
+    if (parsedEndDate < parsedStartDate) {
+      return res.status(400).json({
+        message: "End date cannot be earlier than start date"
+      });
+    }
+    
+    // Check if employee exists
+    const employee = await Employee.findOne({
+      where: {
+        EmployeeId: employeeId
+      }
+    });
+    
+    if (!employee) {
+      return res.status(404).json({
+        message: "Employee not found"
+      });
+    }
+    
+    // Find overlapping leaves
+    const overlappingLeaves = await Leave.findAll({
+      where: {
+        EmployeeId: employeeId,
+        [Sequelize.Op.or]: [
+          {
+            StartDate: {
+              [Sequelize.Op.between]: [parsedStartDate, parsedEndDate]
+            }
+          },
+          {
+            EndDate: {
+              [Sequelize.Op.between]: [parsedStartDate, parsedEndDate]
+            }
+          },
+          {
+            [Sequelize.Op.and]: [
+              { StartDate: { [Sequelize.Op.lte]: parsedStartDate } },
+              { EndDate: { [Sequelize.Op.gte]: parsedEndDate } }
+            ]
+          }
+        ]
+      },
+      order: [['EndDate', 'DESC']]
+    });
+    
+    // If we have overlaps, adjust the dates
+    if (overlappingLeaves.length > 0) {
+      // Find the latest end date among all overlapping leaves
+      const latestEndDate = new Date(Math.max(
+        ...overlappingLeaves.map(leave => new Date(leave.EndDate).getTime())
+      ));
+      
+      // Add one day to get the next available date
+      const nextAvailableDate = new Date(latestEndDate);
+      nextAvailableDate.setDate(nextAvailableDate.getDate() + 1);
+      
+      // If next available date is after or equal to the requested end date, 
+      // then the leave is completely covered already
+      if (nextAvailableDate >= parsedEndDate) {
+        return res.status(409).json({
+          message: "Your leave request period is already covered by existing approved leave",
+          existingLeaves: overlappingLeaves
+        });
+      }
+      
+      // Check if we need to adjust the start date
+      if (nextAvailableDate > parsedStartDate) {
+        parsedStartDate = nextAvailableDate;
+      }
+    }
+    
+    // Create leave record with potentially adjusted dates
+    const leave = await Leave.create({
+      EmployeeId: employeeId,
+      LeaveType: leaveType,
+      StartDate: parsedStartDate,
+      EndDate: parsedEndDate,
+      Remarks: remarks || null
+    }, { transaction });
+    
+    await transaction.commit();
+    
+    // Check if dates were adjusted
+    const datesAdjusted = parsedStartDate.toISOString() !== new Date(startDate).toISOString();
+    
+    res.status(201).json({
+      message: datesAdjusted 
+        ? "Leave request created with adjusted start date to avoid overlap with existing leave" 
+        : "Leave request created successfully",
+      datesAdjusted,
+      originalStartDate: new Date(startDate),
+      adjustedStartDate: datesAdjusted ? parsedStartDate : null,
+      leave
+    });
+    
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error creating leave request:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Update leave details
+exports.updateLeave = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { leaveId } = req.params;
+    const {
+      leaveType,
+      startDate,
+      endDate,
+      remarks
+    } = req.body;
+    
+    if (!leaveId) {
+      return res.status(400).json({
+        message: "Leave ID is required"
+      });
+    }
+    
+    const leave = await Leave.findByPk(leaveId);
+    
+    if (!leave) {
+      return res.status(404).json({
+        message: "Leave not found"
+      });
+    }
+    
+    // Prepare update object
+    const updateData = {};
+    
+    if (leaveType) {
+      const validLeaveTypes = ['PAID_LEAVE', 'REGIONAL_HOLIDAY', 'SICK_LEAVE', 'UNPAID_LEAVE'];
+      if (!validLeaveTypes.includes(leaveType)) {
+        return res.status(400).json({
+          message: "Invalid leave type. Must be one of: PAID_LEAVE, REGIONAL_HOLIDAY, SICK_LEAVE, UNPAID_LEAVE"
+        });
+      }
+      updateData.LeaveType = leaveType;
+    }
+    
+    let parsedStartDate = leave.StartDate;
+    let parsedEndDate = leave.EndDate;
+    let originalStartDate = null;
+    let datesAdjusted = false;
+    
+    if (startDate) {
+      originalStartDate = new Date(startDate);
+      parsedStartDate = new Date(startDate);
+      updateData.StartDate = parsedStartDate;
+    }
+    
+    if (endDate) {
+      parsedEndDate = new Date(endDate);
+      updateData.EndDate = parsedEndDate;
+    }
+    
+    // Validate date range
+    if (parsedEndDate < parsedStartDate) {
+      return res.status(400).json({
+        message: "End date cannot be earlier than start date"
+      });
+    }
+    
+    if (remarks !== undefined) {
+      updateData.Remarks = remarks;
+    }
+    
+    // Check for overlapping leave if dates are changed
+    if (startDate || endDate) {
+      // Find overlapping leaves
+      const overlappingLeaves = await Leave.findAll({
+        where: {
+          EmployeeId: leave.EmployeeId,
+          id: { [Sequelize.Op.ne]: leaveId }, // Exclude current leave
+          [Sequelize.Op.or]: [
+            {
+              StartDate: {
+                [Sequelize.Op.between]: [parsedStartDate, parsedEndDate]
+              }
+            },
+            {
+              EndDate: {
+                [Sequelize.Op.between]: [parsedStartDate, parsedEndDate]
+              }
+            },
+            {
+              [Sequelize.Op.and]: [
+                { StartDate: { [Sequelize.Op.lte]: parsedStartDate } },
+                { EndDate: { [Sequelize.Op.gte]: parsedEndDate } }
+              ]
+            }
+          ]
+        },
+        order: [['EndDate', 'DESC']]
+      });
+    
+      // If we have overlaps, adjust the dates
+      if (overlappingLeaves.length > 0) {
+        // Find the latest end date among all overlapping leaves
+        const latestEndDate = new Date(Math.max(
+          ...overlappingLeaves.map(leave => new Date(leave.EndDate).getTime())
+        ));
+        
+        // Add one day to get the next available date
+        const nextAvailableDate = new Date(latestEndDate);
+        nextAvailableDate.setDate(nextAvailableDate.getDate() + 1);
+        
+        // If next available date is after or equal to the requested end date, 
+        // then the leave is completely covered already
+        if (nextAvailableDate >= parsedEndDate) {
+          return res.status(409).json({
+            message: "Your leave request period is already covered by existing approved leave",
+            existingLeaves: overlappingLeaves
+          });
+        }
+        
+        // Check if we need to adjust the start date
+        if (nextAvailableDate > parsedStartDate) {
+          parsedStartDate = nextAvailableDate;
+          updateData.StartDate = parsedStartDate;
+          datesAdjusted = true;
+        }
+      }
+    }
+    
+    // Update leave record
+    await leave.update(updateData, { transaction });
+    
+    await transaction.commit();
+    
+    res.status(200).json({
+      message: datesAdjusted 
+        ? "Leave updated with adjusted start date to avoid overlap with existing leave" 
+        : "Leave updated successfully",
+      datesAdjusted,
+      originalStartDate: originalStartDate,
+      adjustedStartDate: datesAdjusted ? parsedStartDate : null,
+      leave
+    });
+    
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error updating leave:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Get all leaves for an employee
+exports.getEmployeeLeaves = async (req, res) => {
+  try {
+    const { employeeId } =  req.query; 
+    
+    if (!employeeId) {
+      return res.status(400).json({
+        message: "Employee ID is required"
+      });
+    }
+    
+    const leaves = await Leave.findAll({
+      where: {
+        EmployeeId: employeeId
+      },
+      order: [['StartDate', 'DESC']]
+    });
+    
+    res.status(200).json({
+      message: "Employee leaves retrieved successfully",
+      count: leaves.length,
+      leaves
+    });
+    
+  } catch (error) {
+    console.error("Error retrieving employee leaves:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Get leave details by ID
+exports.getLeaveById = async (req, res) => {
+  try {
+    const { leaveId } = req.params;
+    
+    if (!leaveId) {
+      return res.status(400).json({
+        message: "Leave ID is required"
+      });
+    }
+    
+    const leave = await Leave.findByPk(leaveId);
+    
+    if (!leave) {
+      return res.status(404).json({
+        message: "Leave not found"
+      });
+    }
+    
+    res.status(200).json({
+      message: "Leave retrieved successfully",
+      leave
+    });
+    
+  } catch (error) {
+    console.error("Error retrieving leave:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Delete leave
+exports.deleteLeave = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { leaveId } = req.params;
+    
+    if (!leaveId) {
+      return res.status(400).json({
+        message: "Leave ID is required"
+      });
+    }
+    
+    const leave = await Leave.findByPk(leaveId);
+    
+    if (!leave) {
+      return res.status(404).json({
+        message: "Leave not found"
+      });
+    }
+    
+    await leave.destroy({ transaction });
+    
+    await transaction.commit();
+    
+    res.status(200).json({
+      message: "Leave deleted successfully"
+    });
+    
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error deleting leave:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Get monthly leave report for an employee
+exports.getMonthlyLeaveReport = async (req, res) => {
+  try {
+    const { employeeId, year, month } = req.params;
+    
+    if (!employeeId || !year || !month) {
+      return res.status(400).json({
+        message: "Employee ID, year, and month are required"
+      });
+    }
+    
+    // Parse year and month as integers
+    const parsedYear = parseInt(year);
+    const parsedMonth = parseInt(month);
+    
+    if (isNaN(parsedYear) || isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+      return res.status(400).json({
+        message: "Invalid year or month format"
+      });
+    }
+    
+    // Calculate start and end dates for the month
+    const startDate = new Date(parsedYear, parsedMonth - 1, 1);
+    const endDate = new Date(parsedYear, parsedMonth, 0);
+    
+    const leaves = await Leave.findAll({
+      where: {
+        EmployeeId: employeeId,
+        [Sequelize.Op.or]: [
+          {
+            StartDate: {
+              [Sequelize.Op.between]: [startDate, endDate]
+            }
+          },
+          {
+            EndDate: {
+              [Sequelize.Op.between]: [startDate, endDate]
+            }
+          },
+          {
+            [Sequelize.Op.and]: [
+              { StartDate: { [Sequelize.Op.lte]: startDate } },
+              { EndDate: { [Sequelize.Op.gte]: endDate } }
+            ]
+          }
+        ]
+      }
+    });
+    
+    // Create a calendar for the month
+    const daysInMonth = endDate.getDate();
+    const calendar = [];
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(parsedYear, parsedMonth - 1, day);
+      
+      // Check if this date falls within any leave period
+      const leaveForDate = leaves.find(leave => {
+        const leaveStart = new Date(leave.StartDate);
+        const leaveEnd = new Date(leave.EndDate);
+        return date >= leaveStart && date <= leaveEnd;
+      });
+      
+      calendar.push({
+        date: date.toISOString().split('T')[0],
+        dayOfWeek: date.getDay(),
+        isLeave: !!leaveForDate,
+        leaveDetails: leaveForDate ? {
+          id: leaveForDate.id,
+          type: leaveForDate.LeaveType,
+          remarks: leaveForDate.Remarks
+        } : null
+      });
+    }
+    
+    // Calculate summary statistics
+    const leaveTypeCounts = {};
+    calendar.forEach(day => {
+      if (day.isLeave && day.leaveDetails) {
+        const leaveType = day.leaveDetails.type;
+        leaveTypeCounts[leaveType] = (leaveTypeCounts[leaveType] || 0) + 1;
+      }
+    });
+    
+    const totalLeaveDays = calendar.filter(day => day.isLeave).length;
+    
+    res.status(200).json({
+      message: "Monthly leave report retrieved successfully",
+      year: parsedYear,
+      month: parsedMonth,
+      employeeId,
+      totalLeaveDays,
+      leaveBreakdown: leaveTypeCounts,
+      calendar
+    });
+    
+  } catch (error) {
+    console.error("Error retrieving monthly leave report:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Get combined monthly attendance and leave report
+exports.getMonthlyCombinedReport = async (req, res) => {
+  try {
+    const { employeeId, year, month } = req.params;
+    
+    if (!employeeId || !year || !month) {
+      return res.status(400).json({
+        message: "Employee ID, year, and month are required"
+      });
+    }
+    
+    // Parse year and month as integers
+    const parsedYear = parseInt(year);
+    const parsedMonth = parseInt(month);
+    
+    if (isNaN(parsedYear) || isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+      return res.status(400).json({
+        message: "Invalid year or month format"
+      });
+    }
+    
+    // Calculate start and end dates for the month
+    const startDate = new Date(parsedYear, parsedMonth - 1, 1);
+    const endDate = new Date(parsedYear, parsedMonth, 0);
+    
+    // Fetch all attendance records for the month
+    const attendanceRecords = await Attendance.findAll({
+      where: {
+        EmployeeId: employeeId,
+        AttendanceDate: {
+          [Sequelize.Op.between]: [startDate, endDate]
+        }
+      },
+      order: [['AttendanceDate', 'ASC']]
+    });
+    
+    // Fetch all leave records for the month
+    const leaves = await Leave.findAll({
+      where: {
+        EmployeeId: employeeId,
+        [Sequelize.Op.or]: [
+          {
+            StartDate: {
+              [Sequelize.Op.between]: [startDate, endDate]
+            }
+          },
+          {
+            EndDate: {
+              [Sequelize.Op.between]: [startDate, endDate]
+            }
+          },
+          {
+            [Sequelize.Op.and]: [
+              { StartDate: { [Sequelize.Op.lte]: startDate } },
+              { EndDate: { [Sequelize.Op.gte]: endDate } }
+            ]
+          }
+        ]
+      }
+    });
+    
+    // Create a calendar for the month
+    const daysInMonth = endDate.getDate();
+    const calendar = [];
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(parsedYear, parsedMonth - 1, day);
+      const dateString = date.toISOString().split('T')[0];
+      
+      // Check if this date falls within any leave period
+      const leaveForDate = leaves.find(leave => {
+        const leaveStart = new Date(leave.StartDate);
+        const leaveEnd = new Date(leave.EndDate);
+        return date >= leaveStart && date <= leaveEnd;
+      });
+      
+      // Check if employee was present on this day
+      const dayAttendance = attendanceRecords.filter(record => 
+        new Date(record.AttendanceDate).toISOString().split('T')[0] === dateString
+      );
+      
+      // Determine day status
+      let status = 'ABSENT';
+      if (leaveForDate) {
+        status = 'LEAVE';
+      } else if (dayAttendance.length > 0) {
+        status = 'PRESENT';
+      }
+      
+      calendar.push({
+        date: dateString,
+        dayOfWeek: date.getDay(),
+        isWeekend: date.getDay() === 0 || date.getDay() === 6,
+        status,
+        attendance: dayAttendance.length > 0 ? {
+          id: dayAttendance[0].id,
+          checkInTime: dayAttendance[0].AttendanceInTime,
+          checkOutTime: dayAttendance[0].AttendanceOutTime
+        } : null,
+        leave: leaveForDate ? {
+          id: leaveForDate.id,
+          type: leaveForDate.LeaveType,
+          remarks: leaveForDate.Remarks
+        } : null
+      });
+    }
+    
+    // Calculate summary statistics
+    const presentDays = calendar.filter(day => day.status === 'PRESENT').length;
+    const absentDays = calendar.filter(day => day.status === 'ABSENT' && !day.isWeekend).length;
+    const leaveDays = calendar.filter(day => day.status === 'LEAVE').length;
+    const weekendDays = calendar.filter(day => day.isWeekend).length;
+    
+    // Break down leave types
+    const leaveTypeCounts = {};
+    calendar.forEach(day => {
+      if (day.status === 'LEAVE' && day.leave) {
+        const leaveType = day.leave.type;
+        leaveTypeCounts[leaveType] = (leaveTypeCounts[leaveType] || 0) + 1;
+      }
+    });
+    
+    res.status(200).json({
+      message: "Monthly combined report retrieved successfully",
+      year: parsedYear,
+      month: parsedMonth,
+      employeeId,
+      summary: {
+        workingDays: daysInMonth - weekendDays,
+        presentDays,
+        absentDays,
+        leaveDays,
+        weekendDays,
+        leaveBreakdown: leaveTypeCounts
+      },
+      calendar
+    });
+    
+  } catch (error) {
+    console.error("Error retrieving monthly combined report:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+// Get all employees on leave within a date range
+ // Get all employees on leave within a date range
+exports.getEmployeesOnLeave = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Validate required fields
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        message: "Both startDate and endDate are required"
+      });
+    }
+    
+    // Convert dates to Date objects
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+    
+    // Validate date range
+    if (parsedEndDate < parsedStartDate) {
+      return res.status(400).json({
+        message: "End date cannot be earlier than start date"
+      });
+    }
+    
+    // Find all leaves that overlap with the given date range
+    const leaves = await Leave.findAll({
+      where: {
+        [Sequelize.Op.or]: [
+          {
+            StartDate: {
+              [Sequelize.Op.between]: [parsedStartDate, parsedEndDate]
+            }
+          },
+          {
+            EndDate: {
+              [Sequelize.Op.between]: [parsedStartDate, parsedEndDate]
+            }
+          },
+          {
+            [Sequelize.Op.and]: [
+              { StartDate: { [Sequelize.Op.lte]: parsedStartDate } },
+              { EndDate: { [Sequelize.Op.gte]: parsedEndDate } }
+            ]
+          }
+        ]
+      },
+      include: [
+        {
+          model: Employee,
+          as: 'Employee',
+          attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone', 'EmployeeMailId', 'EmployeeRegion']
+        }
+      ],
+      order: [['StartDate', 'ASC']]
+    });
+    
+    // Group leaves by date for easier viewing
+    const leavesByDate = {};
+    
+    // Generate all dates in the range
+    const currentDate = new Date(parsedStartDate);
+    while (currentDate <= parsedEndDate) {
+      const dateString = currentDate.toISOString().split('T')[0];
+      leavesByDate[dateString] = [];
+      
+      // Find leaves that include this date
+      leaves.forEach(leave => {
+        const leaveStart = new Date(leave.StartDate);
+        const leaveEnd = new Date(leave.EndDate);
+        
+        if (currentDate >= leaveStart && currentDate <= leaveEnd) {
+          leavesByDate[dateString].push({
+            leaveId: leave.id,
+            employeeId: leave.EmployeeId,
+            employeeName: leave.Employee ? leave.Employee.EmployeeName : 'Unknown',
+            employeeRegion: leave.Employee ? leave.Employee.EmployeeRegion : 'Unknown',
+            leaveType: leave.LeaveType,
+            fullLeaveRange: `${new Date(leave.StartDate).toISOString().split('T')[0]} to ${new Date(leave.EndDate).toISOString().split('T')[0]}`,
+            remarks: leave.Remarks
+          });
+        }
+      });
+      
+      // Move to the next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Create summary statistics
+    const totalLeaves = leaves.length;
+    const uniqueEmployees = new Set(leaves.map(leave => leave.EmployeeId)).size;
+    
+    // Count leaves by type
+    const leavesByType = {};
+    leaves.forEach(leave => {
+      if (!leavesByType[leave.LeaveType]) {
+        leavesByType[leave.LeaveType] = 0;
+      }
+      leavesByType[leave.LeaveType]++;
+    });
+    
+    // Count leaves by region
+    const leavesByRegion = {};
+    leaves.forEach(leave => {
+      const region = leave.Employee?.EmployeeRegion || 'Unknown';
+      if (!leavesByRegion[region]) {
+        leavesByRegion[region] = 0;
+      }
+      leavesByRegion[region]++;
+    });
+    
+    res.status(200).json({
+      message: "Employees on leave retrieved successfully",
+      dateRange: {
+        start: parsedStartDate.toISOString().split('T')[0],
+        end: parsedEndDate.toISOString().split('T')[0]
+      },
+      summary: {
+        totalLeaveRequests: totalLeaves,
+        uniqueEmployeesOnLeave: uniqueEmployees,
+        leavesByType,
+        leavesByRegion
+      },
+      leavesByDate,
+      allLeaves: leaves.map(leave => ({
+        leaveId: leave.id,
+        employeeId: leave.EmployeeId,
+        employeeName: leave.Employee ? leave.Employee.EmployeeName : 'Unknown',
+        employeePhone: leave.Employee ? leave.Employee.EmployeePhone : 'Unknown',
+        employeeRegion: leave.Employee ? leave.Employee.EmployeeRegion : 'Unknown',
+        leaveType: leave.LeaveType,
+        startDate: new Date(leave.StartDate).toISOString().split('T')[0],
+        endDate: new Date(leave.EndDate).toISOString().split('T')[0],
+        remarks: leave.Remarks
+      }))
+    });
+    
+  } catch (error) {
+    console.error("Error retrieving employees on leave:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+
 

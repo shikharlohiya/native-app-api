@@ -42,13 +42,14 @@ const Parivartan_BDM = require('./Parivartan_BDM.js');
 const source = require('./Source.js'); 
 const AuditNewFarmer = require('./AuditNewFarmer.js');
 const BdmTravelDetail = require('./BdmTravelDetail.js'); 
+const Leave = require('./Leave.js');
   
  
 
 
  const sequelize = require('./index.js');
 
-// Attendance.sync({ alter: true });
+// Leave.sync({ alter: true });
 
 
 module.exports = {
