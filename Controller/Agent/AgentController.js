@@ -11,6 +11,8 @@ const FollowUPByAgent = require("../../models/FollowUpByAgent");
 const sequelize = require("../../models/index");
 const ExcelJS = require('exceljs');
 const Employee_Role = require("../../models/employeRole");
+const admin = require('firebase-admin');
+ 
 
  
  
@@ -21,7 +23,7 @@ const Employee_Role = require("../../models/employeRole");
 //   try {
 //     const {
 //       InquiryType,//mandate
-//       call_status,//mandate, ---> failed then project is optional-- 'Connected','Failed' 
+//       call_status,//mandate, ---> failed then project is optional--> 'Connected','Failed' 
 //       call_type,//mandate
 //       site_location_address,//opt
 //       Project,//mandate 
@@ -546,6 +548,41 @@ if (existingLead) {
       };
 
       const lead = await Lead_Detail.create(leadData, { transaction: t });
+
+
+      const bdm = await User.findByPk(BDMId);
+        
+      if (bdm && bdm.fcmToken) {
+          // Prepare notification data
+          const notificationData = {
+              notification: {
+                  title: 'New Lead Assigned',
+                  body: `New lead from ${CustomerName} has been assigned to you`
+              },
+              data: {
+                  leadId: lead.id.toString(),
+                  customerName: CustomerName,
+                  mobileNo: MobileNo,
+                  category: category,
+                  projectName: Project,
+                  // Add any other data you want to send
+              },
+              token: bdm.fcmToken
+          };
+
+          // Send notification
+          await admin.messaging().send(notificationData);
+      }
+
+      await t.commit();
+      res.status(201).json({
+          success: true,
+          message: 'Lead created and notification sent',
+          lead
+      });
+
+  
+      
 
       // Create log entry
       await LeadLog.create({
