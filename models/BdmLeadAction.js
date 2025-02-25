@@ -1,6 +1,7 @@
 const { Sequelize, DataTypes, Model } = require("sequelize");
 const sequelize = require("./index");
-const lead_detail = require('./lead_detail')
+const lead_detail = require('./lead_detail');
+const Employee = require("./employee");
 
 class BdmLeadAction extends Model {}
 
@@ -80,4 +81,10 @@ lead_detail.hasMany(BdmLeadAction, {
     as: 'Lead'  // Use 'Lead' as the alias
   });
 
+
+  BdmLeadAction.belongsTo(Employee, {
+    foreignKey: "BDMId",
+    targetKey: "EmployeeId",
+    as: 'bdm'
+  });
 module.exports = BdmLeadAction;
