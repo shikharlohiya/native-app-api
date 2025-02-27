@@ -550,7 +550,7 @@ if (existingLead) {
       const lead = await Lead_Detail.create(leadData, { transaction: t });
 
 
-      const bdm = await User.findByPk(BDMId);
+      const bdm = await Employee.findByPk(BDMId);
         
       if (bdm && bdm.fcmToken) {
           // Prepare notification data
