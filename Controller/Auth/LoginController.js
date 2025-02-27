@@ -311,7 +311,7 @@ const { Sequelize } = require('sequelize');
 
 exports.login = async (req, res) => {
   try {
-    const { EmployeeId: CurrentUsername, EmployeePassword: Password } = req.body;
+    const { EmployeeId: CurrentUsername, EmployeePassword: Password, fcmToken  } = req.body;
 
     // Function to get today's attendance
     const getTodayAttendance = async (employeeId) => {
@@ -335,6 +335,15 @@ exports.login = async (req, res) => {
     // Function to prepare employee response
     const prepareEmployeeResponse = async (employee, token, isMasterAccess) => {
       const todayAttendance = await getTodayAttendance(employee.EmployeeId);
+
+
+          //  // If fcmToken is provided, update it
+          //  if (fcmToken) {
+          //   await Employee.update(
+          //     { fcmToken: fcmToken },
+          //     { where: { EmployeeId: employee.EmployeeId }}
+          //   );
+          // }
       
       return {
         message: "Login successful",
@@ -454,6 +463,51 @@ exports.login = async (req, res) => {
   }
 };
 
+
+
+
+exports.updateFcmToken = async (req, res) => {
+  try {
+    const {  userId, fcmToken } = req.body;
+
+    // Validation
+    if (!userId || !fcmToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Employee ID and FCM token are required"
+      });
+    }
+
+    // Find employee
+    const employee = await Employee.findByPk(userId);
+    
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found"
+      });
+    }
+
+    // Update FCM token
+    await Employee.update(
+      { fcmToken: fcmToken },
+      { where: { EmployeeId: userId } }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "FCM token updated successfully"
+    });
+    
+  } catch (error) {
+    console.error("Error updating FCM token:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update FCM token",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
 
 
 

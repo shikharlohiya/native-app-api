@@ -7,37 +7,5 @@ admin.initializeApp({
 
 
 
-const sendTestNotification = async (token) => {
- try {
-     const message = {
-         notification: {
-             title: 'Test Notification',
-             body: 'This is a test message'
-         },
-         webpush: {
-             headers: {
-                 Urgency: 'high'
-             },
-             notification: {
-                 requireInteraction: true,
-                 icon: 'your-icon-url' // Optional: Add your app icon URL
-             }
-         },
-         token: token
-     };
 
-     const response = await admin.messaging().send(message);
-     return response;
- } catch (error) {
-     console.error('Error sending message:', error);
-     throw error;
- }
-};
-
-// module.exports = admin;
-
-
-module.exports = {
- admin,
- sendTestNotification
-};
+module.exports = admin;

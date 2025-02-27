@@ -42,6 +42,11 @@ Employee.init(
     EmployeeRegion: {
       type: DataTypes.STRING(1500),
     },
+    fcmToken: {               
+      type: DataTypes.STRING(255),
+      allowNull: true,        
+      comment: "Firebase Cloud Messaging token for push notifications"
+    }
   },
   {
     sequelize,
@@ -50,5 +55,6 @@ Employee.init(
     timestamps: false,
   }
 );
+
 
 module.exports = Employee;

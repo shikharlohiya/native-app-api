@@ -550,40 +550,6 @@ if (existingLead) {
       const lead = await Lead_Detail.create(leadData, { transaction: t });
 
 
-      const bdm = await Employee.findByPk(BDMId);
-        
-      if (bdm && bdm.fcmToken) {
-          // Prepare notification data
-          const notificationData = {
-              notification: {
-                  title: 'New Lead Assigned',
-                  body: `New lead from ${CustomerName} has been assigned to you`
-              },
-              data: {
-                  leadId: lead.id.toString(),
-                  customerName: CustomerName,
-                  mobileNo: MobileNo,
-                  category: category,
-                  projectName: Project,
-                  // Add any other data you want to send
-              },
-              token: bdm.fcmToken
-          };
-
-          // Send notification
-          await admin.messaging().send(notificationData);
-      }
-
-      await t.commit();
-      res.status(201).json({
-          success: true,
-          message: 'Lead created and notification sent',
-          lead
-      });
-
-  
-      
-
       // Create log entry
       await LeadLog.create({
           LeadDetailId: lead.id,
@@ -594,6 +560,66 @@ if (existingLead) {
           performed_by: lead_created_by === 1 ? AgentId : BDMId,
           follow_up_date
       }, { transaction: t });
+
+
+
+      if (BDMId) {
+        try {
+          // Get the BDM's details including FCM token
+          const bdm = await Employee.findOne({
+            where: { EmployeeId: BDMId },
+            attributes: ['EmployeeId', 'EmployeeName', 'fcmToken'],
+            transaction: t
+          });
+  
+          // Check if BDM exists and has a token
+          if (bdm && bdm.fcmToken) {
+            // Prepare notification data
+            const notificationData = {
+                notification: {
+                    title: 'New Lead Assigned',
+                    body: `New lead from ${CustomerName || 'a customer'} has been assigned to you`
+                },
+                data: {
+                    leadId: String(lead.id), // Convert to string
+                    customerName: String(CustomerName || ''),
+                    mobileNo: String(MobileNo || ''),
+                    category: String(category || ''),
+                    projectName: String(Project || ''),
+                    source: String(source_of_lead_generated || ''),
+                    createdAt: String(new Date().toISOString())
+                },
+                token: bdm.fcmToken
+            };
+        
+            // Send notification
+            try {
+                const response = await admin.messaging().send(notificationData);
+                console.log('Notification sent successfully to BDM:', BDMId, 'Response:', response);
+            } catch (error) {
+                // Handle errors as before
+                if (error.code === 'messaging/invalid-registration-token' || 
+                    error.code === 'messaging/registration-token-not-registered') {
+                    await Employee.update({ fcmToken: null }, { where: { EmployeeId: BDMId } });
+                    console.log('Invalid FCM token cleared for BDM:', BDMId);
+                }
+                console.error('Error sending notification to BDM:', BDMId, 'Error:', error);
+            }
+        }
+          
+          
+          
+          
+          
+          
+          else {
+            console.log('BDM has no FCM token registered:', BDMId);
+          }
+        } catch (notificationError) {
+          // Log error but don't fail the transaction
+          console.error('Failed to send notification:', notificationError);
+        }
+      }  
 
       await t.commit();
 
