@@ -88,7 +88,7 @@ exports.getAllEstimations = async (req, res) => {
       include: [
         {
           model: Lead_Detail,
-          attributes: ["id", "CustomerName", "MobileNo", "Project", "BDMId"],
+          attributes: ["id", "CustomerName", "MobileNo", "Project", "BDMId","state_name", "region_name","pincode"],
           include: [
             {
               model: Employee,
@@ -189,7 +189,7 @@ exports.updateEstimationStatus = async (req, res) => {
         imageUrls.push(imageUrl);
       }
     }
-
+    
     // Prepare the update object for Estimation
     const updateData = {
       status,
