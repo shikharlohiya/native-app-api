@@ -834,7 +834,8 @@ exports.handleBdmCheckOut = async (req, res) => {
     const {
       travelDetailId,
       latitude,
-      longitude
+      longitude,
+      bdmLeadActionId
     } = req.body;
 
     // Validate required fields
@@ -843,6 +844,37 @@ exports.handleBdmCheckOut = async (req, res) => {
         message: "Missing required fields. travelDetailId, latitude, and longitude are required"
       });
     }
+
+    if (bdmLeadActionId) {
+      const bdmLeadAction = await BdmLeadAction.findByPk(bdmLeadActionId, {
+        transaction: t,
+      });
+
+      if (!bdmLeadAction) {
+        await t.rollback();
+        return res.status(400).json({ error: "BdmLeadAction ID not found" });
+      }
+
+      try {
+        await bdmLeadAction.update(
+          {
+            completion_status: "completed"
+          },
+          { transaction: t }
+        );
+      } catch (updateError) {
+        await t.rollback();
+        console.error("Error updating BdmLeadAction:", updateError);
+        return res.status(500).json({
+          message: "Error updating BdmLeadAction",
+          error: updateError.message
+        });
+      }
+    }
+
+
+
+
 
     // Find the existing travel detail record
     const travelDetail = await BdmTravelDetail.findByPk(travelDetailId);
@@ -2553,6 +2585,215 @@ exports.getTravelReport = async (req, res) => {
  
 
 
+// exports.getBdmTravelDetails = async (req, res) => {
+//   try {
+//     const { bdmId, date } = req.query;
+
+//     if (!bdmId) {
+//       return res.status(400).json({ message: "BDM ID is required" });
+//     }
+
+//     // Verify if BDM exists
+//     const bdm = await Employee.findOne({
+//       where: { 
+//         EmployeeId: bdmId 
+//       }
+//     });
+
+//     if (!bdm) {
+//       return res.status(404).json({ message: "BDM not found" });
+//     }
+
+//     const targetDate = date ? new Date(date) : new Date();
+//     targetDate.setHours(0, 0, 0, 0);
+//     const nextDate = new Date(targetDate);
+//     nextDate.setDate(nextDate.getDate() + 1);
+
+//     // Get BDM's travel details
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Sequelize.Op.between]: [targetDate, nextDate]
+//         }
+//       },
+//       include: [
+//         {
+//           model: Employee,
+//           as: 'Employee',
+//           where: { EmployeeId: bdmId },
+//           attributes: ['EmployeeId', 'EmployeeName']
+//         },
+//         {
+//           model: Lead_Detail,
+//           as: 'LeadDetail',
+//           required: false,
+//           where: { BDMId: bdmId },
+//           attributes: [
+//             'id',
+//             'CustomerName',
+//             'MobileNo',
+//             'region_name',
+//             'location',
+//             'category',
+//             'bdm_remark',
+//             'close_month',
+//             'site_location_address'
+//           ]
+//         }
+//       ],
+//       order: [['checkin_time', 'ASC']]
+//     });
+
+//     if (travelDetails.length === 0) {
+//       return res.status(200).json({
+//         message: `No travel records found for BDM ID ${bdmId} on ${moment(targetDate).format('DD-MM-YYYY')}`,
+//         bdmInfo: {
+//           bdmId: bdm.EmployeeId,
+//           bdmName: bdm.EmployeeName
+//         },
+//         summary: {
+//           date: moment(targetDate).format('DD-MM-YYYY'),
+//           totalLocations: 0,
+//           totalDistance: 0
+//         },
+//         data: []
+//       });
+//     }
+
+//     // Find Attendance In point to start distance calculation
+//     let attendanceInIndex = travelDetails.findIndex(detail => 
+//       detail.action.toLowerCase().includes('attendance in')
+//     );
+    
+//     // If no Attendance In found, start from first point
+//     if (attendanceInIndex === -1) attendanceInIndex = 0;
+
+//     let lastValidPoint = travelDetails[attendanceInIndex];
+//     let totalDistance = 0;
+
+//     const formattedDetails = travelDetails.map((detail, index) => {
+//       let distanceFromLast = 0;
+      
+//       // Calculate distance if this isn't the first point and not an Attendance Out
+//       if (index > attendanceInIndex && !detail.action.toLowerCase().includes('attendance out')) {
+//         distanceFromLast = calculateHaversineDistance(
+//           parseFloat(lastValidPoint.checkin_latitude),
+//           parseFloat(lastValidPoint.checkin_longitude),
+//           parseFloat(detail.checkin_latitude),
+//           parseFloat(detail.checkin_longitude)
+//         );
+//         distanceFromLast = +(distanceFromLast / 1000).toFixed(2); // Convert to km
+        
+//         if (distanceFromLast > 0) {
+//           totalDistance += distanceFromLast;
+//         }
+//       }
+
+//       // Update last valid point if this isn't an Attendance Out
+//       if (!detail.action.toLowerCase().includes('attendance out')) {
+//         lastValidPoint = detail;
+//       }
+
+//       // Calculate checkin-checkout distance
+//       let checkinCheckoutDistance = 'N/A';
+//       if (detail.checkout_latitude && detail.checkout_longitude) {
+//         if (detail.checkin_latitude === detail.checkout_latitude && 
+//             detail.checkin_longitude === detail.checkout_longitude) {
+//           checkinCheckoutDistance = 0;
+//         } else {
+//           const distance = calculateHaversineDistance(
+//             parseFloat(detail.checkin_latitude),
+//             parseFloat(detail.checkin_longitude),
+//             parseFloat(detail.checkout_latitude),
+//             parseFloat(detail.checkout_longitude)
+//           );
+//           checkinCheckoutDistance = +(distance / 1000).toFixed(2);
+//         }
+//       }
+
+//       // Calculate duration
+//       let duration = null;
+//       if (detail.checkout_time) {
+//         duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
+//       }
+
+//       return {
+//         id: detail.id,
+//         employeeInfo: {
+//           employeeId: detail.bdm_id,
+//           employeeName: detail.Employee?.EmployeeName
+//         },
+//         leadInfo: detail.LeadDetail ? {
+//           leadId: detail.LeadDetail.id,
+//           customerName: detail.LeadDetail.CustomerName,
+//           mobileNo: detail.LeadDetail.MobileNo,
+//           region: detail.LeadDetail.region_name,
+//           location: detail.LeadDetail.location,
+//           siteLocation: detail.LeadDetail.site_location_address,
+//           category: detail.LeadDetail.category,
+//           bdmRemark: detail.LeadDetail.bdm_remark,
+//           closeMonth: detail.LeadDetail.close_month
+//         } : null,
+//         travelInfo: {
+//           action: detail.action,
+//           checkin: {
+//             time: moment(detail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//             location: {
+//               latitude: detail.checkin_latitude,
+//               longitude: detail.checkin_longitude,
+//               address: null,
+//               city: null
+//             }
+//           },
+//           checkout: detail.checkout_time ? {
+//             time: moment(detail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//             location: {
+//               latitude: detail.checkout_latitude,
+//               longitude: detail.checkout_longitude,
+//               address: null,
+//               city: null
+//             }
+//           } : null,
+//           distances: {
+//             fromLastPoint: distanceFromLast,
+//             checkinToCheckout: checkinCheckoutDistance
+//           },
+//           duration: duration ? {
+//             minutes: duration,
+//             formatted: `${Math.floor(duration / 60)} hours ${duration % 60} minutes`
+//           } : null
+//         }
+//       };
+//     });
+
+//     // Ensure total distance is properly rounded
+//     totalDistance = +totalDistance.toFixed(2);
+
+//     res.status(200).json({
+//       message: "Travel details retrieved successfully",
+//       bdmInfo: {
+//         bdmId: bdm.EmployeeId,
+//         bdmName: bdm.EmployeeName
+//       },
+//       summary: {
+//         date: moment(targetDate).format('DD-MM-YYYY'),
+//         totalLocations: travelDetails.length,
+//         totalDistance: totalDistance
+//       },
+//       data: formattedDetails
+//     });
+
+//   } catch (error) {
+//     console.error("Error fetching travel details:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
 exports.getBdmTravelDetails = async (req, res) => {
   try {
     const { bdmId, date } = req.query;
@@ -2637,46 +2878,48 @@ exports.getBdmTravelDetails = async (req, res) => {
     // If no Attendance In found, start from first point
     if (attendanceInIndex === -1) attendanceInIndex = 0;
 
-    let lastValidPoint = travelDetails[attendanceInIndex];
-    let totalDistance = 0;
+    // Find Attendance Out point to end distance calculation
+    let attendanceOutIndex = travelDetails.findIndex(detail => 
+      detail.action.toLowerCase().includes('attendance out')
+    );
+    
+    // If no Attendance Out found, use the last point
+    if (attendanceOutIndex === -1) attendanceOutIndex = travelDetails.length - 1;
 
-    const formattedDetails = travelDetails.map((detail, index) => {
+    let totalDistance = 0;
+    const formattedDetails = [];
+
+    // Process each location from attendance in to attendance out
+    for (let i = attendanceInIndex; i <= attendanceOutIndex; i++) {
+      const detail = travelDetails[i];
       let distanceFromLast = 0;
       
-      // Calculate distance if this isn't the first point and not an Attendance Out
-      if (index > attendanceInIndex && !detail.action.toLowerCase().includes('attendance out')) {
-        distanceFromLast = calculateHaversineDistance(
-          parseFloat(lastValidPoint.checkin_latitude),
-          parseFloat(lastValidPoint.checkin_longitude),
-          parseFloat(detail.checkin_latitude),
-          parseFloat(detail.checkin_longitude)
-        );
-        distanceFromLast = +(distanceFromLast / 1000).toFixed(2); // Convert to km
-        
-        if (distanceFromLast > 0) {
-          totalDistance += distanceFromLast;
-        }
-      }
-
-      // Update last valid point if this isn't an Attendance Out
-      if (!detail.action.toLowerCase().includes('attendance out')) {
-        lastValidPoint = detail;
-      }
-
-      // Calculate checkin-checkout distance
-      let checkinCheckoutDistance = 'N/A';
-      if (detail.checkout_latitude && detail.checkout_longitude) {
-        if (detail.checkin_latitude === detail.checkout_latitude && 
-            detail.checkin_longitude === detail.checkout_longitude) {
-          checkinCheckoutDistance = 0;
-        } else {
-          const distance = calculateHaversineDistance(
+      // Calculate road distance from previous point (except for the first point)
+      if (i > attendanceInIndex) {
+        try {
+          const prevPoint = travelDetails[i-1];
+          
+          // Call OSRM API to get road distance
+          const routeUrl = `http://router.project-osrm.org/route/v1/driving/${prevPoint.checkin_longitude},${prevPoint.checkin_latitude};${detail.checkin_longitude},${detail.checkin_latitude}?overview=false`;
+          const routeResponse = await axios.get(routeUrl);
+          
+          if (routeResponse.data.routes && routeResponse.data.routes[0]) {
+            distanceFromLast = routeResponse.data.routes[0].distance / 1000; // Convert meters to km
+            distanceFromLast = +distanceFromLast.toFixed(2);
+            totalDistance += distanceFromLast;
+          }
+        } catch (routeError) {
+          console.error('Error calculating route distance:', routeError);
+          // Fallback to haversine distance if OSRM fails
+          const prevPoint = travelDetails[i-1];
+          distanceFromLast = calculateHaversineDistance(
+            parseFloat(prevPoint.checkin_latitude),
+            parseFloat(prevPoint.checkin_longitude),
             parseFloat(detail.checkin_latitude),
-            parseFloat(detail.checkin_longitude),
-            parseFloat(detail.checkout_latitude),
-            parseFloat(detail.checkout_longitude)
-          );
-          checkinCheckoutDistance = +(distance / 1000).toFixed(2);
+            parseFloat(detail.checkin_longitude)
+          ) / 1000; // Convert to km
+          distanceFromLast = +distanceFromLast.toFixed(2);
+          totalDistance += distanceFromLast;
         }
       }
 
@@ -2686,7 +2929,8 @@ exports.getBdmTravelDetails = async (req, res) => {
         duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
       }
 
-      return {
+      // Format the location details
+      formattedDetails.push({
         id: detail.id,
         employeeInfo: {
           employeeId: detail.bdm_id,
@@ -2725,15 +2969,15 @@ exports.getBdmTravelDetails = async (req, res) => {
           } : null,
           distances: {
             fromLastPoint: distanceFromLast,
-            checkinToCheckout: checkinCheckoutDistance
+            checkinToCheckout: 'N/A' // Not calculating checkout distance as per requirement
           },
           duration: duration ? {
             minutes: duration,
             formatted: `${Math.floor(duration / 60)} hours ${duration % 60} minutes`
           } : null
         }
-      };
-    });
+      });
+    }
 
     // Ensure total distance is properly rounded
     totalDistance = +totalDistance.toFixed(2);
@@ -2746,7 +2990,7 @@ exports.getBdmTravelDetails = async (req, res) => {
       },
       summary: {
         date: moment(targetDate).format('DD-MM-YYYY'),
-        totalLocations: travelDetails.length,
+        totalLocations: formattedDetails.length,
         totalDistance: totalDistance
       },
       data: formattedDetails
@@ -2760,6 +3004,16 @@ exports.getBdmTravelDetails = async (req, res) => {
     });
   }
 };
+  
+// Helper function for axios
+ 
+
+// Haversine formula (fallback if road distance calculation fails)
+ 
+
+
+
+
 
 //leave apply
 
@@ -3411,6 +3665,10 @@ exports.getMonthlyCombinedReport = async (req, res) => {
 
 // Get all employees on leave within a date range
  // Get all employees on leave within a date range
+
+
+
+
 exports.getEmployeesOnLeave = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -3553,6 +3811,10 @@ exports.getEmployeesOnLeave = async (req, res) => {
     });
   }
 };
+
+
+
+
 
 
 
