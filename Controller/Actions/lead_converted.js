@@ -7,6 +7,8 @@ const Estimation = require('../../models/estimation');
 const LeadDetail = require('../../models/lead_detail');
 const LeadLog = require('../../models/leads_logs');
 const sequelize = require('../../models/index');
+const Employee = require('../../models/employee');
+const Notification = require('../../models/Notification');
 const { Op } = require('sequelize');
 
 exports.createLeadDocument = async function(req, res) {
@@ -123,6 +125,43 @@ exports.createLeadDocument = async function(req, res) {
       // Add any other relevant fields for lead_logs
     }, { transaction: t });
 
+    const leadDetail = await LeadDetail.findByPk(LeadDetailId, { transaction: t });
+    if (!leadDetail) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Lead detail not found.' });
+    }
+
+    const bdmEmployee = await Employee.findByPk(employeeId, { transaction: t });
+    const bdmName = bdmEmployee ? bdmEmployee.EmployeeName : 'Unknown User';
+
+     // Get all employees with RoleId = 6
+     const targetEmployees = await Employee.findAll({
+      where: {
+        EmployeeRoleID: 6
+      },
+      transaction: t
+    });
+
+    // Create notifications for each employee with RoleId 6
+    const notificationText = `Document has been uploaded by ${bdmName} for ${leadDetail.CustomerName}`;
+    
+    if (targetEmployees.length > 0) {
+      const notificationPromises = targetEmployees.map(employee => {
+        return Notification.create({
+          employeeId: employee.EmployeeId,
+          text: notificationText,
+          isRead: false,
+          leadDetailId: LeadDetailId,
+          createdAt: new Date(),
+          createdBy: employeeId
+        }, { transaction: t });
+      });
+      
+      await Promise.all(notificationPromises);
+    }
+
+    
+
     await t.commit();
 
     res.status(201).json({
@@ -169,7 +208,7 @@ exports.getLeadDocumentData = async function(req, res) {
               const response = await axios.get(url, { responseType: 'arraybuffer' });
               archive.append(response.data, { name: `${fieldName}_${i + 1}.pdf`})
             }
-          }
+          } 
         }
       }
 
@@ -184,14 +223,6 @@ exports.getLeadDocumentData = async function(req, res) {
     res.status(500).json({ error: 'An error occurred while retrieving the lead document data.' });
   }
 };
-
-
-
-
-
-
-
-
 
 
 

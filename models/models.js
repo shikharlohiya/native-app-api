@@ -43,13 +43,15 @@ const source = require('./Source.js');
 const AuditNewFarmer = require('./AuditNewFarmer.js');
 const BdmTravelDetail = require('./BdmTravelDetail.js'); 
 const Leave = require('./Leave.js');
+const Notification = require('./Notification.js');
+
   
  
 
 
  const sequelize = require('./index.js');
 
-// Leave.sync({ alter: true });
+// Notification.sync({ alter: true });
 
 
 module.exports = {

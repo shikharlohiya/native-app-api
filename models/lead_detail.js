@@ -166,8 +166,15 @@ Lead_Detail.belongsTo(ParivatanRegion, {
 
 module.exports = Lead_Detail;
 const OnCallDiscussionByBdm = require("./OnCallDiscussionByBdm");
+const Notification = require("./Notification");
 
 Lead_Detail.hasMany(OnCallDiscussionByBdm, {
   foreignKey: 'LeadDetailId',
   as: 'Updatess'
+});
+
+
+Lead_Detail.hasMany(Notification, {
+ foreignKey: 'leadDetailId',
+ as: 'Notifications'
 });
