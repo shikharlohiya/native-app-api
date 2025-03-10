@@ -30,4 +30,10 @@ router.get("/customer/lead/:employeeId",  BDMController.getEmployeeLeads);
 router.get('/distinct/:field/bdm/:bdmId', BDMController.getBdmDistinctValues);
 
 
+router.get('/zm/region',BDMController.getEmployeeRegionsWithLeads );
+ 
+
+router.get('/zm/regions',BDMController.getZonalManagerRegions );
+
+
 module.exports = router;
