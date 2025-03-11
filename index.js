@@ -232,7 +232,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3003; 
+const PORT = process.env.PORT || 3002; 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log('WebSocket server is ready for connections');
