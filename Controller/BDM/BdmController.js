@@ -2689,7 +2689,7 @@ exports.getZonalManagerRegions = async (req, res) => {
         EmployeeId: employeeId,
         is_zonal_manager: 'Yes',  // Only get regions where employee is a zonal manager
         Deleted: 'N',             // Not deleted
-        is_active: 'Active'       // Active status
+        // is_active: 'Active'       // Active status
       },
       include: [
         {
@@ -2697,7 +2697,7 @@ exports.getZonalManagerRegions = async (req, res) => {
           attributes: ['RegionId', 'RegionName']
         }
       ],
-      attributes: ['RegionId', 'EmployeeId', 'EmployeeName', 'Project']
+      attributes: ['RegionId', 'EmployeeId', 'EmployeeName', 'Project'] 
     });
 
     if (!zonalManagerRegions || zonalManagerRegions.length === 0) {
@@ -2716,7 +2716,7 @@ exports.getZonalManagerRegions = async (req, res) => {
     // Create an array to store region data with associated BDMs
     const regionsWithBdms = [];
 
-    // For each region, find other BDMs associated with it
+    // For each region, find other BDMs associated with it 
     for (const region of zonalManagerRegions) {
       // Find BDMs for this region with the same Project value
       const bdmsForRegion = await Parivartan_BDM.findAll({
@@ -2727,7 +2727,7 @@ exports.getZonalManagerRegions = async (req, res) => {
             [Op.ne]: employeeId // Not equal to the zonal manager
           },
           Deleted: 'N',
-          is_active: 'Active'
+          // is_active: 'Active'
         },
         attributes: ['EmployeeId', 'EmployeeName', 'is_bdm']
       });
@@ -2831,7 +2831,7 @@ exports.getZonalManagerRegions = async (req, res) => {
 
     // Return employee info once and all regions with their BDMs
     return res.status(200).json({
-      status: "200",
+      status: "200", 
       message: "Zonal manager regions with BDMs and actions fetched successfully",
       dateRange: {
         startDate: dateStart,
@@ -2850,3 +2850,7 @@ exports.getZonalManagerRegions = async (req, res) => {
     });
   }
 };
+
+
+
+
