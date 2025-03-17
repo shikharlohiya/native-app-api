@@ -167,6 +167,7 @@ const masterRoutes = require('./Routes/Master/MasterRoute.js');
 const AuditReport = require('./Routes/AuditLeadRoutes/AuditReportRoutes.js');
 const ParivartanDashboard = require('./Routes/ParivartanDashboard/ParivartanDashboard.js')
 const Notification = require('./Routes/Notificaation/Notification.js');
+const RegisteredPartner = require('./Routes/RegisteredPartner/RegisteredPartner.js')
 const path = require('path');
 
 
@@ -219,6 +220,7 @@ app.use('/api', masterRoutes);
 app.use('/api',AuditReport )
 app.use('/api', ParivartanDashboard);
 app.use('/api',Notification);
+app.use('/api', RegisteredPartner);
 
 // Root route
 app.get('/', function (req, res) {
@@ -237,6 +239,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log('WebSocket server is ready for connections');
 });
+ 
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
