@@ -141,7 +141,7 @@ TravelRegistration.init(
     },
     tShirtSize: {
       type: DataTypes.ENUM('S', 'M', 'L', 'XL', 'XXL'),
-      allowNull: false,
+      allowNull: true,
     },
     travelMode: {
       type: DataTypes.ENUM('Air', 'Train', 'Road'),

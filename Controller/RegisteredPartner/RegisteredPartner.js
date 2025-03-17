@@ -268,16 +268,16 @@ exports.createTravelRegistration = async (req, res) => {
   try {
     const { 
       mobileNumber, 
-      travelerName, 
-      alternateMobile, 
-      tShirtSize, 
-      travelMode, 
-      expectedArrivalDateTime, 
+      travelerName,
+      alternateMobile,
+      // tShirtSize,
+      travelMode,
+      expectedArrivalDateTime,
       agreedToTerms
     } = req.body;
 
     // Validate required fields
-    if (!mobileNumber || !travelerName || !alternateMobile || !tShirtSize || 
+    if (!mobileNumber || !travelerName || !alternateMobile  || 
         !travelMode || !expectedArrivalDateTime || agreedToTerms !== true) {
       return res.status(400).json({
         status: "400",
@@ -339,7 +339,7 @@ exports.createTravelRegistration = async (req, res) => {
       location: registeredPartner.location,
       travelerName,
       alternateMobile,
-      tShirtSize,
+      // tShirtSize,
       travelMode,
       expectedArrivalDateTime: formattedDateTime,
       agreedToTerms
@@ -358,7 +358,7 @@ exports.createTravelRegistration = async (req, res) => {
         },             
         travelDetails: {                                
           travelerName: travelRegistration.travelerName,
-          alternateMobile: travelRegistration.alternateMobile,
+          // alternateMobile: travelRegistration.alternateMobile,
           tShirtSize: travelRegistration.tShirtSize,
           travelMode: travelRegistration.travelMode,
           expectedArrivalDateTime: travelRegistration.expectedArrivalDateTime
