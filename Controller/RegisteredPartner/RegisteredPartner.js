@@ -5,9 +5,12 @@ const path = require('path');
 const fs = require('fs');
 const TravelRegistration = require('../../models/TravelRegistration');
 const { Op } = require('sequelize');
+const axios = require('axios');
  
 
 // Get partner details by mobile number
+
+
 exports.getPartnerByMobile = async (req, res) => {
   try {
     const { mobileNumber } = req.params;
@@ -264,21 +267,165 @@ const generateRegistrationNumber = (partnerDetails) => {
 };
 
 // Create new travel registration
+
+
+// exports.createTravelRegistration = async (req, res) => {
+//   try {
+//     const { 
+//       mobileNumber, 
+//       travelerName,
+//       alternateMobile,
+//       // tShirtSize,
+//       travelMode,
+//       expectedArrivalDateTime,
+//       agreedToTerms
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!mobileNumber || !travelerName || !alternateMobile  || 
+//         !travelMode || !expectedArrivalDateTime || agreedToTerms !== true) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: "Missing required fields or terms not agreed to"
+//       });
+//     }
+
+//     // Validate mobile number format
+//     if (!mobileNumber.match(/^[6-9]\d{9}$/) || !alternateMobile.match(/^[6-9]\d{9}$/)) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: "Invalid mobile number format"
+//       });
+//     }
+
+//     // Check if mobile number is registered
+//     const registeredPartner = await RegisteredPartner.findOne({
+//       where: { mobileNumber }
+//     });
+
+//     if (!registeredPartner) {
+//       return res.status(404).json({
+//         status: "404",
+//         message: "Mobile number is not registered. Please register first."
+//       });
+//     }
+
+//     // Check if the user has already registered for this event
+//     const existingRegistration = await TravelRegistration.findOne({
+//       where: { mobileNumber }
+//     });
+
+//     if (existingRegistration) {
+//       return res.status(409).json({
+//         status: "409",
+//         message: "You have already registered for this event",
+//         data: existingRegistration
+//       });
+//     }
+
+//     // Format expected arrival date and time
+//     const formattedDateTime = new Date(expectedArrivalDateTime);
+//     if (isNaN(formattedDateTime)) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: "Invalid date format for expected arrival"
+//       });
+//     }
+
+//     // Generate registration number
+//     const registrationNumber = generateRegistrationNumber(registeredPartner);
+
+//     // Create travel registration
+//     const travelRegistration = await TravelRegistration.create({
+//       registrationNumber,
+//       mobileNumber,
+//       partnerName: registeredPartner.partnerName,
+//       partnerCode: registeredPartner.partnerCode,
+//       location: registeredPartner.location,
+//       travelerName,
+//       alternateMobile,
+//       // tShirtSize,
+//       travelMode,
+//       expectedArrivalDateTime: formattedDateTime,
+//       agreedToTerms
+//     });
+
+//     return res.status(201).json({
+//       status: "201",
+//       message: "Travel registration successful",
+//       data: {
+//         registrationNumber: travelRegistration.registrationNumber,
+//         partnerDetails: {
+//           mobileNumber: travelRegistration.mobileNumber,
+//           partnerName: travelRegistration.partnerName,
+//           partnerCode: travelRegistration.partnerCode,
+//           location: travelRegistration.location
+//         },             
+//         travelDetails: {                                
+//           travelerName: travelRegistration.travelerName,
+//           // alternateMobile: travelRegistration.alternateMobile,
+//           tShirtSize: travelRegistration.tShirtSize,
+//           travelMode: travelRegistration.travelMode,
+//           expectedArrivalDateTime: travelRegistration.expectedArrivalDateTime
+//         },
+//         registrationDate: travelRegistration.registrationDate
+//       }
+//     });
+//   } catch (error) {
+//     console.error("Error creating travel registration:", error);
+//     return res.status(500).json({
+//       status: "500",
+//       message: "An error occurred while creating travel registration",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+// Send WhatsApp notification
+const sendWhatsAppNotification = async (mobileNumber, type, registrationNumber) => {
+  try {
+    const whatsappApiUrl = 'https://app.aiwati.com/api/whatsapp-base/send_template';
+    const apiKey = 'API17422044184eHn09V7bGpuPkaSfOROHrfger0';
+    
+    // Format the body based on partner type
+    const typeCapitalized = type.charAt(0).toUpperCase() + type.slice(1); // Capitalize first letter
+    
+    const response = await axios.post(
+      `${whatsappApiUrl}?api_key=${apiKey}`,
+      {
+        to: mobileNumber,
+        template: "1321152965788304",
+        body: [typeCapitalized, registrationNumber]
+      }
+    );
+    
+    console.log('WhatsApp notification sent successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error sending WhatsApp notification:', error);
+    // Continue execution even if WhatsApp notification fails
+    return null;
+  }
+};
+
 exports.createTravelRegistration = async (req, res) => {
   try {
-    const { 
-      mobileNumber, 
+    const {
+      mobileNumber,
       travelerName,
       alternateMobile,
       // tShirtSize,
       travelMode,
       expectedArrivalDateTime,
-      agreedToTerms
+      agreedToTerms,
+      type // Added type parameter
     } = req.body;
 
     // Validate required fields
-    if (!mobileNumber || !travelerName || !alternateMobile  || 
-        !travelMode || !expectedArrivalDateTime || agreedToTerms !== true) {
+    if (!mobileNumber || !travelerName || !alternateMobile || 
+        !travelMode || !expectedArrivalDateTime || agreedToTerms !== true || !type) {
       return res.status(400).json({
         status: "400",
         message: "Missing required fields or terms not agreed to"
@@ -304,6 +451,14 @@ exports.createTravelRegistration = async (req, res) => {
         message: "Mobile number is not registered. Please register first."
       });
     }
+    
+    // Verify that the type matches the partner's type
+    if (registeredPartner.type !== type) {
+      return res.status(400).json({
+        status: "400",
+        message: "Partner type mismatch. Please try again."
+      });
+    }
 
     // Check if the user has already registered for this event
     const existingRegistration = await TravelRegistration.findOne({
@@ -326,6 +481,24 @@ exports.createTravelRegistration = async (req, res) => {
         message: "Invalid date format for expected arrival"
       });
     }
+    
+    // Validate arrival date based on partner type
+    const arrivalDate = new Date(expectedArrivalDateTime);
+    const expectedDate = type === 'farmer' 
+      ? new Date('2025-04-08')
+      : new Date('2025-04-07');
+      
+    // Check if the date part matches the expected date for the partner type
+    if (
+      arrivalDate.getFullYear() !== expectedDate.getFullYear() ||
+      arrivalDate.getMonth() !== expectedDate.getMonth() ||
+      arrivalDate.getDate() !== expectedDate.getDate()
+    ) {
+      return res.status(400).json({
+        status: "400",
+        message: `Invalid arrival date. ${type === 'farmer' ? 'Farmers' : 'Traders'} must arrive on ${type === 'farmer' ? 'April 8th' : 'April 7th'}, 2025.`
+      });
+    }
 
     // Generate registration number
     const registrationNumber = generateRegistrationNumber(registeredPartner);
@@ -337,6 +510,7 @@ exports.createTravelRegistration = async (req, res) => {
       partnerName: registeredPartner.partnerName,
       partnerCode: registeredPartner.partnerCode,
       location: registeredPartner.location,
+      type: type, // Store the partner type
       travelerName,
       alternateMobile,
       // tShirtSize,
@@ -344,6 +518,11 @@ exports.createTravelRegistration = async (req, res) => {
       expectedArrivalDateTime: formattedDateTime,
       agreedToTerms
     });
+    
+    // Send WhatsApp notification (don't await to not block response)
+    sendWhatsAppNotification(mobileNumber, type, registrationNumber)
+      .then(() => console.log('WhatsApp notification process completed'))
+      .catch(err => console.error('Error in WhatsApp notification process:', err));
 
     return res.status(201).json({
       status: "201",
@@ -354,9 +533,10 @@ exports.createTravelRegistration = async (req, res) => {
           mobileNumber: travelRegistration.mobileNumber,
           partnerName: travelRegistration.partnerName,
           partnerCode: travelRegistration.partnerCode,
-          location: travelRegistration.location
-        },             
-        travelDetails: {                                
+          location: travelRegistration.location,
+          type: travelRegistration.type // Include type in response
+        },
+        travelDetails: {
           travelerName: travelRegistration.travelerName,
           // alternateMobile: travelRegistration.alternateMobile,
           tShirtSize: travelRegistration.tShirtSize,

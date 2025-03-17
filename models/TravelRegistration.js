@@ -263,7 +263,7 @@ TravelRegistration.init(
     // Added type field
     type: {
       type: DataTypes.STRING,
-      allowNull: false,
+      // allowNull: false,
       validate: {
         isIn: [['farmer', 'trader']] // Ensure type is either 'farmer' or 'trader'
       }
