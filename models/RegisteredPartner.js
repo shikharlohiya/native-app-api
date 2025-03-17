@@ -38,7 +38,11 @@ RegisteredPartner.init(
     updatedAt: {
       type: DataTypes.DATE,
       defaultValue: Sequelize.NOW,
-    }
+    },
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     sequelize,
