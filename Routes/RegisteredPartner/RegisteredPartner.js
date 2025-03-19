@@ -56,4 +56,7 @@ router.put(
 // // Get all partners
 // router.get('/partners', authenticateToken, partnerController.getAllPartners);
 
+
+router.get('/poultryconclave/download', partnerController.downloadRegistrationsExcel);
+
 module.exports = router;
