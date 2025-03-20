@@ -31,6 +31,10 @@ RegisteredPartner.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    region:{
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: Sequelize.NOW,

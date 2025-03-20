@@ -633,83 +633,6 @@ const sendWhatsAppNotification = async (mobileNumber, type, registrationNumber) 
 
 
 
-// 200 msg 
-// Send WhatsApp notification with Infobip API
-
-
-// const sendWhatsAppNotification = async (mobileNumber, type, registrationNumber) => {
-//   try {
-//     const whatsappApiUrl = 'https://qz8lq.api.infobip.com/whatsapp/1/message/template';
-//     const apiKey = '1345580d8d70cb8d9a5fa6a722444a27-20d8b005-9b06-4693-b8f3-15ae7a918c75';
-    
-//     // Generate a unique messageId
-//     const messageId = `msg_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-    
-//     // Format mobile number to ensure it includes country code (assuming India's +91)
-//     // If mobileNumber already has country code, this won't affect it
-//     const formattedMobileNumber = mobileNumber.startsWith("91") ? mobileNumber : `91${mobileNumber}`;
-    
-//     // Format the request body based on the new API requirements
-//     const typeCapitalized = type.charAt(0).toUpperCase() + type.slice(1); // Capitalize first letter
-    
-//     const requestBody = {
-//       messages: [
-//         {
-//           from: "919754888801", // Static sender number
-//           to: formattedMobileNumber,
-//           messageId: messageId,
-//           content: {
-//             templateName: "test1", // Update this with your actual template name
-//             templateData: {
-//               body: {
-//                 placeholders: [typeCapitalized, registrationNumber]
-//               }
-//             },
-//             language: "en"
-//           },
-//           callbackData: messageId
-//         }
-//       ]
-//     };
-    
-//     // Set up the request headers according to the Infobip documentation
-//     const headers = {
-//       'Content-Type': 'application/json',
-//       'Accept': 'application/json',
-//       'Authorization': `App ${apiKey}`
-//     };
-    
-//     // Configure axios with options to handle SSL/TLS issues
-//     const axiosConfig = {
-//       headers: headers,
-//       timeout: 15000, // 15 second timeout
-//       httpsAgent: new require('https').Agent({
-//         keepAlive: true,
-//         maxSockets: 5
-//       })
-//     };
-    
-//     console.log('Sending WhatsApp notification to:', formattedMobileNumber);
-//     const response = await axios.post(whatsappApiUrl, requestBody, axiosConfig);
-    
-//     console.log('WhatsApp notification sent successfully. Status:', response.status);
-//     return response.data;
-//   } catch (error) {
-//     console.error('Error sending WhatsApp notification:', error.message);
-//     if (error.response) {
-//       // The request was made and the server responded with a status code
-//       // that falls out of the range of 2xx
-//       console.error('Response status:', error.response.status);
-//       console.error('Response headers:', JSON.stringify(error.response.headers));
-//       console.error('Response data:', JSON.stringify(error.response.data));
-//     } else if (error.request) {
-//       // The request was made but no response was received
-//       console.error('No response received from API. Request details:', error.request._currentUrl);
-//     }
-//     // Continue execution even if WhatsApp notification fails
-//     return null;
-//   }
-// };
 
 
 // Send WhatsApp notification with Infobip API
@@ -1567,20 +1490,138 @@ exports.getRegistrationById = async (req, res) => {
   // };
 
 
+
+
+  // exports.downloadRegistrationsExcel = async (req, res) => {
+  //   try {
+  //     // Fetch all registrations
+  //     const registrations = await TravelRegistration.findAll({
+  //             include: [
+  //       {
+  //         model: RegisteredPartner,
+  //         attributes: ['region']
+  //       }
+  //     ],
+  //       order: [['registrationDate', 'ASC']],
+  //       raw: true
+  //     });
+  
+  //     // Create a new Excel workbook and worksheet
+  //     const workbook = new ExcelJS.Workbook();
+  //     const worksheet = workbook.addWorksheet('Registrations');
+  
+  //     // Define columns for the Excel file - removed tShirtSize, familyMemberName, 
+  //     // familyMemberRelation, otherRelation, and moved status to the end
+  //     worksheet.columns = [
+  //       { header: 'Registration #', key: 'registrationNumber', width: 15 },
+  //       { header: 'Partner Name', key: 'partnerName', width: 20 },
+  //       { header: 'Partner Code', key: 'partnerCode', width: 15 },
+  //       { header: 'Mobile Number', key: 'mobileNumber', width: 15 },
+  //       { header: 'Location', key: 'location', width: 20 },
+  //       { header: 'Type', key: 'type', width: 10 },
+  //       { header: 'Traveler Name', key: 'travelerName', width: 20 },
+  //       { header: 'Alternate Mobile', key: 'alternateMobile', width: 15 },
+  //       { header: 'Travel Mode', key: 'travelMode', width: 12 },
+  //       { header: 'Expected Arrival (IST)', key: 'expectedArrivalDateTime', width: 25 },
+  //       { header: 'Region', key: 'region', width: 12 },
+  //       { header: 'Hotel Name', key: 'hotelName', width: 20 },
+  //       { header: 'Hotel Location', key: 'hotelLocation', width: 20 },
+  //       { header: 'Room Number', key: 'roomNumber', width: 12 },
+  //       { header: 'Registration Date (IST)', key: 'registrationDate', width: 25 },
+  //       { header: 'Last Updated (IST)', key: 'lastUpdated', width: 25 },
+  //       { header: 'Status', key: 'status', width: 12 } // Moved status to the end
+  //     ];
+  
+  //     // Style the header row
+  //     worksheet.getRow(1).font = { bold: true };
+  //     worksheet.getRow(1).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFD3D3D3' } // Light grey background
+  //     };
+  
+  //     // Process and add each registration to the worksheet
+  //     if (registrations && registrations.length > 0) {
+  //       registrations.forEach(registration => {
+  //         // Convert non-English characters to English where needed
+  //         const processedRegistration = {
+  //           ...registration,
+  //           // Transliterate names to ensure they're in English characters
+  //           partnerName: transliteration.transliterate(registration.partnerName || ''),
+  //           travelerName: transliteration.transliterate(registration.travelerName || ''),
+            
+  //           // Convert UTC dates to IST (Indian Standard Time)
+  //           expectedArrivalDateTime: registration.expectedArrivalDateTime ? 
+  //             moment(registration.expectedArrivalDateTime).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : '',
+  //           registrationDate: registration.registrationDate ? 
+  //             moment(registration.registrationDate).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : '',
+  //           lastUpdated: registration.lastUpdated ? 
+  //             moment(registration.lastUpdated).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : ''
+  //         };
+  
+  //         // Add the processed data to the worksheet
+  //         worksheet.addRow(processedRegistration);
+  //       });
+  //     }
+  
+  //     // Auto-filter for all columns
+  //     worksheet.autoFilter = {
+  //       from: { row: 1, column: 1 },
+  //       to: { row: 1, column: worksheet.columns.length }
+  //     };
+  
+  //     // Set filename with current date for better organization
+  //     const currentDate = moment().format('YYYY-MM-DD');
+  //     const filename = `PoultryRegistrations_${currentDate}.xlsx`;
+  
+  //     // Set response headers for file download
+  //     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  //     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+  //     res.setHeader('Cache-Control', 'no-cache');
+  
+  //     // Write the workbook to the response
+  //     await workbook.xlsx.write(res);
+  //     res.end();
+      
+  //   } catch (error) {
+  //     console.error("Error generating Excel:", error);
+      
+  //     // Send a simple error page instead of JSON for browser access
+  //     res.status(500).send(`
+  //       <html>
+  //         <head><title>Error Downloading Excel</title></head>
+  //         <body>
+  //           <h1>Error Downloading Excel</h1>
+  //           <p>Sorry, there was an error generating the Excel file: ${error.message}</p>
+  //           <p><a href="javascript:history.back()">Go Back</a></p>
+  //         </body>
+  //       </html>
+  //     `);
+  //   }
+  // };
+
+
+
+
+
   exports.downloadRegistrationsExcel = async (req, res) => {
     try {
-      // Fetch all registrations
+      // Fetch all registrations with the RegisteredPartner association
       const registrations = await TravelRegistration.findAll({
-        order: [['registrationDate', 'ASC']],
-        raw: true
+        include: [
+          {
+            model: RegisteredPartner,
+            attributes: ['region']
+          }
+        ],
+        order: [['registrationDate', 'ASC']]
       });
   
       // Create a new Excel workbook and worksheet
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Registrations');
   
-      // Define columns for the Excel file - removed tShirtSize, familyMemberName, 
-      // familyMemberRelation, otherRelation, and moved status to the end
+      // Define columns for the Excel file
       worksheet.columns = [
         { header: 'Registration #', key: 'registrationNumber', width: 15 },
         { header: 'Partner Name', key: 'partnerName', width: 20 },
@@ -1592,12 +1633,13 @@ exports.getRegistrationById = async (req, res) => {
         { header: 'Alternate Mobile', key: 'alternateMobile', width: 15 },
         { header: 'Travel Mode', key: 'travelMode', width: 12 },
         { header: 'Expected Arrival (IST)', key: 'expectedArrivalDateTime', width: 25 },
+        { header: 'Region', key: 'region', width: 20 },
         { header: 'Hotel Name', key: 'hotelName', width: 20 },
         { header: 'Hotel Location', key: 'hotelLocation', width: 20 },
         { header: 'Room Number', key: 'roomNumber', width: 12 },
         { header: 'Registration Date (IST)', key: 'registrationDate', width: 25 },
         { header: 'Last Updated (IST)', key: 'lastUpdated', width: 25 },
-        { header: 'Status', key: 'status', width: 12 } // Moved status to the end
+        { header: 'Status', key: 'status', width: 12 }
       ];
   
       // Style the header row
@@ -1611,21 +1653,33 @@ exports.getRegistrationById = async (req, res) => {
       // Process and add each registration to the worksheet
       if (registrations && registrations.length > 0) {
         registrations.forEach(registration => {
-          // Convert non-English characters to English where needed
+          // Need to convert the Sequelize instance to a plain object
+          const regData = registration.get({ plain: true });
+          
+          // Extract region from the associated RegisteredPartner
+          const region = regData.RegisteredPartner ? regData.RegisteredPartner.region : '';
+          
+          // Create the processed registration object with the region
           const processedRegistration = {
-            ...registration,
+            ...regData,
+            // Add the region from the associated RegisteredPartner
+            region: region,
+            
             // Transliterate names to ensure they're in English characters
-            partnerName: transliteration.transliterate(registration.partnerName || ''),
-            travelerName: transliteration.transliterate(registration.travelerName || ''),
+            partnerName: transliteration.transliterate(regData.partnerName || ''),
+            travelerName: transliteration.transliterate(regData.travelerName || ''),
             
             // Convert UTC dates to IST (Indian Standard Time)
-            expectedArrivalDateTime: registration.expectedArrivalDateTime ? 
-              moment(registration.expectedArrivalDateTime).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : '',
-            registrationDate: registration.registrationDate ? 
-              moment(registration.registrationDate).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : '',
-            lastUpdated: registration.lastUpdated ? 
-              moment(registration.lastUpdated).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : ''
+            expectedArrivalDateTime: regData.expectedArrivalDateTime ? 
+              moment(regData.expectedArrivalDateTime).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : '',
+            registrationDate: regData.registrationDate ? 
+              moment(regData.registrationDate).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : '',
+            lastUpdated: regData.lastUpdated ? 
+              moment(regData.lastUpdated).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss') : ''
           };
+  
+          // Remove the RegisteredPartner object before adding to Excel
+          delete processedRegistration.RegisteredPartner;
   
           // Add the processed data to the worksheet
           worksheet.addRow(processedRegistration);
@@ -1667,6 +1721,18 @@ exports.getRegistrationById = async (req, res) => {
       `);
     }
   };
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // exports.downloadRegistrationsExcel = async (req, res) => {
