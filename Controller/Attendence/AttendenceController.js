@@ -3812,11 +3812,181 @@ exports.getEmployeesOnLeave = async (req, res) => {
   }
 };
 
+
+
+//attendence sent to my ib 
+// Helper function to convert UTC date to IST format (UTC+5:30)
+const formatToIST = (utcDate) => {
+  if (!utcDate) return null;
   
+  const date = new Date(utcDate);
+  // Adding 5 hours and 30 minutes for IST
+  date.setMinutes(date.getMinutes() + 330);
+  
+  return date.toISOString().split('.')[0]; // Format as YYYY-MM-DDTHH:MM:SS
+};
+
+// Controller to manually send all attendance records
+
+// exports.sendAttendanceRecords = async (req, res) => {
+//   try {
+//     // Get all complete attendance records
+//     const attendances = await Attendance.findAll({
+//       where: {
+//         AttendanceInTime: { [Op.ne]: null },
+//         AttendanceOutTime: { [Op.ne]: null }
+//       },
+//       include: [{ 
+//         model: Employee, 
+//         as: 'Employee',
+//         attributes: ['EmployeeId'] 
+//       }]
+//     });
+    
+//     if (attendances.length === 0) {
+//       return res.status(404).json({ 
+//         message: "No complete attendance records found" 
+//       });
+//     }
+    
+//     // Format data for the external API
+//     const attendanceRecords = attendances.map(attendance => ({
+//       empNo: attendance.Employee.EmployeeId.toString(),
+//       signInTime: formatToIST(attendance.AttendanceInTime),
+//       signOutTime: formatToIST(attendance.AttendanceOutTime)
+//     })).filter(record => record.signInTime && record.signOutTime); // Only send complete records
+    
+//     if (attendanceRecords.length === 0) {
+//       return res.status(400).json({ 
+//         message: "No valid attendance records to send" 
+//       });
+//     }
+    
+//     // Send to external API
+//     const response = await axios.post(
+//       'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
+//       { attendanceRecords },
+//       {
+//         headers: { 'Content-Type': 'application/json' },
+//         // You might need to add this option if the external server uses a self-signed certificate
+//         httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+//       }
+//     );
+    
+//     // Update status in your database or add a log
+//     // This is optional but recommended
+    
+//     return res.status(200).json({
+//       message: "Attendance records sent successfully",
+//       sentRecords: attendanceRecords.length,
+//       apiResponse: response.data
+//     });
+    
+//   } catch (error) {
+//     console.error("Error sending attendance records:", error);
+//     return res.status(500).json({
+//       message: "Failed to send attendance records",
+//       error: error.message
+//     });
+//   }
+// };
+
+// // Controller to run daily and sync attendance records for the day
+// exports.syncDailyAttendance = async (req, res) => {
+//   try {
+//     // Get today's date (or yesterday's date if running at midnight)
+//     const targetDate = new Date();
+//     // If this job runs after midnight, you might want to get yesterday's data
+//     // targetDate.setDate(targetDate.getDate() - 1);
+    
+//     targetDate.setHours(0, 0, 0, 0);
+//     const endDate = new Date(targetDate);
+//     endDate.setHours(23, 59, 59, 999);
+    
+//     // Get all attendance records for the target date
+//     const attendances = await Attendance.findAll({
+//       where: {
+//         AttendanceDate: {
+//           [Op.between]: [targetDate, endDate]
+//         },
+//         // Only get complete records (with both in and out times)
+//         AttendanceInTime: { [Op.ne]: null },
+//         AttendanceOutTime: { [Op.ne]: null }
+//       },
+//       include: [{ 
+//         model: Employee, 
+//         as: 'Employee',
+//         attributes: ['EmployeeId'] 
+//       }]
+//     });
+    
+//     if (attendances.length === 0) {
+//       const message = "No complete attendance records found for today";
+//       if (req.method === 'GET') {
+//         return res.status(404).json({ message });
+//       }
+//       console.log(message);
+//       return;
+//     }
+    
+//     // Format data for the external API
+//     const attendanceRecords = attendances.map(attendance => ({
+//       empNo: attendance.Employee.EmployeeId.toString(),
+//       signInTime: formatToIST(attendance.AttendanceInTime),
+//       signOutTime: formatToIST(attendance.AttendanceOutTime)
+//     }));
+//     console.log(attendanceRecords, '-------');
+    
+    
+//     // Send to external API
+//     const response = await axios.post(
+//       'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
+//       { attendanceRecords },
+//       {
+//         headers: { 'Content-Type': 'application/json' },
+//         httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+//       }
+//     );
+    
+     
 
 
 
+//     const successMessage = `Successfully synced ${attendanceRecords.length} attendance records`;
+    
+//     // If this was called as an API endpoint, send a response
+//     if (req.method === 'GET') {
+//       return res.status(200).json({
+//         message: successMessage,
+//         sentRecords: attendanceRecords.length,
+//         apiResponse: response.data
+//       });
+//     }
+    
+//     // If this was called as a scheduled job, log the success
+//     console.log(successMessage);
+//     return;
+    
+//   } catch (error) {
+//     const errorMessage = `Error syncing daily attendance: ${error.message}`;
+//     console.error(errorMessage);
+    
+//     // If this was called as an API endpoint, send a response
+//     if (req && res) {
+//       return res.status(500).json({
+//         message: "Failed to sync daily attendance",
+//         error: error.message
+//       });
+//     }
+//   }
+// };
 
-
-
-
+// // This function can be used with a scheduler like node-cron
+// exports.scheduleDailySync = () => {
+//   try {
+//     this.syncDailyAttendance();
+//     console.log("Daily attendance sync completed");
+//   } catch (error) {
+//     console.error("Scheduled job error:", error);
+//   }
+// };

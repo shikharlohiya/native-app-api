@@ -39,4 +39,10 @@ router.get('/bdm/get-leave', bdmActionController.getEmployeeLeaves);
 router.get('/bdm/get-all-employee-leave', bdmActionController.getEmployeesOnLeave);
 
 
+// router.post('/send-attendance',   bdmActionController.sendAttendanceRecords);
+
+// Route to manually trigger the daily sync (useful for testing)
+// router.get('/sync-daily',  bdmActionController.syncDailyAttendance);
+
+
 module.exports = router;

@@ -227,6 +227,10 @@ Employee.belongsTo(Employee_Role, {
       });
     }
   };
+
+
+
+  
   
 
 
@@ -2270,28 +2274,244 @@ const transformCallData = (call) => {
 //         });
 //     }
 // };
+
+
+//changes on 27jan
+
+
+// exports.getCallAnalysis = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             pageSize = 10,
+//             startDate,
+//             endDate,
+//             dni = "7610233333",
+//             aPartyNo,
+//             callStatus // 'Connected' or 'NotConnected'
+//         } = req.query;
+
+//         let whereClause = {
+//             dni: dni,
+//             eventType: 'call End'
+//         };
+
+//         if (aPartyNo) {
+//             whereClause.aPartyNo = aPartyNo;
+//         }
+
+//         // Add call status filter
+//         if (callStatus === 'Connected') {
+//             whereClause.bDialStatus = 'Connected';
+//         } else if (callStatus === 'NotConnected') {
+//             whereClause = {
+//                 ...whereClause,
+//                 [Op.or]: [
+//                     { bDialStatus: { [Op.ne]: 'Connected' } },
+//                     { bDialStatus: null }
+//                 ]
+//             };
+//         }
+
+//         if (startDate && endDate) {
+//             whereClause.createdAt = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+
+//         const includeOptions = [
+//             {
+//                 model: Employee,
+//                 as: 'agent',
+//                 attributes: ['EmployeeId', 'EmployeeName', 'EmployeePhone'],
+//                 required: false
+//             },
+//             {
+//                 model: AuditLeadTable,
+//                 as: 'auditLead',
+//                 attributes: [
+//                     'Lot_Number', 'Zone_Name', 'Branch_Name', 'Farmer_Name',
+//                     'Vendor', 'Shed_Type', 'status', 'follow_up_date'
+//                 ],
+//                 required: false,
+//                 where: Sequelize.where(
+//                     Sequelize.col('auditLead.Lot_Number'),
+//                     'IN',
+//                     Sequelize.literal(`(
+//                         SELECT t1.Lot_Number
+//                         FROM audit_lead_table t1
+//                         JOIN (
+//                             SELECT Mobile, MAX(Lot_Number) as max_lot
+//                             FROM audit_lead_table
+//                             GROUP BY Mobile
+//                         ) t2 ON t1.Mobile = t2.Mobile AND t1.Lot_Number = t2.max_lot
+//                         WHERE t1.Mobile = auditLead.Mobile
+//                     )`)
+//                 )
+//             },
+//             {
+//                 model: AuditNewFarmer,
+//                 as: 'auditFarmer',
+//                 attributes: [
+//                     'Zone_Name', 'branch_Name', 'farmer_name', 'Shed_Type',
+//                     'status', 'follow_up_date', 'type', 'followUpBy', 'remarks',
+//                     'ABWT', 'Avg_Lift_Wt', 'Total_Mortality', 'first_Week_M',
+//                     'previousCompanyName', 'previousPoultryExperience'
+//                 ],
+//                 required: false
+//             }
+//         ];
+
+//         // Get total calls for summary
+//         const totalCalls = await CallLog.count({
+//             where: {
+//                 dni: dni,
+//                 eventType: 'call End',
+//                 ...(aPartyNo && { aPartyNo }),
+//                 ...(startDate && endDate && {
+//                     createdAt: {
+//                         [Op.between]: [new Date(startDate), new Date(endDate)]
+//                     }
+//                 })
+//             }
+//         });
+
+//         // Get connected calls count and duration
+//         const connectedCallsData = await CallLog.findAll({
+//             where: {
+//                 dni: dni,
+//                 eventType: 'call End',
+//                 bDialStatus: 'Connected',
+//                 ...(aPartyNo && { aPartyNo }),
+//                 ...(startDate && endDate && {
+//                     createdAt: {
+//                         [Op.between]: [new Date(startDate), new Date(endDate)]
+//                     }
+//                 })
+//             },
+//             attributes: [
+//                 [sequelize.fn('COUNT', sequelize.col('*')), 'count'],
+//                 [
+//                     sequelize.fn(
+//                         'SUM',
+//                         sequelize.fn(
+//                             'TIMESTAMPDIFF',
+//                             sequelize.literal('SECOND'),
+//                             sequelize.col('bPartyConnectedTime'),
+//                             sequelize.col('bPartyEndTime')
+//                         )
+//                     ),
+//                     'total_duration'
+//                 ]
+//             ],
+//             raw: true
+//         });
+
+//         const connectedCount = parseInt(connectedCallsData[0].count || 0);
+//         const totalDurationSeconds = Math.abs(Number(connectedCallsData[0].total_duration || 0));
+
+//         // Format duration
+//         const formatDuration = (seconds) => {
+//             if (!seconds) return '00:00:00';
+//             const hrs = Math.floor(seconds / 3600);
+//             const mins = Math.floor((seconds % 3600) / 60);
+//             const secs = Math.floor(seconds % 60);
+//             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+//         };
+
+//         // Get paginated calls based on callStatus
+//         const calls = await CallLog.findAndCountAll({
+//             where: whereClause,
+//             include: includeOptions,
+//             order: [['createdAt', 'DESC']],
+//             limit: parseInt(pageSize),
+//             offset: (parseInt(page) - 1) * parseInt(pageSize)
+//         });
+
+//         const transformedCalls = calls.rows.map(transformCallData);
+
+//         // Calculate connection rate
+//         const connectionRate = totalCalls ? ((connectedCount / totalCalls) * 100).toFixed(2) : '0.00';
+
+//         res.json({
+//             success: true,
+//             filters: {
+//                 dni,
+//                 agentNumber: aPartyNo || 'All',
+//                 callStatus: callStatus || 'All',
+//                 dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+//             },
+//             pagination: {
+//                 page: parseInt(page),
+//                 pageSize: parseInt(pageSize),
+//                 totalPages: Math.ceil(calls.count / parseInt(pageSize)),
+//                  totalRecords : totalCalls 
+//             },
+//             summary: {
+//                 totalCalls,
+//                 connectedCalls: connectedCount,
+//                 missedCalls: totalCalls - connectedCount,
+//                 connectionRate: `${connectionRate}%`,
+//                 totalDuration: formatDuration(totalDurationSeconds)
+//             },
+//             totalCalls,
+//             connected: {
+//                 totalCount: connectedCount,
+//                 calls: callStatus === 'Connected' ? transformedCalls : []
+//             },
+//             notConnected: {
+//                 totalCount: totalCalls - connectedCount,
+//                 calls: callStatus === 'NotConnected' ? transformedCalls : []
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error('Error in getCallAnalysis:', error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching call analysis',
+//             error: error.message,
+//             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//         });
+//     }
+// };
+
+
+
 exports.getCallAnalysis = async (req, res) => {
     try {
-        const {
+        let {
             page = 1,
             pageSize = 10,
             startDate,
             endDate,
             dni = "7610233333",
             aPartyNo,
-            callStatus // 'Connected' or 'NotConnected'
+            callStatus
         } = req.query;
+
+        // Set today's date if dates are not provided
+        if (!startDate || !endDate) {
+            const today = new Date();
+            startDate = today.toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
+        }
 
         let whereClause = {
             dni: dni,
-            eventType: 'call End'
+            eventType: 'call End',
+            createdAt: {
+                [Op.between]: [
+                    new Date(startDate + 'T00:00:00'),
+                    new Date(endDate + 'T23:59:59')
+                ]
+            }
         };
 
         if (aPartyNo) {
             whereClause.aPartyNo = aPartyNo;
         }
 
-        // Add call status filter
         if (callStatus === 'Connected') {
             whereClause.bDialStatus = 'Connected';
         } else if (callStatus === 'NotConnected') {
@@ -2301,12 +2521,6 @@ exports.getCallAnalysis = async (req, res) => {
                     { bDialStatus: { [Op.ne]: 'Connected' } },
                     { bDialStatus: null }
                 ]
-            };
-        }
-
-        if (startDate && endDate) {
-            whereClause.createdAt = {
-                [Op.between]: [new Date(startDate), new Date(endDate)]
             };
         }
 
@@ -2359,11 +2573,12 @@ exports.getCallAnalysis = async (req, res) => {
                 dni: dni,
                 eventType: 'call End',
                 ...(aPartyNo && { aPartyNo }),
-                ...(startDate && endDate && {
-                    createdAt: {
-                        [Op.between]: [new Date(startDate), new Date(endDate)]
-                    }
-                })
+                createdAt: {
+                    [Op.between]: [
+                        new Date(startDate + 'T00:00:00'),
+                        new Date(endDate + 'T23:59:59')
+                    ]
+                }
             }
         });
 
@@ -2374,11 +2589,12 @@ exports.getCallAnalysis = async (req, res) => {
                 eventType: 'call End',
                 bDialStatus: 'Connected',
                 ...(aPartyNo && { aPartyNo }),
-                ...(startDate && endDate && {
-                    createdAt: {
-                        [Op.between]: [new Date(startDate), new Date(endDate)]
-                    }
-                })
+                createdAt: {
+                    [Op.between]: [
+                        new Date(startDate + 'T00:00:00'),
+                        new Date(endDate + 'T23:59:59')
+                    ]
+                }
             },
             attributes: [
                 [sequelize.fn('COUNT', sequelize.col('*')), 'count'],
@@ -2430,13 +2646,16 @@ exports.getCallAnalysis = async (req, res) => {
                 dni,
                 agentNumber: aPartyNo || 'All',
                 callStatus: callStatus || 'All',
-                dateRange: startDate && endDate ? { start: startDate, end: endDate } : null
+                dateRange: { 
+                    start: startDate + 'T00:00:00', 
+                    end: endDate + 'T23:59:59' 
+                }
             },
             pagination: {
                 page: parseInt(page),
                 pageSize: parseInt(pageSize),
                 totalPages: Math.ceil(calls.count / parseInt(pageSize)),
-                 totalRecords : totalCalls 
+                totalRecords: totalCalls
             },
             summary: {
                 totalCalls,
@@ -2467,10 +2686,6 @@ exports.getCallAnalysis = async (req, res) => {
     }
 };
 
-
-
-
- 
 
 
 
