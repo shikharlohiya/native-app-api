@@ -46,6 +46,7 @@ const Leave = require('./Leave.js');
 const Notification = require('./Notification.js');
 const RegisteredPartner = require('./RegisteredPartner.js');
 const TravelRegistration = require('./TravelRegistration.js');
+const GroupMeeting = require('./GroupMeeting.js');
 
   
  
@@ -53,7 +54,7 @@ const TravelRegistration = require('./TravelRegistration.js');
 
  const sequelize = require('./index.js');
 
- 
+//  GroupMeeting.sync({force: true});
 
 
 module.exports = {

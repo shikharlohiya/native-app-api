@@ -40,6 +40,9 @@ router.post('/agent/follow-up',AgentController.createFollowUpByAgent);
 router.get('/lead/:mobileNo', AgentController.getLeadByMobileNo);
 router.put('/leads/:leadId/assign-bdm',auth, AgentController.assignLeadToBDM);
 router.get('/leads/agent/:agentId', AgentController.getLeadsByAgentId);
+router.post('/group-meeting/create',  AgentController.createGroupMeeting);
+// Get group meetings by BDM ID
+router.get('/bdm/group-meeting/:bdm_id', AgentController.getGroupMeetingsByBdmId);
 
 
 router.get('/leads/agent/:agentId/pending-cold',  AgentController.getColdLeadsByAgentId);
@@ -50,6 +53,7 @@ router.put('/leads/pending/:id', AgentController.updatePendingLead);
 
 router.get('/distinct/:field/agent/:agentId', AgentController.getAgentDistinctValues);
 router.get('/agent/:agentId/export',AgentController.exportLeadsByAgentId);
+
  
 
 

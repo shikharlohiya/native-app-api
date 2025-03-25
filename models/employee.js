@@ -46,7 +46,13 @@ Employee.init(
       type: DataTypes.STRING(255),
       allowNull: true,        
       comment: "Firebase Cloud Messaging token for push notifications"
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      comment: "Indicates if the employee account is active"
     }
+  
   },
   {
     sequelize,

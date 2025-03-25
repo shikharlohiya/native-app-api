@@ -11,7 +11,9 @@ const FollowUPByAgent = require("../../models/FollowUpByAgent");
 const sequelize = require("../../models/index");
 const ExcelJS = require('exceljs');
 const Employee_Role = require("../../models/employeRole");
+const GroupMeeting = require('../../models/GroupMeeting');
 const admin = require('firebase-admin');
+const { v4: uuidv4 } = require('uuid');
  
 
 
@@ -2444,5 +2446,327 @@ exports.getOutboundCallAnalytics = async (req, res) => {
           message: 'Internal server error',
           error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
+  }
+};
+
+
+//group meeting
+
+// Helper function to validate phone number
+const validatePhoneNumber = (phoneNumber) => {
+  const phoneRegex = /^\d{10}$/;
+  return phoneRegex.test(phoneNumber);
+};
+
+// Helper function to validate meeting data
+const validateMeetingData = (data) => {
+  const errors = {};
+
+  if (!data.customer_name || data.customer_name.trim() === '') {
+    errors.customer_name = 'Customer name is required';
+  }
+
+  if (!data.mobile) {
+    errors.mobile = 'Mobile number is required';
+  } else if (!validatePhoneNumber(data.mobile)) {
+    errors.mobile = 'Invalid mobile number format';
+  }
+
+  if (!data.location || data.location.trim() === '') {
+    errors.location = 'Location is required';
+  }
+
+  if (!data.pincode || data.pincode.trim() === '') {
+    errors.pincode = 'Pincode is required';
+  }
+
+  if (!data.group_meeting_title || data.group_meeting_title.trim() === '') {
+    errors.group_meeting_title = 'Group meeting title is required';
+  }
+
+  if (data.is_unique === undefined || data.is_unique === null) {
+    errors.is_unique = 'Please specify if this is a unique entry';
+  }
+
+  if (!data.bdm_id) {
+    errors.bdm_id = 'BDM ID is required';
+  }
+
+  return errors;
+};
+
+exports.createGroupMeeting = async (req, res) => {
+  const t = await sequelize.transaction();
+
+  try {
+    const meetingData = req.body;
+    
+    // Validate each entry in the array
+    if (!Array.isArray(meetingData)) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Input must be an array of meeting data'
+      });
+    }
+    
+    const results = [];
+    const errors = [];
+    const group_id = `GM-${uuidv4().substring(0, 8)}`;
+    
+    // Process each meeting entry
+    for (const entry of meetingData) {
+      // Validate entry data
+      const validationErrors = validateMeetingData(entry);
+      
+      if (Object.keys(validationErrors).length > 0) {
+        errors.push({
+          entry: entry,
+          errors: validationErrors
+        });
+        continue;
+      }
+      
+      // Check if mobile number already exists for unique entries
+ 
+      
+      // Create the meeting entry
+      const meetingEntry = await GroupMeeting.create({
+        group_id: group_id,
+        customer_name: entry.customer_name || entry.name, // Support both field names
+        mobile: entry.mobile,
+        location: entry.location,
+        pincode: entry.pincode,
+        group_meeting_title: entry.group_meeting_title || "Group Meeting", // Default title if not provided
+        is_unique: entry.is_unique === "yes" || entry.is_unique === true,
+        action_type: "group_meeting",
+        bdm_id: entry.bdm_id || meetingData[0].bdm_id, // Use the first entry's bdm_id as fallback
+        created_at: new Date()
+      }, { transaction: t });
+      
+      results.push(meetingEntry);
+    }
+    
+    // Check if we have any successful entries
+    if (results.length === 0) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'No valid meeting entries were provided',
+        errors: errors
+      });
+    }
+    
+
+    await t.commit();
+    
+    // Return the response with results and any errors
+    return res.status(201).json({
+      success: true,
+      message: `Group meeting created successfully with ${results.length} participants`,
+      group_id: group_id,
+      results: results,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    await t.rollback();
+    console.error("Error creating group meeting:", error);
+    
+    // Handle specific database errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate entry found",
+        error: error.errors.map(e => e.message)
+      });
+    }
+    
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        error: error.errors.map(e => e.message)
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      message: "Error creating group meeting",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+
+
+
+
+
+// exports.getGroupMeetingsByBdmId = async (req, res) => {
+
+//   try {
+//     const { bdm_id } = req.params;
+//     const { start_date, end_date } = req.query;
+    
+//     if (!bdm_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'BDM ID is required'
+//       });
+//     }
+    
+//     // Build query conditions with BDM ID
+//     const whereCondition = { bdm_id: bdm_id };
+    
+//     // Add date range filter if provided
+//     if (start_date || end_date) {
+//       whereCondition.created_at = {};
+      
+//       if (start_date) {
+//         whereCondition.created_at[Op.gte] = new Date(start_date);
+//       }
+      
+//       if (end_date) {
+//         // Add 1 day to end_date to include the full day
+//         const endDateObj = new Date(end_date);
+//         endDateObj.setDate(endDateObj.getDate() + 1);
+//         whereCondition.created_at[Op.lt] = endDateObj;
+//       }
+//     }
+    
+//     // Find all group meetings for this BDM with date filter
+//     const groupMeetings = await GroupMeeting.findAll({
+//       where: whereCondition,
+//       order: [['created_at', 'DESC']]
+//     });
+    
+//     // Group the meetings by group_id
+//     const groupedMeetings = {};
+    
+//     groupMeetings.forEach(meeting => {
+//       const groupId = meeting.group_id;
+      
+//       if (!groupedMeetings[groupId]) {
+//         groupedMeetings[groupId] = {
+//           group_id: groupId,
+//           group_meeting_title: meeting.group_meeting_title,
+//           created_at: meeting.created_at,
+//           bdm_id: meeting.bdm_id,
+//           participants: []
+//         };
+//       }
+      
+//       groupedMeetings[groupId].participants.push({
+//         id: meeting.id,
+//         customer_name: meeting.customer_name,
+//         mobile: meeting.mobile,
+//         location: meeting.location,
+//         pincode: meeting.pincode,
+//         is_unique: meeting.is_unique
+//       });
+//     });
+    
+//     // Convert to array format
+//     const result = Object.values(groupedMeetings);
+    
+//     return res.status(200).json({
+//       success: true,
+//       message: 'Group meetings retrieved successfully',
+//       count: result.length,
+//       meetings: result
+//     });
+    
+//   } catch (error) {
+//     console.error("Error fetching group meetings:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error fetching group meetings",
+//       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//     });
+//   }
+// };
+
+
+exports.getGroupMeetingsByBdmId = async (req, res) => {
+  try {
+    const { bdm_id } = req.params;
+    const { start_date, end_date } = req.query;
+    
+    if (!bdm_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'BDM ID is required'
+      });
+    }
+    
+    // Build query conditions with BDM ID
+    const whereCondition = { bdm_id: bdm_id };
+    
+    // Add date range filter if provided
+    if (start_date || end_date) {
+      whereCondition.created_at = {};
+      
+      if (start_date) {
+        whereCondition.created_at[Op.gte] = new Date(start_date);
+      }
+      
+      if (end_date) {
+        // Add 1 day to end_date to include the full day
+        const endDateObj = new Date(end_date);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        whereCondition.created_at[Op.lt] = endDateObj;
+      }
+    }
+    
+    // Find all group meetings for this BDM with date filter
+    const groupMeetings = await GroupMeeting.findAll({
+      where: whereCondition,
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Group the meetings by group_id
+    const groupedMeetings = {};
+    
+    groupMeetings.forEach(meeting => {
+      const groupId = meeting.group_id;
+      
+      if (!groupedMeetings[groupId]) {
+        groupedMeetings[groupId] = {
+          group_id: groupId,
+          group_meeting_title: meeting.group_meeting_title,
+          created_at: meeting.created_at,
+          bdm_id: meeting.bdm_id,
+          participants: []
+        };
+      }
+      
+      groupedMeetings[groupId].participants.push({
+        id: meeting.id,
+        customer_name: meeting.customer_name,
+        mobile: meeting.mobile,
+        location: meeting.location,
+        pincode: meeting.pincode,
+        is_unique: meeting.is_unique
+      });
+    });
+    
+    // Convert to array format
+    const result = Object.values(groupedMeetings);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Group meetings retrieved successfully',
+      count: result.length,
+      meetings: result
+    });
+    
+  } catch (error) {
+    console.error("Error fetching group meetings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching group meetings",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };
