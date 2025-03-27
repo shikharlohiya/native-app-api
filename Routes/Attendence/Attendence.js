@@ -35,7 +35,7 @@ router.get('/bdm/travel-report', bdmActionController.getAllBdmTravelReport);
 
 
 //for view in the page for single bdm
-router.get('/bdm/travel-detail', bdmActionController.getBdmTravelDetailsWithDateRange);
+router.get('/bdm/travel-detail', bdmActionController.getBdmTravelDetails);
 
 
 router.get('/bdm/view', bdmActionController.getSimpleTravelReport);
