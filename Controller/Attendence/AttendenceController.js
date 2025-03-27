@@ -3227,6 +3227,200 @@ exports.getTravelReportformultipledate = async (req, res) => {
 
 
 
+//view part 
+
+exports.getSimpleTravelReport = async (req, res) => {
+  try {
+    console.time('simpleTravelReport'); // Add performance monitoring
+    const { bdmId, startDate, endDate } = req.query;
+
+    if (!bdmId) {
+      return res.status(400).json({ message: "BDM ID is required" });
+    }
+
+    // Handle date range parameters
+    let dateStart, dateEnd;
+    
+    if (startDate && endDate) {
+      dateStart = new Date(startDate);
+      dateEnd = new Date(endDate);
+      // Set end date to end of day
+      dateEnd.setHours(23, 59, 59, 999);
+    } else if (startDate) {
+      // If only start date is provided, set range to that single day
+      dateStart = new Date(startDate);
+      dateEnd = new Date(startDate);
+      dateEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Default to current day if no dates provided
+      dateStart = new Date();
+      dateStart.setHours(0, 0, 0, 0);
+      dateEnd = new Date();
+      dateEnd.setHours(23, 59, 59, 999);
+    }
+    
+    // Check if date range is too large (optimize for performance)
+    const daysDifference = Math.ceil((dateEnd - dateStart) / (1000 * 60 * 60 * 24));
+    if (daysDifference > 31) {
+      return res.status(400).json({ 
+        message: "Date range too large. Please select a range of 31 days or less for optimal performance." 
+      });
+    }
+
+    // Get all travel details for the period
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Sequelize.Op.between]: [dateStart, dateEnd]
+        }
+      },
+      include: [
+        {
+          model: Employee,
+          as: 'Employee',
+          where: { EmployeeId: bdmId },
+          attributes: ['EmployeeId', 'EmployeeName']
+        }
+      ],
+      order: [
+        [Sequelize.fn('DATE', Sequelize.col('checkin_time')), 'ASC'],
+        ['checkin_time', 'ASC']
+      ],
+    });
+
+    if (travelDetails.length === 0) {
+      return res.status(404).json({ message: "No travel records found for the specified date range" });
+    }
+
+    // Group data by date
+    const dailyReports = {};
+    let employeeName = '';
+
+    // Process each travel detail
+    travelDetails.forEach(detail => {
+      const dateStr = moment(detail.checkin_time).format('YYYY-MM-DD');
+      employeeName = detail.Employee?.EmployeeName || '';
+      
+      if (!dailyReports[dateStr]) {
+        dailyReports[dateStr] = {
+          date: dateStr,
+          formattedDate: moment(dateStr).format('DD-MM-YYYY'),
+          attendanceIn: null,
+          attendanceOut: null,
+          totalDistance: 0,
+          travelPoints: []
+        };
+      }
+
+      // Add to travel points for calculations
+      dailyReports[dateStr].travelPoints.push({
+        id: detail.id,
+        action: detail.action,
+        checkinTime: detail.checkin_time,
+        checkoutTime: detail.checkout_time,
+        checkinLatitude: detail.checkin_latitude,
+        checkinLongitude: detail.checkin_longitude,
+        checkoutLatitude: detail.checkout_latitude,
+        checkoutLongitude: detail.checkout_longitude
+      });
+
+      // Track attendance in/out
+      if (detail.action === 'Attendance In') {
+        dailyReports[dateStr].attendanceIn = detail.checkin_time;
+      } else if (detail.action === 'Attendance Out') {
+        dailyReports[dateStr].attendanceOut = detail.checkin_time;
+      }
+    });
+
+    // Calculate total distance for each day
+    for (const dateStr in dailyReports) {
+      const report = dailyReports[dateStr];
+      const points = report.travelPoints;
+      
+      if (points.length > 1) {
+        for (let i = 1; i < points.length; i++) {
+          const prevPoint = points[i-1];
+          const currentPoint = points[i];
+          
+          // Skip distance calculation if current point is attendance in
+          if (currentPoint.action === 'Attendance In') continue;
+          
+          // Calculate aerial distance
+          const aerialDistance = calculateHaversineDistance(
+            parseFloat(prevPoint.checkinLatitude),
+            parseFloat(prevPoint.checkinLongitude),
+            parseFloat(currentPoint.checkinLatitude),
+            parseFloat(currentPoint.checkinLongitude)
+          );
+          
+          // Add 15% to approximate road distance
+          const distance = +(aerialDistance * 1.15 / 1000).toFixed(2);
+          report.totalDistance += distance;
+        }
+      }
+      
+      // Format the final output
+      report.totalDistance = +report.totalDistance.toFixed(2);
+      report.attendanceIn = report.attendanceIn ? moment(report.attendanceIn).format('HH:mm:ss') : 'N/A';
+      report.attendanceOut = report.attendanceOut ? moment(report.attendanceOut).format('HH:mm:ss') : 'N/A';
+      
+      // Remove the intermediate travel points
+      delete report.travelPoints;
+    }
+
+    // Convert the object to array for response
+    const formattedReports = Object.values(dailyReports).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Calculate grand total distance
+    const grandTotalDistance = formattedReports.reduce((total, report) => total + report.totalDistance, 0);
+
+    // Create final response
+    const response = {
+      employeeId: bdmId,
+      employeeName: employeeName,
+      dateRange: {
+        startDate: moment(dateStart).format('YYYY-MM-DD'),
+        endDate: moment(dateEnd).format('YYYY-MM-DD'),
+      },
+      dailyReports: formattedReports,
+      summary: {
+        totalDays: formattedReports.length,
+        grandTotalDistance: +grandTotalDistance.toFixed(2),
+        averageDistancePerDay: +(grandTotalDistance / formattedReports.length).toFixed(2)
+      }
+    };
+
+    console.timeEnd('simpleTravelReport');
+    return res.status(200).json(response);
+
+  } catch (error) {
+    console.error("Error generating simple travel report:", error);
+    console.timeEnd('simpleTravelReport');
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+// Helper function for distance calculation
+// function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+//   const R = 6371000; // Earth radius in meters
+//   const dLat = (lat2 - lat1) * Math.PI / 180;
+//   const dLon = (lon2 - lon1) * Math.PI / 180;
+//   const a = 
+//     Math.sin(dLat/2) * Math.sin(dLat/2) +
+//     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+//     Math.sin(dLon/2) * Math.sin(dLon/2);
+//   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+//   return R * c; // Distance in meters
+// }
+
+
+
+
+
 
 //important code 
 
@@ -4155,10 +4349,13 @@ exports.getTravelReportformultipledate = async (req, res) => {
 
 
 
+ 
+
+
 exports.getAllBdmTravelReport = async (req, res) => {
   try {
     console.time('reportGeneration'); // Add performance monitoring
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, bdmId } = req.query;
 
     // Handle date range parameters
     let dateStart, dateEnd;
@@ -4201,7 +4398,8 @@ exports.getAllBdmTravelReport = async (req, res) => {
       return parts.filter(Boolean).join(', ');
     };
 
-    const bdms = await Employee.findAll({
+    // Build query for BDMs
+    const bdmQuery = {
       where: {
         EmployeeRoleID: 2 // BDM role ID
       },
@@ -4212,7 +4410,14 @@ exports.getAllBdmTravelReport = async (req, res) => {
         }
       ],
       order: [['EmployeeName', 'ASC']]
-    });
+    };
+
+    // Add bdmId filter if provided
+    if (bdmId) {
+      bdmQuery.where.EmployeeId = bdmId;
+    }
+
+    const bdms = await Employee.findAll(bdmQuery);
 
     if (bdms.length === 0) {
       return res.status(404).json({ message: "No BDMs found" });
@@ -4220,7 +4425,8 @@ exports.getAllBdmTravelReport = async (req, res) => {
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('All BDMs Travel Report');
+    const worksheetTitle = bdmId ? `BDM ${bdmId} Travel Report` : 'All BDMs Travel Report';
+    const worksheet = workbook.addWorksheet(worksheetTitle);
 
     // Set up columns with added customer details
     worksheet.columns = [
@@ -4281,13 +4487,13 @@ exports.getAllBdmTravelReport = async (req, res) => {
 
     // Process each BDM
     for (const bdm of bdms) {
-      const bdmId = bdm.EmployeeId;
+      const currentBdmId = bdm.EmployeeId;
       const bdmName = bdm.EmployeeName;
       
       // Fetch all travel details for this BDM within the date range
       const travelDetails = await BdmTravelDetail.findAll({
         where: {
-          bdm_id: bdmId,
+          bdm_id: currentBdmId,
           checkin_time: {
             [Sequelize.Op.between]: [dateStart, dateEnd]
           }
@@ -4322,7 +4528,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
         // Add a row indicating no travel data for this BDM
         worksheet.addRow({
           bdmName: bdmName,
-          bdmId: bdmId,
+          bdmId: currentBdmId,
           date: `${moment(dateStart).format('DD-MM-YYYY')} to ${moment(dateEnd).format('DD-MM-YYYY')}`,
           action: 'NO TRAVEL DATA FOR THIS PERIOD',
           checkinTime: '',
@@ -4353,7 +4559,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
       // Add a header row for this BDM
       worksheet.addRow({
         bdmName: bdmName,
-        bdmId: bdmId,
+        bdmId: currentBdmId,
         date: `${moment(dateStart).format('DD-MM-YYYY')} to ${moment(dateEnd).format('DD-MM-YYYY')}`,
         action: 'TRAVEL REPORT',
         checkinTime: '',
@@ -4450,7 +4656,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
       
           worksheet.addRow({
             bdmName: bdmName,
-            bdmId: bdmId,
+            bdmId: currentBdmId,
             date: moment(detail.checkin_time).format('DD-MM-YYYY'),
             action: detail.action,
             checkinTime: moment(detail.checkin_time).format('DD-MM-YYYY HH:mm:ss'),
@@ -4478,7 +4684,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
         // Add daily subtotal row
         worksheet.addRow({
           bdmName: bdmName,
-          bdmId: bdmId,
+          bdmId: currentBdmId,
           date: dateStr,
           action: 'Daily Total Distance',
           checkinTime: '',
@@ -4512,7 +4718,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
         // Add BDM total distance row
         worksheet.addRow({
           bdmName: bdmName,
-          bdmId: bdmId,
+          bdmId: currentBdmId,
           date: '',
           action: 'BDM TOTAL DISTANCE',
           checkinTime: '',
@@ -4571,7 +4777,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
 
     // Add grand total distance row for all BDMs
     worksheet.addRow({
-      bdmName: 'ALL BDMs',
+      bdmName: bdmId ? `BDM ${bdmId}` : 'ALL BDMs',
       bdmId: '',
       date: '',
       action: 'GRAND TOTAL DISTANCE',
@@ -4606,6 +4812,8 @@ exports.getAllBdmTravelReport = async (req, res) => {
     const reportDateRange = startDate && endDate 
       ? `${moment(dateStart).format('YYYY-MM-DD')}_to_${moment(dateEnd).format('YYYY-MM-DD')}`
       : moment(dateStart).format('YYYY-MM-DD');
+    
+    const bdmIdSuffix = bdmId ? `_bdm_${bdmId}` : '';
       
     res.setHeader(
       'Content-Type',
@@ -4613,7 +4821,7 @@ exports.getAllBdmTravelReport = async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=all_bdm_travel_report_${reportDateRange}.xlsx`
+      `attachment; filename=bdm_travel_report${bdmIdSuffix}_${reportDateRange}.xlsx`
     );
 
     // Write to response
@@ -4630,6 +4838,15 @@ exports.getAllBdmTravelReport = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5184,6 +5401,8 @@ exports.getBdmAttendanceReport = async (req, res) => {
     });
   }
 };
+
+
 
 
 
@@ -6183,225 +6402,15 @@ const formatToIST = (utcDate) => {
 
 
 
-
-
-// exports.getBdmTravelDetails = async (req, res) => {
-//   try {
-//     const { bdmId, date } = req.query;
-
-//     if (!bdmId) {
-//       return res.status(400).json({ message: "BDM ID is required" });
-//     }
-
-//     // Verify if BDM exists
-//     const bdm = await Employee.findOne({
-//       where: { 
-//         EmployeeId: bdmId 
-//       }
-//     });
-
-//     if (!bdm) {
-//       return res.status(404).json({ message: "BDM not found" });
-//     }
-
-//     const targetDate = date ? new Date(date) : new Date();
-//     targetDate.setHours(0, 0, 0, 0);
-//     const nextDate = new Date(targetDate);
-//     nextDate.setDate(nextDate.getDate() + 1);
-
-//     // Get BDM's travel details
-//     const travelDetails = await BdmTravelDetail.findAll({
-//       where: {
-//         bdm_id: bdmId,
-//         checkin_time: {
-//           [Sequelize.Op.between]: [targetDate, nextDate]
-//         }
-//       },
-//       include: [
-//         {
-//           model: Employee,
-//           as: 'Employee',
-//           where: { EmployeeId: bdmId },
-//           attributes: ['EmployeeId', 'EmployeeName']
-//         },
-//         {
-//           model: Lead_Detail,
-//           as: 'LeadDetail',
-//           required: false,
-//           where: { BDMId: bdmId },
-//           attributes: [
-//             'id',
-//             'CustomerName',
-//             'MobileNo',
-//             'region_name',
-//             'location',
-//             'category',
-//             'bdm_remark',
-//             'close_month',
-//             'site_location_address'
-//           ]
-//         }
-//       ],
-//       order: [['checkin_time', 'ASC']]
-//     });
-
-//     if (travelDetails.length === 0) {
-//       return res.status(200).json({
-//         message: `No travel records found for BDM ID ${bdmId} on ${moment(targetDate).format('DD-MM-YYYY')}`,
-//         bdmInfo: {
-//           bdmId: bdm.EmployeeId,
-//           bdmName: bdm.EmployeeName
-//         },
-//         summary: {
-//           date: moment(targetDate).format('DD-MM-YYYY'),
-//           totalLocations: 0,
-//           totalDistance: 0
-//         },
-//         data: []
-//       });
-//     }
-
-//     // Find Attendance In point to start distance calculation
-//     let attendanceInIndex = travelDetails.findIndex(detail => 
-//       detail.action.toLowerCase().includes('attendance in')
-//     );
-    
-//     // If no Attendance In found, start from first point
-//     if (attendanceInIndex === -1) attendanceInIndex = 0;
-
-//     // Find Attendance Out point to end distance calculation
-//     let attendanceOutIndex = travelDetails.findIndex(detail => 
-//       detail.action.toLowerCase().includes('attendance out')
-//     );
-    
-//     // If no Attendance Out found, use the last point
-//     if (attendanceOutIndex === -1) attendanceOutIndex = travelDetails.length - 1;
-
-//     let totalDistance = 0;
-//     const formattedDetails = [];
-
-//     // Process each location from attendance in to attendance out
-//     for (let i = attendanceInIndex; i <= attendanceOutIndex; i++) {
-//       const detail = travelDetails[i];
-//       let distanceFromLast = 0;
-      
-//       // Calculate road distance from previous point (except for the first point)
-//       if (i > attendanceInIndex) {
-//         try {
-//           const prevPoint = travelDetails[i-1];
-          
-//           // Call OSRM API to get road distance
-//           const routeUrl = `http://router.project-osrm.org/route/v1/driving/${prevPoint.checkin_longitude},${prevPoint.checkin_latitude};${detail.checkin_longitude},${detail.checkin_latitude}?overview=false`;
-//           const routeResponse = await axios.get(routeUrl);
-          
-//           if (routeResponse.data.routes && routeResponse.data.routes[0]) {
-//             distanceFromLast = routeResponse.data.routes[0].distance / 1000; // Convert meters to km
-//             distanceFromLast = +distanceFromLast.toFixed(2);
-//             totalDistance += distanceFromLast;
-//           }
-//         } catch (routeError) {
-//           console.error('Error calculating route distance:', routeError);
-//           // Fallback to haversine distance if OSRM fails
-//           const prevPoint = travelDetails[i-1];
-//           distanceFromLast = calculateHaversineDistance(
-//             parseFloat(prevPoint.checkin_latitude),
-//             parseFloat(prevPoint.checkin_longitude),
-//             parseFloat(detail.checkin_latitude),
-//             parseFloat(detail.checkin_longitude)
-//           ) / 1000; // Convert to km
-//           distanceFromLast = +distanceFromLast.toFixed(2);
-//           totalDistance += distanceFromLast;
-//         }
-//       }
-
-//       // Calculate duration
-//       let duration = null;
-//       if (detail.checkout_time) {
-//         duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
-//       }
-
-//       // Format the location details
-//       formattedDetails.push({
-//         id: detail.id,
-//         employeeInfo: {
-//           employeeId: detail.bdm_id,
-//           employeeName: detail.Employee?.EmployeeName
-//         },
-//         leadInfo: detail.LeadDetail ? {
-//           leadId: detail.LeadDetail.id,
-//           customerName: detail.LeadDetail.CustomerName,
-//           mobileNo: detail.LeadDetail.MobileNo,
-//           region: detail.LeadDetail.region_name,
-//           location: detail.LeadDetail.location,
-//           siteLocation: detail.LeadDetail.site_location_address,
-//           category: detail.LeadDetail.category,
-//           bdmRemark: detail.LeadDetail.bdm_remark,
-//           closeMonth: detail.LeadDetail.close_month
-//         } : null,
-//         travelInfo: {
-//           action: detail.action,
-//           checkin: {
-//             time: moment(detail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-//             location: {
-//               latitude: detail.checkin_latitude,
-//               longitude: detail.checkin_longitude,
-//               address: null,
-//               city: null
-//             }
-//           },
-//           checkout: detail.checkout_time ? {
-//             time: moment(detail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-//             location: {
-//               latitude: detail.checkout_latitude,
-//               longitude: detail.checkout_longitude,
-//               address: null,
-//               city: null
-//             }
-//           } : null,
-//           distances: {
-//             fromLastPoint: distanceFromLast,
-//             checkinToCheckout: 'N/A' // Not calculating checkout distance as per requirement
-//           },
-//           duration: duration ? {
-//             minutes: duration,
-//             formatted: `${Math.floor(duration / 60)} hours ${duration % 60} minutes`
-//           } : null
-//         }
-//       });
-//     }
-
-//     // Ensure total distance is properly rounded
-//     totalDistance = +totalDistance.toFixed(2);
-
-//     res.status(200).json({
-//       message: "Travel details retrieved successfully",
-//       bdmInfo: {
-//         bdmId: bdm.EmployeeId,
-//         bdmName: bdm.EmployeeName
-//       },
-//       summary: {
-//         date: moment(targetDate).format('DD-MM-YYYY'),
-//         totalLocations: formattedDetails.length,
-//         totalDistance: totalDistance
-//       },
-//       data: formattedDetails
-//     });
-
-//   } catch (error) {
-//     console.error("Error fetching travel details:", error);
-//     res.status(500).json({
-//       message: "Internal server error",
-//       error: error.message
-//     });
-//   }
-// };
+ 
 
 
 
 
 
 
-//
+
+
 
 
 
@@ -6620,6 +6629,638 @@ exports.getBdmTravelDetails = async (req, res) => {
 
   } catch (error) {
     console.error("Error fetching travel details:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+
+// exports.getBdmTravelDetails = async (req, res) => {
+//   try {
+//     console.time('reportGeneration'); // Add performance monitoring
+//     const { startDate, endDate, bdmId } = req.query;
+
+//     // Handle date range parameters
+//     let dateStart, dateEnd;
+    
+//     if (startDate && endDate) {
+//       dateStart = new Date(startDate);
+//       dateEnd = new Date(endDate);
+//       // Set end date to end of day
+//       dateEnd.setHours(23, 59, 59, 999);
+//     } else if (startDate) {
+//       // If only start date is provided, set range to that single day
+//       dateStart = new Date(startDate);
+//       dateEnd = new Date(startDate);
+//       dateEnd.setHours(23, 59, 59, 999);
+//     } else {
+//       // Default to current day if no dates provided
+//       dateStart = new Date();
+//       dateStart.setHours(0, 0, 0, 0);
+//       dateEnd = new Date();
+//       dateEnd.setHours(23, 59, 59, 999);
+//     }
+    
+//     // Check if date range is too large (optimize for performance)
+//     const daysDifference = Math.ceil((dateEnd - dateStart) / (1000 * 60 * 60 * 24));
+//     if (daysDifference > 31) {
+//       return res.status(400).json({ 
+//         message: "Date range too large. Please select a range of 31 days or less for optimal performance." 
+//       });
+//     }
+
+//     // Helper function to format customer address
+//     const formatCustomerAddress = (leadDetail) => {
+//       if (!leadDetail) return '';
+      
+//       const parts = [];
+//       if (leadDetail.location) parts.push(leadDetail.location);
+//       if (leadDetail.state_name) parts.push(leadDetail.state_name);
+//       if (leadDetail.pincode) parts.push(leadDetail.pincode);
+      
+//       return parts.filter(Boolean).join(', ');
+//     };
+
+//     // Build query for BDMs
+//     const bdmQuery = {
+//       where: {
+//         EmployeeRoleID: 2 // BDM role ID
+//       },
+//       include: [
+//         {
+//           model: Employee_Role,
+//           as: 'role'
+//         }
+//       ],
+//       order: [['EmployeeName', 'ASC']]
+//     };
+
+//     // Add bdmId filter if provided
+//     if (bdmId) {
+//       bdmQuery.where.EmployeeId = bdmId;
+//     }
+
+//     const bdms = await Employee.findAll(bdmQuery);
+
+//     if (bdms.length === 0) {
+//       return res.status(404).json({ message: "No BDMs found" });
+//     }
+
+//     // Haversine formula implementation to calculate distance between two points
+//     const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+//       const toRadians = (degrees) => {
+//         return degrees * (Math.PI / 180);
+//       };
+      
+//       const R = 6371; // Earth's radius in km
+//       const dLat = toRadians(lat2 - lat1);
+//       const dLon = toRadians(lon2 - lon1);
+      
+//       const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+//                 Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+//                 Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      
+//       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+//       const distance = R * c; // Distance in km
+      
+//       // Add 30% to approximate road distance
+//       const roadDistance = distance * 1.30;
+      
+//       return roadDistance;
+//     };
+
+//     // Prepare response data structure
+//     const responseData = {
+//       reportPeriod: {
+//         startDate: moment(dateStart).format('YYYY-MM-DD'),
+//         endDate: moment(dateEnd).format('YYYY-MM-DD')
+//       },
+//       grandTotalDistance: 0,
+//       bdmReports: []
+//     };
+
+//     // Process each BDM
+//     for (const bdm of bdms) {
+//       const bdmId = bdm.EmployeeId;
+//       const bdmName = bdm.EmployeeName;
+      
+//       // Fetch all travel details for this BDM within the date range
+//       const travelDetails = await BdmTravelDetail.findAll({
+//         where: {
+//           bdm_id: bdmId,
+//           checkin_time: {
+//             [Sequelize.Op.between]: [dateStart, dateEnd]
+//           }
+//         },
+//         include: [
+//           {
+//             model: Lead_Detail,
+//             as: 'LeadDetail',
+//             required: false,
+//             attributes: [
+//               'CustomerName',
+//               'MobileNo',
+//               'category',
+//               'sub_category',
+//               'bdm_remark',
+//               'pincode',
+//               'state_name',
+//               'region_name',
+//               'location'
+//             ]
+//           }
+//         ],
+//         order: [
+//           [Sequelize.fn('DATE', Sequelize.col('checkin_time')), 'ASC'],
+//           ['checkin_time', 'ASC']
+//         ]
+//       });
+
+//       // Create BDM object for response
+//       const bdmData = {
+//         bdmName: bdmName,
+//         bdmId: bdmId,
+//         totalDistance: 0,
+//         hasData: travelDetails.length > 0,
+//         dailyReports: []
+//       };
+
+//       if (travelDetails.length === 0) {
+//         // Add BDM with no data
+//         responseData.bdmReports.push(bdmData);
+//         continue; // Skip to next BDM
+//       }
+
+//       // Group travel details by date
+//       const detailsByDate = {};
+      
+//       travelDetails.forEach(detail => {
+//         const dateStr = moment(detail.checkin_time).format('YYYY-MM-DD');
+//         if (!detailsByDate[dateStr]) {
+//           detailsByDate[dateStr] = [];
+//         }
+//         detailsByDate[dateStr].push(detail);
+//       });
+
+//       // Process data day by day for this BDM
+//       for (const dateStr of Object.keys(detailsByDate).sort()) {
+//         const dayDetails = detailsByDate[dateStr];
+//         let lastLatitude = null;
+//         let lastLongitude = null;
+//         let totalDistanceForDay = 0;
+        
+//         // Create daily report object
+//         const dailyReport = {
+//           date: dateStr,
+//           totalDistanceForDay: 0,
+//           travelPoints: []
+//         };
+        
+//         // Pre-calculate all the checkin-checkout distances for this day
+//         const checkinCheckoutDistances = dayDetails.map(detail => {
+//           if (detail.checkout_latitude && detail.checkout_longitude) {
+//             if (detail.checkin_latitude === detail.checkout_latitude && 
+//                 detail.checkin_longitude === detail.checkout_longitude) {
+//               return 0;
+//             } else {
+//               return +(calculateHaversineDistance(
+//                 parseFloat(detail.checkin_latitude),
+//                 parseFloat(detail.checkin_longitude),
+//                 parseFloat(detail.checkout_latitude),
+//                 parseFloat(detail.checkout_longitude)
+//               )).toFixed(2);
+//             }
+//           }
+//           return null;
+//         });
+        
+//         // Process travel points for this day
+//         for (let i = 0; i < dayDetails.length; i++) {
+//           const detail = dayDetails[i];
+          
+//           let distance = 0;
+//           if (i > 0 && detail.action !== 'Attendance In') {
+//             distance = +(calculateHaversineDistance(
+//               parseFloat(lastLatitude),
+//               parseFloat(lastLongitude),
+//               parseFloat(detail.checkin_latitude),
+//               parseFloat(detail.checkin_longitude)
+//             )).toFixed(2);
+            
+//             totalDistanceForDay += distance;
+//           }
+
+//           const checkinCheckoutDistance = checkinCheckoutDistances[i];
+
+//           let duration = 0;
+//           if (detail.checkout_time) {
+//             duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
+//           }
+
+//           // Create travel point object
+//           const travelPoint = {
+//             date: moment(detail.checkin_time).format('YYYY-MM-DD'),
+//             action: detail.action,
+//             checkinTime: moment(detail.checkin_time).format('YYYY-MM-DD HH:mm:ss'),
+//             checkoutTime: detail.checkout_time ? moment(detail.checkout_time).format('YYYY-MM-DD HH:mm:ss') : null,
+//             checkinLatitude: detail.checkin_latitude,
+//             checkinLongitude: detail.checkin_longitude,
+//             checkoutLatitude: detail.checkout_latitude || null,
+//             checkoutLongitude: detail.checkout_longitude || null,
+//             distance: detail.action === 'Attendance In' ? 0 : distance,
+//             checkinCheckoutDistance: checkinCheckoutDistance,
+//             duration: duration || null,
+//             customer: {
+//               name: detail.LeadDetail?.CustomerName || null,
+//               mobile: detail.LeadDetail?.MobileNo || null,
+//               address: formatCustomerAddress(detail.LeadDetail),
+//               region: detail.LeadDetail?.region_name || null,
+//               category: detail.LeadDetail?.category || null,
+//               subCategory: detail.LeadDetail?.sub_category || null,
+//               bdmRemarks: detail.LeadDetail?.bdm_remark || null
+//             }
+//           };
+          
+//           // Add travel point to daily report
+//           dailyReport.travelPoints.push(travelPoint);
+
+//           lastLatitude = detail.checkin_latitude;
+//           lastLongitude = detail.checkin_longitude;
+//         }
+        
+//         // Set total distance for this day
+//         dailyReport.totalDistanceForDay = +totalDistanceForDay.toFixed(2);
+        
+//         // Add daily report to BDM data
+//         bdmData.dailyReports.push(dailyReport);
+        
+//         // Update BDM total distance
+//         bdmData.totalDistance += totalDistanceForDay;
+//       }
+
+//       // Round BDM total distance to 2 decimal places
+//       bdmData.totalDistance = +bdmData.totalDistance.toFixed(2);
+      
+//       // Add BDM data to response
+//       responseData.bdmReports.push(bdmData);
+      
+//       // Update grand total distance
+//       responseData.grandTotalDistance += bdmData.totalDistance;
+//     }
+
+//     // Round grand total distance to 2 decimal places
+//     responseData.grandTotalDistance = +responseData.grandTotalDistance.toFixed(2);
+
+//     console.timeEnd('reportGeneration'); // Log total time taken
+    
+//     // Return JSON response
+//     return res.status(200).json({
+//       success: true,
+//       message: "BDM travel report generated successfully",
+//       data: responseData
+//     });
+
+//   } catch (error) {
+//     console.error("Error generating travel report:", error);
+//     console.timeEnd('reportGeneration'); // Log time even in case of error
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+
+//new date range
+exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
+  try {
+    console.time('reportGeneration'); // Add performance monitoring
+    const { startDate, endDate, bdmId } = req.query;
+
+    if (!bdmId) {
+      return res.status(400).json({ message: "BDM ID is required" });
+    }
+
+    // Verify if BDM exists
+    const bdm = await Employee.findOne({
+      where: { 
+        EmployeeId: bdmId 
+      }
+    });
+
+    if (!bdm) {
+      return res.status(404).json({ message: "BDM not found" });
+    }
+
+    // Handle date range parameters
+    let dateStart, dateEnd;
+    
+    if (startDate && endDate) {
+      dateStart = new Date(startDate);
+      dateEnd = new Date(endDate);
+      // Set end date to end of day
+      dateEnd.setHours(23, 59, 59, 999);
+    } else if (startDate) {
+      // If only start date is provided, set range to that single day
+      dateStart = new Date(startDate);
+      dateEnd = new Date(startDate);
+      dateEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Default to current day if no dates provided
+      dateStart = new Date();
+      dateStart.setHours(0, 0, 0, 0);
+      dateEnd = new Date();
+      dateEnd.setHours(23, 59, 59, 999);
+    }
+    
+    // Check if date range is too large (optimize for performance)
+    const daysDifference = Math.ceil((dateEnd - dateStart) / (1000 * 60 * 60 * 24));
+    if (daysDifference > 31) {
+      return res.status(400).json({ 
+        message: "Date range too large. Please select a range of 31 days or less for optimal performance." 
+      });
+    }
+
+    // Get BDM's travel details
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Sequelize.Op.between]: [dateStart, dateEnd]
+        }
+      },
+      include: [
+        {
+          model: Employee,
+          as: 'Employee',
+          where: { EmployeeId: bdmId },
+          attributes: ['EmployeeId', 'EmployeeName']
+        },
+        {
+          model: Lead_Detail,
+          as: 'LeadDetail',
+          required: false,
+          attributes: [
+            'id',
+            'CustomerName',
+            'MobileNo',
+            'region_name',
+            'location',
+            'state_name',
+            'pincode',
+            'category',
+            'sub_category',
+            'bdm_remark',
+            'close_month',
+            'site_location_address'
+          ]
+        }
+      ],
+      order: [
+        [Sequelize.fn('DATE', Sequelize.col('checkin_time')), 'ASC'],
+        ['checkin_time', 'ASC']
+      ]
+    });
+
+    if (travelDetails.length === 0) {
+      return res.status(200).json({
+        message: `No travel records found for BDM ID ${bdmId} between ${moment(dateStart).format('DD-MM-YYYY')} and ${moment(dateEnd).format('DD-MM-YYYY')}`,
+        bdmInfo: {
+          bdmId: bdm.EmployeeId,
+          bdmName: bdm.EmployeeName
+        },
+        summary: {
+          dateRange: {
+            start: moment(dateStart).format('DD-MM-YYYY'),
+            end: moment(dateEnd).format('DD-MM-YYYY')
+          },
+          totalLocations: 0,
+          totalDistance: 0,
+          totalDays: 0
+        },
+        data: []
+      });
+    }
+
+    // Haversine formula implementation to calculate distance between two points
+    const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+      const toRadians = (degrees) => {
+        return degrees * (Math.PI / 180);
+      };
+      
+      const R = 6371; // Earth's radius in km
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
+      
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c; // Distance in km
+      
+      // Add 30% to approximate road distance
+      const roadDistance = distance * 1.30;
+      
+      return roadDistance;
+    };
+
+    // Helper function to format customer address
+    const formatCustomerAddress = (leadDetail) => {
+      if (!leadDetail) return '';
+      
+      const parts = [];
+      if (leadDetail.location) parts.push(leadDetail.location);
+      if (leadDetail.state_name) parts.push(leadDetail.state_name);
+      if (leadDetail.pincode) parts.push(leadDetail.pincode);
+      
+      return parts.filter(Boolean).join(', ');
+    };
+
+    // Group travel details by date
+    const detailsByDate = {};
+    travelDetails.forEach(detail => {
+      const dateStr = moment(detail.checkin_time).format('YYYY-MM-DD');
+      if (!detailsByDate[dateStr]) {
+        detailsByDate[dateStr] = [];
+      }
+      detailsByDate[dateStr].push(detail);
+    });
+
+    let totalDistance = 0;
+    const formattedDetailsByDate = [];
+
+    // Process data day by day
+    for (const dateStr of Object.keys(detailsByDate).sort()) {
+      const dayDetails = detailsByDate[dateStr];
+      let lastLatitude = null;
+      let lastLongitude = null;
+      let totalDistanceForDay = 0;
+      const formattedDayDetails = [];
+
+      // Find Attendance In point to start distance calculation for this day
+      let attendanceInIndex = dayDetails.findIndex(detail => 
+        detail.action.toLowerCase().includes('attendance in')
+      );
+      
+      // If no Attendance In found, start from first point
+      if (attendanceInIndex === -1) attendanceInIndex = 0;
+
+      // Find Attendance Out point to end distance calculation for this day
+      let attendanceOutIndex = dayDetails.findIndex(detail => 
+        detail.action.toLowerCase().includes('attendance out')
+      );
+      
+      // If no Attendance Out found, use the last point
+      if (attendanceOutIndex === -1) attendanceOutIndex = dayDetails.length - 1;
+
+      // Process each location from attendance in to attendance out for this day
+      for (let i = 0; i < dayDetails.length; i++) {
+        const detail = dayDetails[i];
+        let distanceFromLast = 0;
+        
+        // Calculate road distance from previous point (except for the first point or attendance in)
+        if (i > 0 && detail.action !== 'Attendance In') {
+          const prevPoint = dayDetails[i-1];
+          
+          distanceFromLast = +(calculateHaversineDistance(
+            parseFloat(prevPoint.checkin_latitude),
+            parseFloat(prevPoint.checkin_longitude),
+            parseFloat(detail.checkin_latitude),
+            parseFloat(detail.checkin_longitude)
+          )).toFixed(2);
+          
+          totalDistanceForDay += distanceFromLast;
+        }
+
+        // Calculate checkin to checkout distance
+        let checkinCheckoutDistance = null;
+        if (detail.checkout_latitude && detail.checkout_longitude) {
+          if (detail.checkin_latitude === detail.checkout_latitude && 
+              detail.checkin_longitude === detail.checkout_longitude) {
+            checkinCheckoutDistance = 0;
+          } else {
+            checkinCheckoutDistance = +(calculateHaversineDistance(
+              parseFloat(detail.checkin_latitude),
+              parseFloat(detail.checkin_longitude),
+              parseFloat(detail.checkout_latitude),
+              parseFloat(detail.checkout_longitude)
+            )).toFixed(2);
+          }
+        }
+
+        // Calculate duration
+        let duration = null;
+        if (detail.checkout_time) {
+          duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
+        }
+
+        // Format the location details using first API's format
+        formattedDayDetails.push({
+          id: detail.id,
+          employeeInfo: {
+            employeeId: detail.bdm_id,
+            employeeName: detail.Employee?.EmployeeName
+          },
+          leadInfo: detail.LeadDetail ? {
+            leadId: detail.LeadDetail.id,
+            customerName: detail.LeadDetail.CustomerName,
+            mobileNo: detail.LeadDetail.MobileNo,
+            region: detail.LeadDetail.region_name,
+            location: detail.LeadDetail.location,
+            siteLocation: detail.LeadDetail.site_location_address,
+            category: detail.LeadDetail.category,
+            subCategory: detail.LeadDetail.sub_category,
+            bdmRemark: detail.LeadDetail.bdm_remark,
+            closeMonth: detail.LeadDetail.close_month,
+            address: formatCustomerAddress(detail.LeadDetail)
+          } : null,
+          travelInfo: {
+            action: detail.action,
+            checkin: {
+              time: moment(detail.checkin_time).format('DD-MM-YYYY HH:mm:ss'),
+              location: {
+                latitude: detail.checkin_latitude,
+                longitude: detail.checkin_longitude,
+                address: null,
+                city: null
+              }
+            },
+            checkout: detail.checkout_time ? {
+              time: moment(detail.checkout_time).format('DD-MM-YYYY HH:mm:ss'),
+              location: {
+                latitude: detail.checkout_latitude,
+                longitude: detail.checkout_longitude,
+                address: null,
+                city: null
+              }
+            } : null,
+            distances: {
+              fromLastPoint: distanceFromLast,
+              checkinToCheckout: checkinCheckoutDistance
+            },
+            duration: duration ? {
+              minutes: duration,
+              formatted: `${Math.floor(duration / 60)} hours ${duration % 60} minutes`
+            } : null
+          }
+        });
+
+        lastLatitude = detail.checkin_latitude;
+        lastLongitude = detail.checkin_longitude;
+      }
+
+      // Round total distance for day to 2 decimal places
+      totalDistanceForDay = +totalDistanceForDay.toFixed(2);
+      
+      // Add daily total to overall total
+      totalDistance += totalDistanceForDay;
+
+      // Add daily summary to response
+      formattedDetailsByDate.push({
+        date: dateStr,
+        formattedDate: moment(dateStr).format('DD-MM-YYYY'),
+        totalLocations: formattedDayDetails.length,
+        totalDistanceForDay: totalDistanceForDay,
+        travelDetails: formattedDayDetails
+      });
+    }
+
+    // Ensure total distance is properly rounded
+    totalDistance = +totalDistance.toFixed(2);
+
+    console.timeEnd('reportGeneration'); // Log total time taken
+
+    res.status(200).json({
+      message: "Travel details retrieved successfully",
+      bdmInfo: {
+        bdmId: bdm.EmployeeId,
+        bdmName: bdm.EmployeeName
+      },
+      summary: {
+        dateRange: {
+          start: moment(dateStart).format('DD-MM-YYYY'),
+          end: moment(dateEnd).format('DD-MM-YYYY')
+        },
+        totalDays: formattedDetailsByDate.length,
+        totalLocations: travelDetails.length,
+        totalDistance: totalDistance
+      },
+      data: formattedDetailsByDate
+    });
+
+  } catch (error) {
+    console.error("Error fetching travel details:", error);
+    console.timeEnd('reportGeneration'); // Log time even in case of error
     res.status(500).json({
       message: "Internal server error",
       error: error.message

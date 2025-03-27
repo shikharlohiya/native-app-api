@@ -55,6 +55,15 @@ GroupMeeting.init(
       type: DataTypes.DATE,
       defaultValue: Sequelize.NOW,
     },
+    meeting_location:{
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    nearest_branch:{
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    }
+    
   },
   {
     sequelize,

@@ -2533,6 +2533,8 @@ exports.createGroupMeeting = async (req, res) => {
       // Create the meeting entry
       const meetingEntry = await GroupMeeting.create({
         group_id: group_id,
+        meeting_location : entry.meeting_location,
+        nearest_branch : entry.nearestBranch,
         customer_name: entry.customer_name || entry.name, // Support both field names
         mobile: entry.mobile,
         location: entry.location,
