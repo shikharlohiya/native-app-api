@@ -3355,7 +3355,7 @@ exports.getSimpleTravelReport = async (req, res) => {
           );
           
           // Add 15% to approximate road distance
-          const distance = +(aerialDistance * 1.15 / 1000).toFixed(2);
+          const distance = +(aerialDistance * 1.30 / 1000).toFixed(2);
           report.totalDistance += distance;
         }
       }
