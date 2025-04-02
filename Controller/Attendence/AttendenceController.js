@@ -215,6 +215,8 @@ exports.handleBatchLeadActions = async (req, res) => {
                 BDMId: bdmId,
                 task_type: "other_task",
                 task_name: task.task_name,
+                action_type: task.action_type || "confirm", // Save action_type with default "confirm"
+                specific_action: task.task_name, // Set specific_action to task_name
                 remarks: task.remarks,
               },
               { transaction }
@@ -228,6 +230,8 @@ exports.handleBatchLeadActions = async (req, res) => {
               new_follow_up_date,
               remarks,
             } = task;
+
+        
 
             const bdmAction = await BdmLeadAction.create(
               {
@@ -6234,70 +6238,76 @@ const formatToIST = (utcDate) => {
 
 // Controller to manually send all attendance records
 
-// exports.sendAttendanceRecords = async (req, res) => {
-//   try {
-//     // Get all complete attendance records
-//     const attendances = await Attendance.findAll({
-//       where: {
-//         AttendanceInTime: { [Op.ne]: null },
-//         AttendanceOutTime: { [Op.ne]: null }
-//       },
-//       include: [{ 
-//         model: Employee, 
-//         as: 'Employee',
-//         attributes: ['EmployeeId'] 
-//       }]
-//     });
-    
-//     if (attendances.length === 0) {
-//       return res.status(404).json({ 
-//         message: "No complete attendance records found" 
-//       });
-//     }
-    
-//     // Format data for the external API
-//     const attendanceRecords = attendances.map(attendance => ({
-//       empNo: attendance.Employee.EmployeeId.toString(),
-//       signInTime: formatToIST(attendance.AttendanceInTime),
-//       signOutTime: formatToIST(attendance.AttendanceOutTime)
-//     })).filter(record => record.signInTime && record.signOutTime); // Only send complete records
-    
-//     if (attendanceRecords.length === 0) {
-//       return res.status(400).json({ 
-//         message: "No valid attendance records to send" 
-//       });
-//     }
-    
-//     // Send to external API
-//     const response = await axios.post(
-//       'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
-//       { attendanceRecords },
-//       {
-//         headers: { 'Content-Type': 'application/json' },
-//         // You might need to add this option if the external server uses a self-signed certificate
-//         httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
-//       }
-//     );
-    
-//     // Update status in your database or add a log
-//     // This is optional but recommended
-    
-//     return res.status(200).json({
-//       message: "Attendance records sent successfully",
-//       sentRecords: attendanceRecords.length,
-//       apiResponse: response.data
-//     });
-    
-//   } catch (error) {
-//     console.error("Error sending attendance records:", error);
-//     return res.status(500).json({
-//       message: "Failed to send attendance records",
-//       error: error.message
-//     });
-//   }
-// };
 
-// // Controller to run daily and sync attendance records for the day
+
+exports.sendAttendanceRecords = async (req, res) => {
+  try {
+    // Get all complete attendance records
+    const attendances = await Attendance.findAll({
+      where: {
+        AttendanceInTime: { [Op.ne]: null },
+        AttendanceOutTime: { [Op.ne]: null }
+      },
+      include: [{ 
+        model: Employee, 
+        as: 'Employee',
+        attributes: ['EmployeeId'] 
+      }]
+    });
+    
+    if (attendances.length === 0) {
+      return res.status(404).json({ 
+        message: "No complete attendance records found" 
+      });
+    }
+    
+    // Format data for the external API
+    const attendanceRecords = attendances.map(attendance => ({
+      empNo: attendance.Employee.EmployeeId.toString(),
+      signInTime: formatToIST(attendance.AttendanceInTime),
+      signOutTime: formatToIST(attendance.AttendanceOutTime)
+    })).filter(record => record.signInTime && record.signOutTime); // Only send complete records
+    
+    if (attendanceRecords.length === 0) {
+      return res.status(400).json({ 
+        message: "No valid attendance records to send" 
+      });
+    }
+    
+    // Send to external API
+    const response = await axios.post(
+      'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
+      { attendanceRecords },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        // You might need to add this option if the external server uses a self-signed certificate
+        httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+      }
+    );
+    
+    // Update status in your database or add a log
+    // This is optional but recommended
+    
+    return res.status(200).json({
+      message: "Attendance records sent successfully",
+      sentRecords: attendanceRecords.length,
+      apiResponse: response.data
+    });
+    
+  } catch (error) {
+    console.error("Error sending attendance records:", error);
+    return res.status(500).json({
+      message: "Failed to send attendance records",
+      error: error.message
+    });
+  }
+};
+
+
+
+ // Controller to run daily and sync attendance records for the day
+
+
 // exports.syncDailyAttendance = async (req, res) => {
 //   try {
 //     // Get today's date (or yesterday's date if running at midnight)
@@ -6387,15 +6397,314 @@ const formatToIST = (utcDate) => {
 //   }
 // };
 
-// // This function can be used with a scheduler like node-cron
-// exports.scheduleDailySync = () => {
+
+
+
+
+// exports.syncDailyAttendance = async (req, res) => {
 //   try {
-//     this.syncDailyAttendance();
-//     console.log("Daily attendance sync completed");
+//     let startDate, endDate;
+
+//     // Check if date range is provided in the request
+//     if (req.body && req.body.startDate && req.body.endDate) {
+//       // Parse dates from request body
+//       startDate = new Date(req.body.startDate);
+//       startDate.setHours(0, 0, 0, 0);
+      
+//       endDate = new Date(req.body.endDate);
+//       endDate.setHours(23, 59, 59, 999);
+//     } else {
+//       // Default to today's date if no range provided
+//       startDate = new Date();
+//       startDate.setHours(0, 0, 0, 0);
+      
+//       endDate = new Date(startDate);
+//       endDate.setHours(23, 59, 59, 999);
+//     }
+
+//     // Validate dates
+//     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+//       const message = "Invalid date format provided";
+//       if (req.method === 'GET' || req.method === 'POST') {
+//         return res.status(400).json({ message });
+//       }
+//       console.log(message);
+//       return;
+//     }
+    
+//     // Get all attendance records for the date range
+//     const attendances = await Attendance.findAll({
+//       where: {
+//         AttendanceDate: {
+//           [Op.between]: [startDate, endDate]
+//         }
+//       },
+//       include: [{
+//         model: Employee,
+//         as: 'Employee',
+//         attributes: ['EmployeeId']
+//       }]
+//     });
+    
+//     if (attendances.length === 0) {
+//       const message = `No attendance records found between ${startDate.toISOString().split('T')[0]} and ${endDate.toISOString().split('T')[0]}`;
+//       if (req.method === 'GET' || req.method === 'POST') {
+//         return res.status(404).json({ message });
+//       }
+//       console.log(message);
+//       return;
+//     }
+    
+//     // Format data for the external API - including all records regardless of null values
+//     const attendanceRecords = attendances.map(attendance => ({
+//       empNo: attendance.Employee.EmployeeId.toString(),
+//       signInTime: attendance.AttendanceInTime ? formatToIST(attendance.AttendanceInTime) : null,
+//       signOutTime: attendance.AttendanceOutTime ? formatToIST(attendance.AttendanceOutTime) : null
+//     }));
+//     console.log(attendanceRecords, '-------');
+    
+//     // Send to external API
+//     const response = await axios.post(
+//       'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
+//       { attendanceRecords },
+//       {
+//         headers: { 'Content-Type': 'application/json' },
+//         httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+//       }
+//     );
+    
+//     const successMessage = `Successfully synced ${attendanceRecords.length} attendance records between ${startDate.toISOString().split('T')[0]} and ${endDate.toISOString().split('T')[0]}`;
+    
+//     // If this was called as an API endpoint, send a response
+//     if (req.method === 'GET' || req.method === 'POST') {
+//       return res.status(200).json({
+//         message: successMessage,
+//         dateRange: {
+//           startDate: startDate.toISOString().split('T')[0],
+//           endDate: endDate.toISOString().split('T')[0]
+//         },
+//         sentRecords: attendanceRecords.length,
+//         apiResponse: response.data
+//       });
+//     }
+    
+//     // If this was called as a scheduled job, log the success
+//     console.log(successMessage);
+//     return;
+    
 //   } catch (error) {
-//     console.error("Scheduled job error:", error);
+//     const errorMessage = `Error syncing attendance: ${error.message}`;
+//     console.error(errorMessage);
+    
+//     // If this was called as an API endpoint, send a response
+//     if (req && res) {
+//       return res.status(500).json({
+//         message: "Failed to sync attendance",
+//         error: error.message
+//       });
+//     }
 //   }
 // };
+
+exports.syncAttendanceData = async () => {
+  try {
+    // Get today's date
+    const targetDate = new Date();
+    targetDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(targetDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    console.log(`Running attendance sync for date: ${targetDate.toISOString().split('T')[0]}`);
+    
+    // Get all attendance records for the target date
+    const attendances = await Attendance.findAll({
+      where: {
+        AttendanceDate: {
+          [Op.between]: [targetDate, endDate]
+        }
+      },
+      include: [{
+        model: Employee,
+        as: 'Employee',
+        attributes: ['EmployeeId']
+      }]
+    });
+    
+    if (attendances.length === 0) {
+      console.log("No attendance records found for today");
+      return;
+    }
+    
+    // Format data for the external API
+    const attendanceRecords = attendances.map(attendance => ({
+      empNo: attendance.Employee.EmployeeId.toString(),
+      signInTime: attendance.AttendanceInTime ? formatToIST(attendance.AttendanceInTime) : null,
+      signOutTime: attendance.AttendanceOutTime ? formatToIST(attendance.AttendanceOutTime) : null
+    }));
+    
+    console.log(`Prepared ${attendanceRecords.length} attendance records for sync`);
+    
+    // Send to external API
+    const response = await axios.post(
+      'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
+      { attendanceRecords },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+      }
+    );
+    
+    console.log(`Successfully synced ${attendanceRecords.length} attendance records`);
+    console.log(`API Response: ${JSON.stringify(response.data)}`);
+    
+  } catch (error) {
+    console.error(`Error syncing daily attendance: ${error.message}`);
+    if (error.response) {
+      console.error(`API Error Response: ${JSON.stringify(error.response.data)}`);
+    }
+  }
+};
+
+// Function to expose as API endpoint
+exports.syncDailyAttendance = async (req, res) => {
+  try {
+    let startDate, endDate;
+
+    // Check if date range is provided in the request
+    if (req.body && req.body.startDate && req.body.endDate) {
+      // Parse dates from request body
+      startDate = new Date(req.body.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      
+      endDate = new Date(req.body.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // Default to today's date if no range provided
+      startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      
+      endDate = new Date(startDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    // Validate dates
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      const message = "Invalid date format provided";
+      if (req.method === 'GET' || req.method === 'POST') {
+        return res.status(400).json({ message });
+      }
+      console.log(message);
+      return;
+    }
+    
+    // Get all attendance records for the date range
+    const attendances = await Attendance.findAll({
+      where: {
+        AttendanceDate: {
+          [Op.between]: [startDate, endDate]
+        }
+      },
+      include: [{
+        model: Employee,
+        as: 'Employee',
+        attributes: ['EmployeeId']
+      }]
+    });
+    
+    if (attendances.length === 0) {
+      const message = `No attendance records found between ${startDate.toISOString().split('T')[0]} and ${endDate.toISOString().split('T')[0]}`;
+      if (req.method === 'GET' || req.method === 'POST') {
+        return res.status(404).json({ message });
+      }
+      console.log(message);
+      return;
+    }
+    
+    // Format data for the external API
+    const attendanceRecords = attendances.map(attendance => ({
+      empNo: attendance.Employee.EmployeeId.toString(),
+      signInTime: attendance.AttendanceInTime ? formatToIST(attendance.AttendanceInTime) : null,
+      signOutTime: attendance.AttendanceOutTime ? formatToIST(attendance.AttendanceOutTime) : null
+    }));
+    
+    // Send to external API
+    
+    const response = await axios.post(
+      'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
+      
+      { attendanceRecords },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+      }
+    );
+    
+    const successMessage = `Successfully synced ${attendanceRecords.length} attendance records between ${startDate.toISOString().split('T')[0]} and ${endDate.toISOString().split('T')[0]}`;
+    
+    // If this was called as an API endpoint, send a response
+    if (req.method === 'GET' || req.method === 'POST') {
+      return res.status(200).json({
+        message: successMessage,
+        dateRange: {
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
+        },
+        sentRecords: attendanceRecords.length,
+        apiResponse: response.data
+      });
+    }
+    
+    console.log(successMessage);
+    return;
+    
+  } catch (error) {
+    const errorMessage = `Error syncing attendance: ${error.message}`;
+    console.error(errorMessage);
+    
+    // If this was called as an API endpoint, send a response
+    if (req && res) {
+      return res.status(500).json({
+        message: "Failed to sync attendance",
+        error: error.message
+      });
+    }
+  }
+};
+
+// Schedule the attendance sync cron job to run every day at 23:50 (11:50 PM)
+cron.schedule('37 17 * * *', exports.syncAttendanceData, {
+  scheduled: true,
+  timezone: "Asia/Kolkata" // Set to your timezone
+});
+
+console.log('Attendance sync cron job scheduled to run at 23 :50 daily');
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+// This function can be used with a scheduler like node-cron
+exports.scheduleDailySync = () => {
+  try {
+    this.syncDailyAttendance();
+    console.log("Daily attendance sync completed");
+  } catch (error) {
+    console.error("Scheduled job error:", error);
+  }
+};
 
 
 
@@ -6943,329 +7252,329 @@ exports.getBdmTravelDetails = async (req, res) => {
 //new date range--will move to production
 
 
-// exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
-//   try {
-//     console.time('reportGeneration'); // Add performance monitoring
-//     const { startDate, endDate, bdmId } = req.query;
+exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
+  try {
+    console.time('reportGeneration'); // Add performance monitoring
+    const { startDate, endDate, bdmId } = req.query;
 
-//     if (!bdmId) {
-//       return res.status(400).json({ message: "BDM ID is required" });
-//     }
+    if (!bdmId) {
+      return res.status(400).json({ message: "BDM ID is required" });
+    }
 
-//     // Verify if BDM exists
-//     const bdm = await Employee.findOne({
-//       where: { 
-//         EmployeeId: bdmId 
-//       }
-//     });
+    // Verify if BDM exists
+    const bdm = await Employee.findOne({
+      where: { 
+        EmployeeId: bdmId 
+      }
+    });
 
-//     if (!bdm) {
-//       return res.status(404).json({ message: "BDM not found" });
-//     }
+    if (!bdm) {
+      return res.status(404).json({ message: "BDM not found" });
+    }
 
-//     // Handle date range parameters
-//     let dateStart, dateEnd;
+    // Handle date range parameters
+    let dateStart, dateEnd;
     
-//     if (startDate && endDate) {
-//       dateStart = new Date(startDate);
-//       dateEnd = new Date(endDate);
-//       // Set end date to end of day
-//       dateEnd.setHours(23, 59, 59, 999);
-//     } else if (startDate) {
-//       // If only start date is provided, set range to that single day
-//       dateStart = new Date(startDate);
-//       dateEnd = new Date(startDate);
-//       dateEnd.setHours(23, 59, 59, 999);
-//     } else {
-//       // Default to current day if no dates provided
-//       dateStart = new Date();
-//       dateStart.setHours(0, 0, 0, 0);
-//       dateEnd = new Date();
-//       dateEnd.setHours(23, 59, 59, 999);
-//     }
+    if (startDate && endDate) {
+      dateStart = new Date(startDate);
+      dateEnd = new Date(endDate);
+      // Set end date to end of day
+      dateEnd.setHours(23, 59, 59, 999);
+    } else if (startDate) {
+      // If only start date is provided, set range to that single day
+      dateStart = new Date(startDate);
+      dateEnd = new Date(startDate);
+      dateEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Default to current day if no dates provided
+      dateStart = new Date();
+      dateStart.setHours(0, 0, 0, 0);
+      dateEnd = new Date();
+      dateEnd.setHours(23, 59, 59, 999);
+    }
     
-//     // Check if date range is too large (optimize for performance)
-//     const daysDifference = Math.ceil((dateEnd - dateStart) / (1000 * 60 * 60 * 24));
-//     if (daysDifference > 31) {
-//       return res.status(400).json({ 
-//         message: "Date range too large. Please select a range of 31 days or less for optimal performance." 
-//       });
-//     }
+    // Check if date range is too large (optimize for performance)
+    const daysDifference = Math.ceil((dateEnd - dateStart) / (1000 * 60 * 60 * 24));
+    if (daysDifference > 31) {
+      return res.status(400).json({ 
+        message: "Date range too large. Please select a range of 31 days or less for optimal performance." 
+      });
+    }
 
-//     // Get BDM's travel details
-//     const travelDetails = await BdmTravelDetail.findAll({
-//       where: {
-//         bdm_id: bdmId,
-//         checkin_time: {
-//           [Sequelize.Op.between]: [dateStart, dateEnd]
-//         }
-//       },
-//       include: [
-//         {
-//           model: Employee,
-//           as: 'Employee',
-//           where: { EmployeeId: bdmId },
-//           attributes: ['EmployeeId', 'EmployeeName']
-//         },
-//         {
-//           model: Lead_Detail,
-//           as: 'LeadDetail',
-//           required: false,
-//           attributes: [
-//             'id',
-//             'CustomerName',
-//             'MobileNo',
-//             'region_name',
-//             'location',
-//             'state_name',
-//             'pincode',
-//             'category',
-//             'sub_category',
-//             'bdm_remark',
-//             'close_month',
-//             'site_location_address'
-//           ]
-//         }
-//       ],
-//       order: [
-//         [Sequelize.fn('DATE', Sequelize.col('checkin_time')), 'ASC'],
-//         ['checkin_time', 'ASC']
-//       ]
-//     });
+    // Get BDM's travel details
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Sequelize.Op.between]: [dateStart, dateEnd]
+        }
+      },
+      include: [
+        {
+          model: Employee,
+          as: 'Employee',
+          where: { EmployeeId: bdmId },
+          attributes: ['EmployeeId', 'EmployeeName']
+        },
+        {
+          model: Lead_Detail,
+          as: 'LeadDetail',
+          required: false,
+          attributes: [
+            'id',
+            'CustomerName',
+            'MobileNo',
+            'region_name',
+            'location',
+            'state_name',
+            'pincode',
+            'category',
+            'sub_category',
+            'bdm_remark',
+            'close_month',
+            'site_location_address'
+          ]
+        }
+      ],
+      order: [
+        [Sequelize.fn('DATE', Sequelize.col('checkin_time')), 'ASC'],
+        ['checkin_time', 'ASC']
+      ]
+    });
 
-//     if (travelDetails.length === 0) {
-//       return res.status(200).json({
-//         message: `No travel records found for BDM ID ${bdmId} between ${moment(dateStart).format('DD-MM-YYYY')} and ${moment(dateEnd).format('DD-MM-YYYY')}`,
-//         bdmInfo: {
-//           bdmId: bdm.EmployeeId,
-//           bdmName: bdm.EmployeeName
-//         },
-//         summary: {
-//           dateRange: {
-//             start: moment(dateStart).format('DD-MM-YYYY'),
-//             end: moment(dateEnd).format('DD-MM-YYYY')
-//           },
-//           totalLocations: 0,
-//           totalDistance: 0,
-//           totalDays: 0
-//         },
-//         data: []
-//       });
-//     }
+    if (travelDetails.length === 0) {
+      return res.status(200).json({
+        message: `No travel records found for BDM ID ${bdmId} between ${moment(dateStart).format('DD-MM-YYYY')} and ${moment(dateEnd).format('DD-MM-YYYY')}`,
+        bdmInfo: {
+          bdmId: bdm.EmployeeId,
+          bdmName: bdm.EmployeeName
+        },
+        summary: {
+          dateRange: {
+            start: moment(dateStart).format('DD-MM-YYYY'),
+            end: moment(dateEnd).format('DD-MM-YYYY')
+          },
+          totalLocations: 0,
+          totalDistance: 0,
+          totalDays: 0
+        },
+        data: []
+      });
+    }
 
-//     // Haversine formula implementation to calculate distance between two points
-//     const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
-//       const toRadians = (degrees) => {
-//         return degrees * (Math.PI / 180);
-//       };
+    // Haversine formula implementation to calculate distance between two points
+    const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+      const toRadians = (degrees) => {
+        return degrees * (Math.PI / 180);
+      };
       
-//       const R = 6371; // Earth's radius in km
-//       const dLat = toRadians(lat2 - lat1);
-//       const dLon = toRadians(lon2 - lon1);
+      const R = 6371; // Earth's radius in km
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
       
-//       const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-//                 Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-//                 Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
       
-//       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-//       const distance = R * c; // Distance in km
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c; // Distance in km
       
-//       // Add 30% to approximate road distance
-//       const roadDistance = distance * 1.30;
+      // Add 30% to approximate road distance
+      const roadDistance = distance * 1.30;
       
-//       return roadDistance;
-//     };
+      return roadDistance;
+    };
 
-//     // Helper function to format customer address
-//     const formatCustomerAddress = (leadDetail) => {
-//       if (!leadDetail) return '';
+    // Helper function to format customer address
+    const formatCustomerAddress = (leadDetail) => {
+      if (!leadDetail) return '';
       
-//       const parts = [];
-//       if (leadDetail.location) parts.push(leadDetail.location);
-//       if (leadDetail.state_name) parts.push(leadDetail.state_name);
-//       if (leadDetail.pincode) parts.push(leadDetail.pincode);
+      const parts = [];
+      if (leadDetail.location) parts.push(leadDetail.location);
+      if (leadDetail.state_name) parts.push(leadDetail.state_name);
+      if (leadDetail.pincode) parts.push(leadDetail.pincode);
       
-//       return parts.filter(Boolean).join(', ');
-//     };
+      return parts.filter(Boolean).join(', ');
+    };
 
-//     // Group travel details by date
-//     const detailsByDate = {};
-//     travelDetails.forEach(detail => {
-//       const dateStr = moment(detail.checkin_time).format('YYYY-MM-DD');
-//       if (!detailsByDate[dateStr]) {
-//         detailsByDate[dateStr] = [];
-//       }
-//       detailsByDate[dateStr].push(detail);
-//     });
+    // Group travel details by date
+    const detailsByDate = {};
+    travelDetails.forEach(detail => {
+      const dateStr = moment(detail.checkin_time).format('YYYY-MM-DD');
+      if (!detailsByDate[dateStr]) {
+        detailsByDate[dateStr] = [];
+      }
+      detailsByDate[dateStr].push(detail);
+    });
 
-//     let totalDistance = 0;
-//     const formattedDetailsByDate = [];
+    let totalDistance = 0;
+    const formattedDetailsByDate = [];
 
-//     // Process data day by day
-//     for (const dateStr of Object.keys(detailsByDate).sort()) {
-//       const dayDetails = detailsByDate[dateStr];
-//       let lastLatitude = null;
-//       let lastLongitude = null;
-//       let totalDistanceForDay = 0;
-//       const formattedDayDetails = [];
+    // Process data day by day
+    for (const dateStr of Object.keys(detailsByDate).sort()) {
+      const dayDetails = detailsByDate[dateStr];
+      let lastLatitude = null;
+      let lastLongitude = null;
+      let totalDistanceForDay = 0;
+      const formattedDayDetails = [];
 
-//       // Find Attendance In point to start distance calculation for this day
-//       let attendanceInIndex = dayDetails.findIndex(detail => 
-//         detail.action.toLowerCase().includes('attendance in')
-//       );
+      // Find Attendance In point to start distance calculation for this day
+      let attendanceInIndex = dayDetails.findIndex(detail => 
+        detail.action.toLowerCase().includes('attendance in')
+      );
       
-//       // If no Attendance In found, start from first point
-//       if (attendanceInIndex === -1) attendanceInIndex = 0;
+      // If no Attendance In found, start from first point
+      if (attendanceInIndex === -1) attendanceInIndex = 0;
 
-//       // Find Attendance Out point to end distance calculation for this day
-//       let attendanceOutIndex = dayDetails.findIndex(detail => 
-//         detail.action.toLowerCase().includes('attendance out')
-//       );
+      // Find Attendance Out point to end distance calculation for this day
+      let attendanceOutIndex = dayDetails.findIndex(detail => 
+        detail.action.toLowerCase().includes('attendance out')
+      );
       
-//       // If no Attendance Out found, use the last point
-//       if (attendanceOutIndex === -1) attendanceOutIndex = dayDetails.length - 1;
+      // If no Attendance Out found, use the last point
+      if (attendanceOutIndex === -1) attendanceOutIndex = dayDetails.length - 1;
 
-//       // Process each location from attendance in to attendance out for this day
-//       for (let i = 0; i < dayDetails.length; i++) {
-//         const detail = dayDetails[i];
-//         let distanceFromLast = 0;
+      // Process each location from attendance in to attendance out for this day
+      for (let i = 0; i < dayDetails.length; i++) {
+        const detail = dayDetails[i];
+        let distanceFromLast = 0;
         
-//         // Calculate road distance from previous point (except for the first point or attendance in)
-//         if (i > 0 && detail.action !== 'Attendance In') {
-//           const prevPoint = dayDetails[i-1];
+        // Calculate road distance from previous point (except for the first point or attendance in)
+        if (i > 0 && detail.action !== 'Attendance In') {
+          const prevPoint = dayDetails[i-1];
           
-//           distanceFromLast = +(calculateHaversineDistance(
-//             parseFloat(prevPoint.checkin_latitude),
-//             parseFloat(prevPoint.checkin_longitude),
-//             parseFloat(detail.checkin_latitude),
-//             parseFloat(detail.checkin_longitude)
-//           )).toFixed(2);
+          distanceFromLast = +(calculateHaversineDistance(
+            parseFloat(prevPoint.checkin_latitude),
+            parseFloat(prevPoint.checkin_longitude),
+            parseFloat(detail.checkin_latitude),
+            parseFloat(detail.checkin_longitude)
+          )).toFixed(2);
           
-//           totalDistanceForDay += distanceFromLast;
-//         }
+          totalDistanceForDay += distanceFromLast;
+        }
 
-//         // Calculate checkin to checkout distance
-//         let checkinCheckoutDistance = null;
-//         if (detail.checkout_latitude && detail.checkout_longitude) {
-//           if (detail.checkin_latitude === detail.checkout_latitude && 
-//               detail.checkin_longitude === detail.checkout_longitude) {
-//             checkinCheckoutDistance = 0;
-//           } else {
-//             checkinCheckoutDistance = +(calculateHaversineDistance(
-//               parseFloat(detail.checkin_latitude),
-//               parseFloat(detail.checkin_longitude),
-//               parseFloat(detail.checkout_latitude),
-//               parseFloat(detail.checkout_longitude)
-//             )).toFixed(2);
-//           }
-//         }
+        // Calculate checkin to checkout distance
+        let checkinCheckoutDistance = null;
+        if (detail.checkout_latitude && detail.checkout_longitude) {
+          if (detail.checkin_latitude === detail.checkout_latitude && 
+              detail.checkin_longitude === detail.checkout_longitude) {
+            checkinCheckoutDistance = 0;
+          } else {
+            checkinCheckoutDistance = +(calculateHaversineDistance(
+              parseFloat(detail.checkin_latitude),
+              parseFloat(detail.checkin_longitude),
+              parseFloat(detail.checkout_latitude),
+              parseFloat(detail.checkout_longitude)
+            )).toFixed(2);
+          }
+        }
 
-//         // Calculate duration
-//         let duration = null;
-//         if (detail.checkout_time) {
-//           duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
-//         }
+        // Calculate duration
+        let duration = null;
+        if (detail.checkout_time) {
+          duration = Math.round((new Date(detail.checkout_time) - new Date(detail.checkin_time)) / (1000 * 60));
+        }
 
-//         // Format the location details using first API's format
-//         formattedDayDetails.push({
-//           id: detail.id,
-//           employeeInfo: {
-//             employeeId: detail.bdm_id,
-//             employeeName: detail.Employee?.EmployeeName
-//           },
-//           leadInfo: detail.LeadDetail ? {
-//             leadId: detail.LeadDetail.id,
-//             customerName: detail.LeadDetail.CustomerName,
-//             mobileNo: detail.LeadDetail.MobileNo,
-//             region: detail.LeadDetail.region_name,
-//             location: detail.LeadDetail.location,
-//             siteLocation: detail.LeadDetail.site_location_address,
-//             category: detail.LeadDetail.category,
-//             subCategory: detail.LeadDetail.sub_category,
-//             bdmRemark: detail.LeadDetail.bdm_remark,
-//             closeMonth: detail.LeadDetail.close_month,
-//             address: formatCustomerAddress(detail.LeadDetail)
-//           } : null,
-//           travelInfo: {
-//             action: detail.action,
-//             checkin: {
-//               time: moment(detail.checkin_time).format('DD-MM-YYYY HH:mm:ss'),
-//               location: {
-//                 latitude: detail.checkin_latitude,
-//                 longitude: detail.checkin_longitude,
-//                 address: null,
-//                 city: null
-//               }
-//             },
-//             checkout: detail.checkout_time ? {
-//               time: moment(detail.checkout_time).format('DD-MM-YYYY HH:mm:ss'),
-//               location: {
-//                 latitude: detail.checkout_latitude,
-//                 longitude: detail.checkout_longitude,
-//                 address: null,
-//                 city: null
-//               }
-//             } : null,
-//             distances: {
-//               fromLastPoint: distanceFromLast,
-//               checkinToCheckout: checkinCheckoutDistance
-//             },
-//             duration: duration ? {
-//               minutes: duration,
-//               formatted: `${Math.floor(duration / 60)} hours ${duration % 60} minutes`
-//             } : null
-//           }
-//         });
+        // Format the location details using first API's format
+        formattedDayDetails.push({
+          id: detail.id,
+          employeeInfo: {
+            employeeId: detail.bdm_id,
+            employeeName: detail.Employee?.EmployeeName
+          },
+          leadInfo: detail.LeadDetail ? {
+            leadId: detail.LeadDetail.id,
+            customerName: detail.LeadDetail.CustomerName,
+            mobileNo: detail.LeadDetail.MobileNo,
+            region: detail.LeadDetail.region_name,
+            location: detail.LeadDetail.location,
+            siteLocation: detail.LeadDetail.site_location_address,
+            category: detail.LeadDetail.category,
+            subCategory: detail.LeadDetail.sub_category,
+            bdmRemark: detail.LeadDetail.bdm_remark,
+            closeMonth: detail.LeadDetail.close_month,
+            address: formatCustomerAddress(detail.LeadDetail)
+          } : null,
+          travelInfo: {
+            action: detail.action,
+            checkin: {
+              time: moment(detail.checkin_time).format('DD-MM-YYYY HH:mm:ss'),
+              location: {
+                latitude: detail.checkin_latitude,
+                longitude: detail.checkin_longitude,
+                address: null,
+                city: null
+              }
+            },
+            checkout: detail.checkout_time ? {
+              time: moment(detail.checkout_time).format('DD-MM-YYYY HH:mm:ss'),
+              location: {
+                latitude: detail.checkout_latitude,
+                longitude: detail.checkout_longitude,
+                address: null,
+                city: null
+              }
+            } : null,
+            distances: {
+              fromLastPoint: distanceFromLast,
+              checkinToCheckout: checkinCheckoutDistance
+            },
+            duration: duration ? {
+              minutes: duration,
+              formatted: `${Math.floor(duration / 60)} hours ${duration % 60} minutes`
+            } : null
+          }
+        });
 
-//         lastLatitude = detail.checkin_latitude;
-//         lastLongitude = detail.checkin_longitude;
-//       }
+        lastLatitude = detail.checkin_latitude;
+        lastLongitude = detail.checkin_longitude;
+      }
 
-//       // Round total distance for day to 2 decimal places
-//       totalDistanceForDay = +totalDistanceForDay.toFixed(2);
+      // Round total distance for day to 2 decimal places
+      totalDistanceForDay = +totalDistanceForDay.toFixed(2);
       
-//       // Add daily total to overall total
-//       totalDistance += totalDistanceForDay;
+      // Add daily total to overall total
+      totalDistance += totalDistanceForDay;
 
-//       // Add daily summary to response
-//       formattedDetailsByDate.push({
-//         date: dateStr,
-//         formattedDate: moment(dateStr).format('DD-MM-YYYY'),
-//         totalLocations: formattedDayDetails.length,
-//         totalDistanceForDay: totalDistanceForDay,
-//         travelDetails: formattedDayDetails
-//       });
-//     }
+      // Add daily summary to response
+      formattedDetailsByDate.push({
+        date: dateStr,
+        formattedDate: moment(dateStr).format('DD-MM-YYYY'),
+        totalLocations: formattedDayDetails.length,
+        totalDistanceForDay: totalDistanceForDay,
+        travelDetails: formattedDayDetails
+      });
+    }
 
-//     // Ensure total distance is properly rounded
-//     totalDistance = +totalDistance.toFixed(2);
+    // Ensure total distance is properly rounded
+    totalDistance = +totalDistance.toFixed(2);
 
-//     console.timeEnd('reportGeneration'); // Log total time taken
+    console.timeEnd('reportGeneration'); // Log total time taken
 
-//     res.status(200).json({
-//       message: "Travel details retrieved successfully",
-//       bdmInfo: {
-//         bdmId: bdm.EmployeeId,
-//         bdmName: bdm.EmployeeName
-//       },
-//       summary: {
-//         dateRange: {
-//           start: moment(dateStart).format('DD-MM-YYYY'),
-//           end: moment(dateEnd).format('DD-MM-YYYY')
-//         },
-//         totalDays: formattedDetailsByDate.length,
-//         totalLocations: travelDetails.length,
-//         totalDistance: totalDistance
-//       },
-//       data: formattedDetailsByDate
-//     });
+    res.status(200).json({
+      message: "Travel details retrieved successfully",
+      bdmInfo: {
+        bdmId: bdm.EmployeeId,
+        bdmName: bdm.EmployeeName
+      },
+      summary: {
+        dateRange: {
+          start: moment(dateStart).format('DD-MM-YYYY'),
+          end: moment(dateEnd).format('DD-MM-YYYY')
+        },
+        totalDays: formattedDetailsByDate.length,
+        totalLocations: travelDetails.length,
+        totalDistance: totalDistance
+      },
+      data: formattedDetailsByDate
+    });
 
-//   } catch (error) {
-//     console.error("Error fetching travel details:", error);
-//     console.timeEnd('reportGeneration'); // Log time even in case of error
-//     res.status(500).json({
-//       message: "Internal server error",
-//       error: error.message
-//     });
-//   }
-// };
+  } catch (error) {
+    console.error("Error fetching travel details:", error);
+    console.timeEnd('reportGeneration'); // Log time even in case of error
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};

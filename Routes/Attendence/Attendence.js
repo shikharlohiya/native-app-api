@@ -37,6 +37,8 @@ router.get('/bdm/travel-report', bdmActionController.getAllBdmTravelReport);
 //for view in the page for single bdm
 router.get('/bdm/travel-detail', bdmActionController.getBdmTravelDetails);
 
+router.get('/v2/bdm/travel-detail', bdmActionController.getBdmTravelDetailsWithDateRange);
+
 
 router.get('/bdm/view', bdmActionController.getSimpleTravelReport);
 
@@ -52,10 +54,12 @@ router.get('/bdm/get-all-employee-leave', bdmActionController.getEmployeesOnLeav
 
 
 
-// router.post('/send-attendance',   bdmActionController.sendAttendanceRecords);
+router.post('/send-attendance',   bdmActionController.sendAttendanceRecords);
 
 // Route to manually trigger the daily sync (useful for testing)
-// router.get('/sync-daily',  bdmActionController.syncDailyAttendance);
+
+
+router.post('/sync-daily',  bdmActionController.syncDailyAttendance);
 
 
 module.exports = router;

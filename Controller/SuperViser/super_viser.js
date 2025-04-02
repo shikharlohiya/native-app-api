@@ -2136,72 +2136,6 @@ exports.getBdmDailyTasks = async (req, res) => {
       }
     });
 
-//     const formattedTasks = {
-//       HO_task: [],
-//       self_task: [],
-//       other_task: []
-//     };
-
-//     tasks.forEach(task => {
-//       const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
-
-//       const formattedTask = {
-//         id: task.id,
-//         action_type: task.action_type,
-//         specific_action: task.specific_action,
-//         new_follow_up_date: task.new_follow_up_date ?
-//           moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
-//         remarks: task.remarks,
-//         action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-//         completion_status: task.completion_status,
-
-//         travel_details: travelDetail ? {
-//           travel_detailsId: travelDetail.id,
-//           checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-//           checkout_time: travelDetail.checkout_time ?
-//             moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
-//           checkin_location: {
-//             latitude: travelDetail.checkin_latitude,
-//             longitude: travelDetail.checkin_longitude
-//           },
-//           checkout_location: travelDetail.checkout_time ? {
-//             latitude: travelDetail.checkout_latitude,
-//             longitude: travelDetail.checkout_longitude
-//           } : null
-//         } : null,
-//         lead: task.Lead ? {
-//           Id: task.Lead.id,
-//           CustomerName: task.Lead.CustomerName,
-//           MobileNo: task.Lead.MobileNo,
-//           location: task.Lead.location,
-//           category: task.Lead.category,
-//           sub_category: task.Lead.sub_category,
-//           agent_remark: task.Lead.agent_remark,
-//           bdm_remark: task.Lead.bdm_remark
-//         } : null
-//       };
-
-//       if (task.task_type === 'HO_task') {
-//         formattedTasks.HO_task.push(formattedTask);
-//       } else if (task.task_type === 'self_task') {
-//         formattedTasks.self_task.push(formattedTask);
-
-
-//   } else if (task.task_type === 'other_task') {
-//   formattedTasks.other_task.push({
-//     id: task.id,
-//     task_name: task.task_name,
-//     action_type: task.action_type,
-//     specific_action: task.specific_action,
-//     new_follow_up_date: task.new_follow_up_date ?  
-//       moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
-//     remarks: task.remarks,
-//     action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-//     travel_details: formattedTask.travel_details,
-//     completion_status: task.completion_status
-//   });
-// }
-//     });
 
 const formattedTasks = {
   HO_task: [],
@@ -2212,6 +2146,83 @@ const formattedTasks = {
     other: []  // for tasks that aren't meetings or site visits
   }
 };
+
+// tasks.forEach(task => {
+//   const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+
+//   const formattedTask = {
+//     id: task.id,
+//     action_type: task.action_type,
+//     specific_action: task.specific_action,
+//     new_follow_up_date: task.new_follow_up_date ?
+//       moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//     remarks: task.remarks,
+//     action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//     completion_status: task.completion_status,
+//     travel_details: travelDetail ? {
+//       travel_detailsId: travelDetail.id,
+//       checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//       checkout_time: travelDetail.checkout_time ?
+//         moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//       checkin_location: {
+//         latitude: travelDetail.checkin_latitude,
+//         longitude: travelDetail.checkin_longitude
+//       },
+//       checkout_location: travelDetail.checkout_time ? {
+//         latitude: travelDetail.checkout_latitude,
+//         longitude: travelDetail.checkout_longitude
+//       } : null
+//     } : null,
+//     lead: task.Lead ? {
+//       Id: task.Lead.id,
+//       CustomerName: task.Lead.CustomerName,
+//       MobileNo: task.Lead.MobileNo,
+//       location: task.Lead.location,
+//       category: task.Lead.category,
+//       sub_category: task.Lead.sub_category,
+//       agent_remark: task.Lead.agent_remark,
+//       bdm_remark: task.Lead.bdm_remark
+//     } : null
+//   };
+
+//   if (task.task_type === 'HO_task') {
+//     formattedTasks.HO_task.push(formattedTask);
+//   } else if (task.task_type === 'self_task') {
+//     formattedTasks.self_task.push(formattedTask);
+//   } else if (task.task_type === 'other_task') {
+//     // For other_task, check specific_action and organize accordingly
+//     if (task.specific_action?.toLowerCase() === 'meeting') {
+//       formattedTasks.other_task.meeting.push({
+//         ...formattedTask,
+//         task_name: task.task_name
+//       });
+//     } else if (task.specific_action?.toLowerCase() === 'site visit') {
+//       formattedTasks.other_task.site_visit.push({
+//         ...formattedTask,
+//         task_name: task.task_name
+//       });
+//     } else {
+//       formattedTasks.other_task.other.push({
+//         id: task.id,
+//         task_name: task.task_name,
+//         action_type: task.action_type,
+//         specific_action: task.specific_action,
+//         new_follow_up_date: task.new_follow_up_date ? 
+//           moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//         remarks: task.remarks,
+//         action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//         travel_details: formattedTask.travel_details,
+//         completion_status: task.completion_status
+//       });
+//     }
+//   }
+// });
+
+
+
+
+
+
 
 tasks.forEach(task => {
   const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
@@ -2256,8 +2267,8 @@ tasks.forEach(task => {
   } else if (task.task_type === 'self_task') {
     formattedTasks.self_task.push(formattedTask);
   } else if (task.task_type === 'other_task') {
-    // For other_task, check specific_action and organize accordingly
-    if (task.specific_action?.toLowerCase() === 'meeting') {
+    // Modified logic to check if specific_action contains 'meeting' instead of exact match
+    if (task.specific_action?.toLowerCase().includes('meeting')) {
       formattedTasks.other_task.meeting.push({
         ...formattedTask,
         task_name: task.task_name
@@ -2282,7 +2293,10 @@ tasks.forEach(task => {
       });
     }
   }
-});
+}); 
+
+
+
 
     res.status(200).json({
       message: 'BDM daily tasks retrieved successfully',
