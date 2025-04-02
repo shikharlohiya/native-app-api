@@ -6631,8 +6631,8 @@ exports.syncDailyAttendance = async (req, res) => {
     // Send to external API
     
     const response = await axios.post(
-      'https://172.16.1.168:9052/v2/mobile/Attendance/SaveCRMAttendance',
-      
+      'https://myib.co.in:8052/v2/mobile/Attendance/SaveCRMAttendance',
+
       { attendanceRecords },
       {
         headers: { 'Content-Type': 'application/json' },
@@ -6673,12 +6673,12 @@ exports.syncDailyAttendance = async (req, res) => {
 };
 
 // Schedule the attendance sync cron job to run every day at 23:50 (11:50 PM)
-cron.schedule('37 17 * * *', exports.syncAttendanceData, {
+cron.schedule('50 11 * * *', exports.syncAttendanceData, {
   scheduled: true,
   timezone: "Asia/Kolkata" // Set to your timezone
 });
 
-console.log('Attendance sync cron job scheduled to run at 23 :50 daily');
+console.log('Attendance sync cron job scheduled to run at 11 :50 daily');
 
 
 
