@@ -832,9 +832,109 @@ exports.handleOtherTasks = async (req, res) => {
 };
 
 // checkout task 
+
+
+// exports.handleBdmCheckOut = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+
+//   try {
+//     const {
+//       travelDetailId,
+//       latitude,
+//       longitude,
+//       bdmLeadActionId
+//     } = req.body;
+//     console.log(req.body , '------------------');
+    
+
+//     // Validate required fields
+//     if (!travelDetailId || !latitude || !longitude) {
+//       return res.status(400).json({
+//         message: "Missing required fields. travelDetailId, latitude, and longitude are required"
+//       });
+//     }
+    
+
+//     if (bdmLeadActionId) {
+//       const bdmLeadAction = await BdmLeadAction.findByPk(bdmLeadActionId, {
+//         transaction: t
+//       });
+
+//       if (!bdmLeadAction) {
+//         await t.rollback();
+//         return res.status(400).json({ error: "BdmLeadAction ID not found" });
+//       }
+
+//       try {
+//         await bdmLeadAction.update(
+//           {
+//             completion_status: "completed"
+//           },
+//           { transaction: t }
+//         );
+//       } catch (updateError) {
+//         await t.rollback();
+//         console.error("Error updating BdmLeadAction:", updateError);
+//         return res.status(500).json({
+//           message: "Error updating BdmLeadAction",
+//           error: updateError.message
+//         });
+//       }
+//     }
+
+
+
+
+
+//     // Find the existing travel detail record
+//     const travelDetail = await BdmTravelDetail.findByPk(travelDetailId);
+
+//     if (!travelDetail) {
+//       return res.status(404).json({
+//         message: "Travel detail record not found"
+//       });
+//     }
+
+//     if (travelDetail.checkout_time) {
+//       return res.status(400).json({
+//         message: "Check-out already recorded for this travel detail"
+//       });
+//     }
+//     const checkoutTime = new Date();
+
+
+//     // Update travel detail with checkout information
+//     await travelDetail.update({
+//       checkout_latitude: latitude,
+//       checkout_longitude: longitude,
+//       checkout_time: checkoutTime
+//     }, { transaction });
+
+//     await transaction.commit();
+
+//     res.status(200).json({
+//       message: "Check-out recorded successfully",
+//       travelDetail: {
+//         ...travelDetail.toJSON(),
+     
+//       }
+//     });
+
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error("Error recording check-out:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
 exports.handleBdmCheckOut = async (req, res) => {
   const transaction = await sequelize.transaction();
-
+  
   try {
     const {
       travelDetailId,
@@ -842,33 +942,34 @@ exports.handleBdmCheckOut = async (req, res) => {
       longitude,
       bdmLeadActionId
     } = req.body;
-
+    
     // Validate required fields
     if (!travelDetailId || !latitude || !longitude) {
+      await transaction.rollback();
       return res.status(400).json({
         message: "Missing required fields. travelDetailId, latitude, and longitude are required"
       });
     }
-
+    
     if (bdmLeadActionId) {
       const bdmLeadAction = await BdmLeadAction.findByPk(bdmLeadActionId, {
-        transaction: t,
+        transaction: transaction
       });
-
+      
       if (!bdmLeadAction) {
-        await t.rollback();
+        await transaction.rollback();
         return res.status(400).json({ error: "BdmLeadAction ID not found" });
       }
-
+      
       try {
         await bdmLeadAction.update(
           {
             completion_status: "completed"
           },
-          { transaction: t }
+          { transaction: transaction }
         );
       } catch (updateError) {
-        await t.rollback();
+        await transaction.rollback();
         console.error("Error updating BdmLeadAction:", updateError);
         return res.status(500).json({
           message: "Error updating BdmLeadAction",
@@ -876,45 +977,44 @@ exports.handleBdmCheckOut = async (req, res) => {
         });
       }
     }
-
-
-
-
-
+    
     // Find the existing travel detail record
-    const travelDetail = await BdmTravelDetail.findByPk(travelDetailId);
-
+    const travelDetail = await BdmTravelDetail.findByPk(travelDetailId, {
+      transaction: transaction
+    });
+    
     if (!travelDetail) {
+      await transaction.rollback();
       return res.status(404).json({
         message: "Travel detail record not found"
       });
     }
-
+    
     if (travelDetail.checkout_time) {
+      await transaction.rollback();
       return res.status(400).json({
         message: "Check-out already recorded for this travel detail"
       });
     }
+    
     const checkoutTime = new Date();
-
-
+    
     // Update travel detail with checkout information
     await travelDetail.update({
       checkout_latitude: latitude,
       checkout_longitude: longitude,
       checkout_time: checkoutTime
-    }, { transaction });
-
+    }, { transaction: transaction });
+    
     await transaction.commit();
-
+    
     res.status(200).json({
       message: "Check-out recorded successfully",
       travelDetail: {
         ...travelDetail.toJSON(),
-     
       }
     });
-
+    
   } catch (error) {
     await transaction.rollback();
     console.error("Error recording check-out:", error);
@@ -924,6 +1024,10 @@ exports.handleBdmCheckOut = async (req, res) => {
     });
   }
 };
+
+
+
+
 
 
 //Attendence Out 
@@ -6566,7 +6670,12 @@ exports.syncAttendanceData = async () => {
   }
 };
 
+
+
 // Function to expose as API endpoint
+
+
+
 exports.syncDailyAttendance = async (req, res) => {
   try {
     let startDate, endDate;
@@ -6673,7 +6782,7 @@ exports.syncDailyAttendance = async (req, res) => {
 };
 
 // Schedule the attendance sync cron job to run every day at 23:50 (11:50 PM)
-cron.schedule('50 11 * * *', exports.syncAttendanceData, {
+cron.schedule('55 23 * * *', exports.syncDailyAttendance, {
   scheduled: true,
   timezone: "Asia/Kolkata" // Set to your timezone
 });
