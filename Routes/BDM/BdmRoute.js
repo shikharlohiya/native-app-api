@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require("multer");
 // const upload = multer({ dest: 'uploads/' });
 const BDMController = require("../../Controller/BDM/BdmController");
+const BdmStatisticsController = require("../../Controller/BDM/BdmStatisticsController");
+const BdmMeetingReportController = require("../../Controller/BDM/BdmMeetingReportController");
 const auth = require("../../middleware/check-auth");
 
 const storage = multer.memoryStorage();
@@ -31,9 +33,14 @@ router.get('/distinct/:field/bdm/:bdmId', BDMController.getBdmDistinctValues);
 
 
 router.get('/zm/region',BDMController.getEmployeeRegionsWithLeads );
- 
+
 
 router.get('/zm/regions',BDMController.getZonalManagerRegions );
 
+// BDM Statistics Routes
+router.get('/statistics', BdmStatisticsController.getBdmStatistics);
+router.get('/statistics/all', BdmStatisticsController.getAllBdmStatistics);
+router.get('/activities/detailed', BdmStatisticsController.getBdmDetailedActivities);
+router.get('/meeting-report', BdmMeetingReportController.getBdmMeetingReport);
 
 module.exports = router;
