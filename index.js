@@ -24,10 +24,10 @@
 // const TimeLine = require('./Routes/TimeLine.js')
 // const Attendance = require('./Routes/Attendence/Attendence.js');
 // const BiRoutes = require('./Routes/BiRoutes/BiRoutes.js');
- 
+
 
 // const cors = require('cors');
- 
+
 
 // app.use(bodyParser.json())
 // app.use(express.urlencoded({ extended: true }));
@@ -61,7 +61,7 @@
 // app.use('/api',Attendance);
 // app.use('/api' ,BiRoutes )
 
- 
+
 
 
 
@@ -72,7 +72,7 @@
 // })
 
 // app.use('/api', PincodeRoutes);
- 
+
 
 // app.listen(3002 , ()=>{
 //     console.log('App will run on : http://0.0.0.0:3002')
@@ -97,6 +97,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+require('./models/associations');  // Add this line before starting your server
 
 
 // Initialize express app
@@ -168,13 +169,16 @@ const AuditReport = require('./Routes/AuditLeadRoutes/AuditReportRoutes.js');
 const ParivartanDashboard = require('./Routes/ParivartanDashboard/ParivartanDashboard.js')
 const Notification = require('./Routes/Notificaation/Notification.js');
 const RegisteredPartner = require('./Routes/RegisteredPartner/RegisteredPartner.js')
+// const EstimationGeneration = require('./Routes/Estimation/EstimationGeneration.js');
+const shrimp_feed = require('./Routes/ShrimpFeed/shrimpFeedRoutes.js');
 const path = require('path');
 
 
 // Middleware
-app.use(bodyParser.json()); 
+app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
 // CORS configuration
 app.use(cors());
 app.use(function (req, res, next) {
@@ -221,6 +225,8 @@ app.use('/api',AuditReport )
 app.use('/api', ParivartanDashboard);
 app.use('/api',Notification);
 app.use('/api', RegisteredPartner);
+// app.use('/api/estimation', EstimationGeneration);
+app.use('/api', shrimp_feed); 
 
 // Root route
 app.get('/', function (req, res) {
@@ -234,12 +240,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3002; 
+const PORT = process.env.PORT || 3002;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log('WebSocket server is ready for connections');
 });
- 
+
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
