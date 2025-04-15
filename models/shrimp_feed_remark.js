@@ -105,10 +105,24 @@ ShrimpFeedRemark.init({
     ),
     allowNull: true
   },
-  gentRemarks: {
+
+  agentRemarks: {
     type: DataTypes.TEXT,
     allowNull: true
-  }
+  },
+
+  callId:{
+    type: DataTypes.STRING,
+    allowNull: true,
+
+  },
+  callType:{
+    type: DataTypes.STRING,
+    allowNull: true,
+
+  },
+
+
 }, {
   sequelize,
   modelName: 'shrimp_feed_remark',

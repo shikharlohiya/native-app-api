@@ -91,7 +91,16 @@ ShrimpFeedMaster.init({
   farmerType: {
     type: DataTypes.ENUM('Old', 'New'),
     allowNull: true
+  },
+  lastActionDate:{
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  status:{
+    type: DataTypes.STRING,
+    allowNull: true
   }
+
 }, {
   sequelize,
   modelName: 'shrimp_feed_master',

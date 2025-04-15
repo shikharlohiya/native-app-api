@@ -1,5 +1,6 @@
 const express = require('express');
-const router = express.Router();
+const 
+router = express.Router();
 const auth = require('../../middleware/check-auth');
 const ShrimpFeedController = require('../../Controller/ShrimpFeed/shrimpFeedController');
 
@@ -7,6 +8,11 @@ const ShrimpFeedController = require('../../Controller/ShrimpFeed/shrimpFeedCont
 
 // Create new shrimp feed remark
 router.post('/shrimp-feed/remark', ShrimpFeedController.createShrimpFeedRemark);
+
+
+
+//shrimp feed masters
+router.get('/shrimp-feed-masters', ShrimpFeedController.getAllShrimpFeedMasters);
 
 // Get master details with latest remarks
 router.get('/shrimp-feed/details/:mobileNumber',  ShrimpFeedController.getShrimpFeedDetails);
