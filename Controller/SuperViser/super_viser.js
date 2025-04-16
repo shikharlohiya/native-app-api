@@ -2524,6 +2524,54 @@ const buildFilterAndIncludes = (req) => {
 // };
 
 
+
+// exports.getLeads = async (req, res) => {
+//   try {
+//     // Pagination parameters
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const offset = (page - 1) * limit;
+
+//     // Get category counts
+//     const stats = await getCategoryCounts();
+
+//     // Get base filters first (without search)
+//     const { baseFilter, includeConditions } = buildBaseFilterAndIncludes(req);
+
+//     // Apply search within filtered data if filters exist
+//     const finalFilter = buildFinalFilter(req.query.search, baseFilter);
+
+//     // Sorting parameter
+//     const order = req.query.sort
+//       ? [[req.query.sort, "ASC"]]
+//       : [["createdAt", "DESC"]];
+
+//     // Get leads with pagination
+//     const { count, rows } = await Lead_Detail.findAndCountAll({
+//       where: finalFilter,
+//       limit,
+//       offset,
+//       order,
+//       include: includeConditions,
+//       distinct: true,
+//     });
+
+//     const totalPages = Math.ceil(count / limit);
+
+//     res.json({
+//       leads: rows,
+//       currentPage: page,
+//       totalPages,
+//       totalLeads: count,
+//       stats
+//     });
+//   } catch (error) {
+//     console.error("Error fetching leads:", error);
+//     res.status(500).json({ message: "An error occurred while fetching leads" });
+//   }
+// };
+
+
 exports.getLeads = async (req, res) => {
   try {
     // Pagination parameters
@@ -2531,44 +2579,153 @@ exports.getLeads = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    // Get category counts
-    const stats = await getCategoryCounts();
+    // Build where clause based on filters
+    let whereClause = {};
 
-    // Get base filters first (without search)
-    const { baseFilter, includeConditions } = buildBaseFilterAndIncludes(req);
+    // Handle search
+    if (req.query.search) {
+      whereClause[Op.or] = [
+        { InquiryType: { [Op.like]: `%${req.query.search}%` } },
+        { Project: { [Op.like]: `%${req.query.search}%` } },
+        { CustomerName: { [Op.like]: `%${req.query.search}%` } },
+        { MobileNo: { [Op.like]: `%${req.query.search}%` } },
+        { region_name: { [Op.like]: `%${req.query.search}%` } },
+        { category: { [Op.like]: `%${req.query.search}%` } },
+        { close_month: { [Op.like]: `%${req.query.search}%` } },
+        { '$Campaign.CampaignName$': { [Op.like]: `%${req.query.search}%` } },
+        { '$BDM.EmployeeName$': { [Op.like]: `%${req.query.search}%` } },
+        { '$Agent.EmployeeName$': { [Op.like]: `%${req.query.search}%` } },
+      ];
+    }
 
-    // Apply search within filtered data if filters exist
-    const finalFilter = buildFinalFilter(req.query.search, baseFilter);
+    // Handle individual filters
+    if (req.query.InquiryType) {
+      whereClause.InquiryType = { [Op.in]: req.query.InquiryType.split(',').map(v => v.trim()) };
+    }
+    if (req.query.Project) {
+      whereClause.Project = { [Op.in]: req.query.Project.split(',').map(v => v.trim()) };
+    }
+    if (req.query.region) {
+      whereClause.RegionId = { [Op.in]: req.query.region.split(',').map(v => v.trim()) };
+    }
+    if (req.query.category) {
+      whereClause.category = { [Op.in]: req.query.category.split(',').map(v => v.trim()) };
+    }
+    if (req.query.subcategory) {
+      whereClause.sub_category = { [Op.in]: req.query.subcategory.split(',').map(v => v.trim()) };
+    }
 
-    // Sorting parameter
-    const order = req.query.sort
-      ? [[req.query.sort, "ASC"]]
-      : [["createdAt", "DESC"]];
+    // Handle date filters
+    if (req.query.updatedDate) {
+      const startDate = new Date(req.query.updatedDate);
+      const endDate = new Date(req.query.updatedDate);
+      endDate.setDate(endDate.getDate() + 1);
+      whereClause.updatedAt = {
+        [Op.gte]: startDate,
+        [Op.lt]: endDate
+      };
+    }
+
+    if (req.query.followUpDate) {
+      const startDate = new Date(req.query.followUpDate);
+      const endDate = new Date(req.query.followUpDate);
+      endDate.setDate(endDate.getDate() + 1);
+      whereClause.follow_up_date = {
+        [Op.gte]: startDate,
+        [Op.lt]: endDate
+      };
+    }
+
+    // Build include conditions
+    const includeConditions = [
+      { model: Campaign, as: "Campaign" },
+      { model: Employee, as: "BDM" },
+      { model: Employee, as: "Agent" }
+    ];
+
+    // Handle Campaign filter
+    if (req.query.campaignName) {
+      includeConditions.find(inc => inc.as === "Campaign").where = {
+        CampaignName: { [Op.in]: req.query.campaignName.split(',').map(v => v.trim()) }
+      };
+    }
+
+    // Handle BDM filter
+    if (req.query.BdmID) {
+      whereClause.BDMId = { [Op.in]: req.query.BdmID.split(',').map(v => v.trim()) };
+    }
+
+    // Handle Agent filter
+    if (req.query.agentName) {
+      whereClause.AgentId = { [Op.in]: req.query.agentName.split(',').map(v => v.trim()) };
+    }
+
+    // Get category counts based on current filters
+    const categories = ['hot', 'warm', 'cold', 'pending', 'closed'];
+    const categoryStats = await Promise.all(
+      categories.map(category =>
+        Lead_Detail.count({
+          where: {
+            ...whereClause,
+            category
+          },
+          include: includeConditions
+        })
+      )
+    );
+
+    const stats = categories.reduce((acc, category, index) => {
+      acc[category] = categoryStats[index];
+      return acc;
+    }, {});
+
+    // Add total to stats
+    stats.total = categoryStats.reduce((a, b) => a + b, 0);
 
     // Get leads with pagination
     const { count, rows } = await Lead_Detail.findAndCountAll({
-      where: finalFilter,
+      where: whereClause,
+      include: includeConditions,
+      order: req.query.sort ? [[req.query.sort, "ASC"]] : [["createdAt", "DESC"]],
       limit,
       offset,
-      order,
-      include: includeConditions,
-      distinct: true,
+      distinct: true
     });
 
     const totalPages = Math.ceil(count / limit);
 
     res.json({
+      success: true,
       leads: rows,
       currentPage: page,
       totalPages,
       totalLeads: count,
-      stats
+      filteredCount: count,
+      pageSize: limit,
+      stats,
+      appliedFilters: {
+        whereClause,
+        includeConditions: includeConditions.map(inc => ({
+          model: inc.model.name,
+          as: inc.as,
+          where: inc.where
+        }))
+      }
     });
+
   } catch (error) {
     console.error("Error fetching leads:", error);
-    res.status(500).json({ message: "An error occurred while fetching leads" });
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching leads",
+      error: error.message
+    });
   }
 };
+
+
+
+
 
 
 const buildBaseFilterAndIncludes = (req) => {

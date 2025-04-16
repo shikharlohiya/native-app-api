@@ -48,11 +48,51 @@ const RegisteredPartner = require('./RegisteredPartner.js');
 const TravelRegistration = require('./TravelRegistration.js');
 const GroupMeeting = require('./GroupMeeting.js');
 
+const { ShrimpFeedMaster, ShrimpFeedRemark } = require('./associations');
+
   
  
 
 
- const sequelize = require('./index.js');
+//  const sequelize = require('./index.js');
+
+
+
+// ShrimpFeedRemark.sync({alter: true});
+
+ 
+
+
+
+
+// async function syncTables() {
+//   try {
+//     // First drop and recreate the child table (remarks)
+//     await ShrimpFeedRemark.drop({ force: true });
+    
+//     // Then drop and recreate the parent table (master)
+//     await ShrimpFeedMaster.drop({ force: true });
+    
+//     // Now recreate the tables in correct order
+//     await ShrimpFeedMaster.sync({ force: true });
+//     await ShrimpFeedRemark.sync({ force: true });
+    
+//     console.log('Shrimp Feed tables created successfully');
+//   } catch (error) {
+//     console.error('Error creating Shrimp Feed tables:', error);
+//   }
+// }
+
+
+
+
+// syncTables();
+
+
+
+
+
+
 
 //  GroupMeeting.sync({force: true});
 

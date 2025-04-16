@@ -30,90 +30,7 @@ exports.upload = multer({
         }
     }
 }).single('file');
-
-
-
-// exports.createShrimpFeedRemark = async (req, res) => {
-//     try {
-//         const {
-//             type,
-//             prospectFarmerCategory,
-//             name,
-//             mobileNumber,
-//             pondLocation,
-//             district,
-//             postalCode,
-//             state,
-//             fishSpecies,
-//             numberOfPonds,
-//             pondAreaInAcres,
-//             currentFeedUsed,
-//             isStocking,
-//             stockingDensity,
-//             daysOfCulture,
-//             isHarvesting,
-//             harvestingQuantity,
-//             potentialityInMT,
-//             status,
-//             followUpDate,
-//             purpose,
-//             remarks
-//         } = req.body;
-
-//         // Check if the mobile number exists in master table
-//         const masterRecord = await ShrimpFeedMaster.findOne({
-//             where: { mobileNo: mobileNumber }
-//         });
-
-//         if (!masterRecord) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "Mobile number not found in master records"
-//             });
-//         }
-
-//         const shrimpFeedRemark = await ShrimpFeedRemark.create({
-//             type,
-//             prospectFarmerCategory,
-//             name,
-//             mobileNumber,
-//             pondLocation,
-//             district,
-//             postalCode,
-//             state,
-//             fishSpecies,
-//             numberOfPonds,
-//             pondAreaInAcres,
-//             currentFeedUsed,
-//             isStocking,
-//             stockingDensity,
-//             daysOfCulture,
-//             isHarvesting,
-//             harvestingQuantity,
-//             potentialityInMT,
-//             status,
-//             followUpDate,
-//             purpose,
-//             remarks
-//         });
-
-//         res.status(201).json({
-//             success: true,
-//             message: "Shrimp feed remark created successfully",
-//             data: shrimpFeedRemark
-//         });
-
-//     } catch (error) {
-//         console.error("Error creating shrimp feed remark:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Error creating shrimp feed remark",
-//             error: error.message
-//         });
-//     }
-// };
-
-
+ 
 
 
 
@@ -611,11 +528,77 @@ exports.validateExcelFile = async (req, res) => {
  * @route GET /api/shrimp-feed-masters
  * @access Public
  */
+
+
+
+// exports.getAllShrimpFeedMasters = async (req, res) => {
+//     try {
+//         // Extract query parameters with defaults
+//         const { 
+//             page = 1, 
+//             limit = 10,
+//             sortBy = 'createdAt',
+//             order = 'DESC',
+//             mobileNo,
+//             dealerCode,
+//             employeeCode,
+//             region,
+//             state,
+//             district,
+//             farmerType,
+//             status
+//         } = req.query;
+
+//         // Calculate offset for pagination
+//         const offset = (parseInt(page) - 1) * parseInt(limit);
+        
+//         // Build where clause based on provided filters
+//         const whereClause = {};
+        
+//         if (mobileNo) whereClause.mobileNo = mobileNo;
+//         if (dealerCode) whereClause.dealerCode = dealerCode;
+//         if (employeeCode) whereClause.employeeCode = employeeCode;
+//         if (region) whereClause.region = region;
+//         if (state) whereClause.state = state;
+//         if (district) whereClause.district = district;
+//         if (farmerType) whereClause.farmerType = farmerType;
+//         if (status) whereClause.status = status;
+
+//         // Fetch data with pagination and filtering
+//         const shrimpFeedMasters = await ShrimpFeedMaster.findAndCountAll({
+//             where: whereClause,
+//             order: [[sortBy, order]],
+//             limit: parseInt(limit),
+//             offset: parseInt(offset)
+//         });
+
+//         // Send response
+//         res.status(200).json({
+//             success: true,
+//             data: {
+//                 records: shrimpFeedMasters.rows,
+//                 totalCount: shrimpFeedMasters.count,
+//                 currentPage: parseInt(page),
+//                 totalPages: Math.ceil(shrimpFeedMasters.count / parseInt(limit))
+//             }
+//         });
+//     } catch (error) {
+//         console.error("Error fetching shrimp feed masters:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Error fetching shrimp feed masters",
+//             error: error.message
+//         });
+//     }
+// };
+
+
+
 exports.getAllShrimpFeedMasters = async (req, res) => {
     try {
         // Extract query parameters with defaults
-        const { 
-            page = 1, 
+        const {
+            page = 1,
             limit = 10,
             sortBy = 'createdAt',
             order = 'DESC',
@@ -635,7 +618,16 @@ exports.getAllShrimpFeedMasters = async (req, res) => {
         // Build where clause based on provided filters
         const whereClause = {};
         
-        if (mobileNo) whereClause.mobileNo = mobileNo;
+        // Using Sequelize's Op operators for more flexible searching
+        const { Op } = require('sequelize');
+        
+        // Handle exact match for mobile number or partial match
+        if (mobileNo) {
+            whereClause.mobileNo = {
+                [Op.like]: `%${mobileNo}%` // This allows partial matches
+            };
+        }
+        
         if (dealerCode) whereClause.dealerCode = dealerCode;
         if (employeeCode) whereClause.employeeCode = employeeCode;
         if (region) whereClause.region = region;
