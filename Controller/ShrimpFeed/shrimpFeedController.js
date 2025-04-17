@@ -35,6 +35,199 @@ exports.upload = multer({
 
 
 
+// exports.createShrimpFeedRemark = async (req, res) => {
+//     try {
+//         const {
+//             type,
+//             prospectFarmerCategory,
+//             name,
+//             mobileNumber,
+//             pondLocation,
+//             district,
+//             postalCode,
+//             state,
+//             fishSpecies,
+//             numberOfPonds,
+//             pondAreaInAcres,
+//             currentFeedUsed,
+//             isStocking,
+//             stockingDensity,
+//             daysOfCulture,
+//             isHarvesting,
+//             harvestingQuantity,
+//             potentialityInMT,
+//             status,
+//             followUpDate,
+//             purpose,
+//             remarks
+//         } = req.body;
+        
+//         // Check if the mobile number exists in master table
+//         // const masterRecord = await ShrimpFeedMaster.findOne({
+//         //     where: { mobileNo: mobileNumber }
+//         // });
+        
+//         // if (!masterRecord) {
+//         //     return res.status(404).json({
+//         //         success: false,
+//         //         message: "Mobile number not found in master records"
+//         //     });
+//         // }
+
+        
+//         // Create the remark record
+//         const shrimpFeedRemark = await ShrimpFeedRemark.create({
+//             type,
+//             prospectFarmerCategory,
+//             name,
+//             mobileNumber,
+//             pondLocation,
+//             district,
+//             postalCode,
+//             state,
+//             fishSpecies,
+//             numberOfPonds,
+//             pondAreaInAcres,
+//             currentFeedUsed,
+//             isStocking,
+//             stockingDensity,
+//             daysOfCulture,
+//             isHarvesting,
+//             harvestingQuantity,
+//             potentialityInMT, //
+//             status,
+//             followUpDate,
+//             purpose,
+//             agentRemarks: remarks,
+//             callId: req.body.callId,
+//             callType: req.body.callType
+//         });
+        
+//         // Update the master record with the current date and status
+//         await masterRecord.update({
+//             lastActionDate: new Date().toISOString(),
+//             status: status || masterRecord.status // Use the new status if provided, otherwise keep existing
+//         });
+        
+//         res.status(201).json({
+//             success: true,
+//             message: "Shrimp feed remark created successfully",
+//             data: shrimpFeedRemark
+//         });
+        
+//     } catch (error) {
+//         console.error("Error creating shrimp feed remark:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Error creating shrimp feed remark",
+//             error: error.message
+//         });
+//     }
+// };
+
+
+
+
+
+// exports.createShrimpFeedRemark = async (req, res) => {
+//     try {
+//         const {
+//             type,
+//             prospectFarmerCategory,
+//             name,
+//             mobileNumber,
+//             pondLocation,
+//             district,
+//             postalCode,
+//             state,
+//             fishSpecies,
+//             numberOfPonds,
+//             pondAreaInAcres,
+//             currentFeedUsed,
+//             isStocking,
+//             stockingDensity,
+//             daysOfCulture,
+//             isHarvesting,
+//             harvestingQuantity,
+//             potentialityInMT,
+//             status,
+//             followUpDate,
+//             purpose,
+//             remarks
+//         } = req.body;
+        
+//         // Check if the mobile number exists in master table
+//         let masterRecord = await ShrimpFeedMaster.findOne({
+//             where: { mobileNo: mobileNumber }
+//         });
+        
+//         // If master record doesn't exist, create one
+//         if (!masterRecord) {
+//             masterRecord = await ShrimpFeedMaster.create({
+//                 mobileNo: mobileNumber,
+//                 farmerType: 'New', // Default value
+//                 district: district || null,
+//                 postalCode: postalCode || null,
+//                 state: state || null,
+//                 farmerVillage: pondLocation || null,
+//                 lastActionDate: new Date().toISOString(),
+//                 status: status || 'Open',
+//                 // You can add other fields from req.body if needed
+//             });
+//         }
+        
+//         // Create the remark record
+//         const shrimpFeedRemark = await ShrimpFeedRemark.create({
+//             type,
+//             prospectFarmerCategory,
+//             name,
+//             mobileNumber,
+//             pondLocation,
+//             district,
+//             postalCode,
+//             state,
+//             fishSpecies,
+//             numberOfPonds,
+//             pondAreaInAcres,
+//             currentFeedUsed,
+//             isStocking,
+//             stockingDensity,
+//             daysOfCulture,
+//             isHarvesting,
+//             harvestingQuantity,
+//             potentialityInMT,
+//             status,
+//             followUpDate,
+//             purpose,
+//             agentRemarks: remarks,
+//             callId: req.body.callId,
+//             callType: req.body.callType
+//         });
+        
+//         // Update the master record with the current date and status
+//         await masterRecord.update({
+//             lastActionDate: new Date().toISOString(),
+//             status: status || masterRecord.status // Use the new status if provided, otherwise keep existing
+//         });
+        
+//         res.status(201).json({
+//             success: true,
+//             message: "Shrimp feed remark created successfully",
+//             data: shrimpFeedRemark
+//         });
+        
+//     } catch (error) {
+//         console.error("Error creating shrimp feed remark:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Error creating shrimp feed remark",
+//             error: error.message
+//         });
+//     }
+// };
+
+
+
 exports.createShrimpFeedRemark = async (req, res) => {
     try {
         const {
@@ -63,14 +256,22 @@ exports.createShrimpFeedRemark = async (req, res) => {
         } = req.body;
         
         // Check if the mobile number exists in master table
-        const masterRecord = await ShrimpFeedMaster.findOne({
+        let masterRecord = await ShrimpFeedMaster.findOne({
             where: { mobileNo: mobileNumber }
         });
         
+        // If master record doesn't exist, create one
         if (!masterRecord) {
-            return res.status(404).json({
-                success: false,
-                message: "Mobile number not found in master records"
+            masterRecord = await ShrimpFeedMaster.create({
+                mobileNo: mobileNumber,
+                farmerType: 'New', // Default value
+                district: district || null,
+                postalCode: postalCode || null,
+                state: state || null,
+                farmerVillage: pondLocation || null,
+                lastActionDate: new Date().toISOString(),
+                status: status || 'Open',
+                // You can add other fields from req.body if needed
             });
         }
         
@@ -93,7 +294,7 @@ exports.createShrimpFeedRemark = async (req, res) => {
             daysOfCulture,
             isHarvesting,
             harvestingQuantity,
-            potentialityInMT, //
+            potentialityInMT,
             status,
             followUpDate,
             purpose,
@@ -123,7 +324,6 @@ exports.createShrimpFeedRemark = async (req, res) => {
         });
     }
 };
-
  
 
 
