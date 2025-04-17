@@ -2385,6 +2385,483 @@ exports.getEmployeeLeads = async (req, res) => {
 
 
 
+// exports.getBdmDistinctValues = async (req, res) => {
+//   const field = req.params.field;
+//   const bdmId = req.params.bdmId;
+
+//   try {
+//     let values;
+//     let isZonalManager = false;
+//     let managedRegionIds = [];
+
+//     // Check if the user is a zonal manager
+//     const zonalManagerRegions = await Parivartan_BDM.findAll({
+//       where: {
+//         EmployeeId: bdmId,
+//         is_zonal_manager: 'Yes',
+//         Deleted: 'N'
+//       },
+//       include: [
+//         {
+//           model: Parivartan_Region,
+//           attributes: ['RegionId', 'RegionName']
+//         }
+//       ],
+//       attributes: ['RegionId', 'Project']
+//     });
+
+//     // If user is a zonal manager, collect all regions they manage
+//     if (zonalManagerRegions && zonalManagerRegions.length > 0) {
+//       isZonalManager = true;
+//       managedRegionIds = zonalManagerRegions.map(region => region.RegionId);
+//     }
+
+//     // Base where clause for BDM's leads
+//     const baseWhereClause = {
+//       BDMId: bdmId
+//     };
+
+//     switch (field) {
+//       case 'InquiryType':
+//       case 'Project':
+//       case 'category':
+//       case 'sub_category':
+//         values = await Lead_Detail.findAll({
+//           attributes: [[Sequelize.fn('DISTINCT', Sequelize.col(field)), field]],
+//           where: {
+//             ...baseWhereClause,
+//             [field]: {
+//               [Op.ne]: null,
+//               [Op.ne]: ''
+//             }
+//           },
+//           order: [[field, 'ASC']]
+//         });
+//         break;
+
+//       case 'region_name':
+//         if (isZonalManager) {
+//           // For zonal managers, get all regions they manage
+//           const regionValues = await Parivartan_Region.findAll({
+//             attributes: ['RegionId', 'RegionName'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               }
+//             },
+//             order: [['RegionName', 'ASC']]
+//           });
+
+//           // Transform to match the expected format
+//           values = regionValues.map(region => ({
+//             region_name: region.RegionName
+//           }));
+//         } else {
+//           // Regular BDM - only show regions where they have leads
+//           values = await Lead_Detail.findAll({
+//             attributes: [[Sequelize.fn('DISTINCT', Sequelize.col(field)), field]],
+//             where: {
+//               ...baseWhereClause,
+//               [field]: {
+//                 [Op.ne]: null,
+//                 [Op.ne]: ''
+//               }
+//             },
+//             order: [[field, 'ASC']]
+//           });
+//         }
+//         break;
+
+//       case 'campaignName':
+//         // Get campaigns that BDM has worked with
+//         let campaignQuery = {
+//           attributes: ['CampaignId', 'CampaignName'],
+//           order: [['CampaignName', 'ASC']]
+//         };
+
+//         if (isZonalManager) {
+//           // For zonal managers, get all campaigns in their managed regions
+//           const bdmsInManagedRegions = await Parivartan_BDM.findAll({
+//             attributes: ['EmployeeId'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               },
+//               Deleted: 'N'
+//             }
+//           });
+
+//           const bdmIds = bdmsInManagedRegions.map(bdm => bdm.EmployeeId);
+
+//           // Add the zonal manager's ID
+//           bdmIds.push(bdmId);
+
+//           campaignQuery.where = {
+//             CampaignId: {
+//               [Op.in]: Sequelize.literal(`(
+//                 SELECT DISTINCT source_of_lead_generated
+//                 FROM lead_detail
+//                 WHERE BDMId IN (${bdmIds.join(',')})
+//               )`)
+//             }
+//           };
+//         } else {
+//           // Regular BDM - only show campaigns where they have leads
+//           campaignQuery.where = {
+//             CampaignId: {
+//               [Op.in]: Sequelize.literal(`(
+//                 SELECT DISTINCT source_of_lead_generated
+//                 FROM lead_detail
+//                 WHERE BDMId = '${bdmId}'
+//               )`)
+//             }
+//           };
+//         }
+
+//         values = await Campaign.findAll(campaignQuery);
+//         break;
+
+//       case 'bdmName':
+//         // Return only this BDM's details
+//         values = await Employee.findAll({
+//           attributes: ['EmployeeId', 'EmployeeName'],
+//           where: {
+//             EmployeeId: bdmId,
+//             '$role.RoleId$': 2 // 2 is the RoleId for BDM
+//           },
+//           include: [{
+//             model: Employee_Role,
+//             as: 'role',
+//             attributes: []
+//           }],
+//           order: [['EmployeeName', 'ASC']]
+//         });
+//         break;
+
+//       case 'agentName':
+//         let agentQuery = {
+//           attributes: ['EmployeeId', 'EmployeeName'],
+//           where: {
+//             '$role.RoleId$': 1, // 1 is the RoleId for Agent
+//           },
+//           include: [{
+//             model: Employee_Role,
+//             as: 'role',
+//             attributes: []
+//           }],
+//           order: [['EmployeeName', 'ASC']]
+//         };
+
+//         if (isZonalManager) {
+//           // For zonal managers, get all agents in their managed regions
+//           const bdmsInManagedRegions = await Parivartan_BDM.findAll({
+//             attributes: ['EmployeeId'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               },
+//               Deleted: 'N'
+//             }
+//           });
+
+//           const bdmIds = bdmsInManagedRegions.map(bdm => bdm.EmployeeId);
+
+//           // Add the zonal manager's ID
+//           bdmIds.push(bdmId);
+
+//           agentQuery.where.EmployeeId = {
+//             [Op.in]: Sequelize.literal(`(
+//               SELECT DISTINCT AgentId
+//               FROM lead_detail
+//               WHERE BDMId IN (${bdmIds.join(',')})
+//               AND AgentId IS NOT NULL
+//             )`)
+//           };
+//         } else {
+//           // Regular BDM - only show agents where they have leads
+//           agentQuery.where.EmployeeId = {
+//             [Op.in]: Sequelize.literal(`(
+//               SELECT DISTINCT AgentId
+//               FROM lead_detail
+//               WHERE BDMId = '${bdmId}'
+//               AND AgentId IS NOT NULL
+//             )`)
+//           };
+//         }
+
+//         values = await Employee.findAll(agentQuery);
+//         break;
+
+//       default:
+//         return res.status(400).json({
+//           message: `Invalid field specified: ${field}. Valid fields are: InquiryType, Project, region_name, category, sub_category, campaignName, bdmName, agentName`
+//         });
+//     }
+
+//     // Format the response based on the field type
+//     let formattedValues;
+//     switch (field) {
+//       case 'campaignName':
+//         formattedValues = values.map(campaign => ({
+//           value: campaign.CampaignId,
+//           CampaignName: campaign.CampaignName
+//         }));
+//         break;
+
+//       case 'bdmName':
+//         formattedValues = values
+//           .map(employee => ({
+//             value: employee.EmployeeId,
+//             EmployeeName: employee.EmployeeName,
+//             EmployeeId: employee.EmployeeId
+//           }))
+//           .filter(item => item.value && item.EmployeeName);
+//         break;
+
+//       case 'agentName':
+//         formattedValues = values
+//           .map(employee => ({
+//             value: employee.EmployeeId,
+//             AgentName: employee.EmployeeName,
+//             EmployeeId: employee.EmployeeId
+//           }))
+//           .filter(item => item.value && item.AgentName);
+//         break;
+
+//       case 'InquiryType':
+//         if (isZonalManager) {
+//           // For zonal managers, get all InquiryTypes from their managed regions
+//           const bdmsInManagedRegions = await Parivartan_BDM.findAll({
+//             attributes: ['EmployeeId'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               },
+//               Deleted: 'N'
+//             }
+//           });
+
+//           const bdmIds = bdmsInManagedRegions.map(bdm => bdm.EmployeeId);
+
+//           // Add the zonal manager's ID
+//           bdmIds.push(bdmId);
+
+//           const additionalValues = await Lead_Detail.findAll({
+//             attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('InquiryType')), 'InquiryType']],
+//             where: {
+//               BDMId: {
+//                 [Op.in]: bdmIds
+//               },
+//               InquiryType: {
+//                 [Op.ne]: null,
+//                 [Op.ne]: ''
+//               }
+//             }
+//           });
+
+//           // Merge with existing values
+//           const uniqueValues = new Set([...values, ...additionalValues].map(item => item.InquiryType));
+//           formattedValues = Array.from(uniqueValues)
+//             .filter(Boolean)
+//             .map(item => ({
+//               value: item,
+//               InquiryType: item
+//             }));
+//         } else {
+//           formattedValues = values
+//             .map(item => ({
+//               value: item[field],
+//               InquiryType: item[field]
+//             }))
+//             .filter(item => item.value && item.InquiryType);
+//         }
+//         break;
+
+//       case 'Project':
+//         if (isZonalManager) {
+//           // For zonal managers, include projects from their managed regions
+//           const projects = zonalManagerRegions.map(region => region.Project).filter(Boolean);
+
+//           // Get additional projects from leads in managed regions
+//           const bdmsInManagedRegions = await Parivartan_BDM.findAll({
+//             attributes: ['EmployeeId'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               },
+//               Deleted: 'N'
+//             }
+//           });
+
+//           const bdmIds = bdmsInManagedRegions.map(bdm => bdm.EmployeeId);
+
+//           const additionalProjects = await Lead_Detail.findAll({
+//             attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('Project')), 'Project']],
+//             where: {
+//               BDMId: {
+//                 [Op.in]: bdmIds
+//               },
+//               Project: {
+//                 [Op.ne]: null,
+//                 [Op.ne]: ''
+//               }
+//             }
+//           });
+
+//           // Combine projects
+//           const allProjects = [...projects, ...additionalProjects.map(item => item.Project)];
+//           const uniqueProjects = [...new Set(allProjects)].filter(Boolean);
+
+//           formattedValues = uniqueProjects.map(project => ({
+//             value: project,
+//             Project: project
+//           }));
+//         } else {
+//           formattedValues = values
+//             .map(item => ({
+//               value: item[field],
+//               Project: item[field]
+//             }))
+//             .filter(item => item.value && item.Project);
+//         }
+//         break;
+
+//       case 'region_name':
+//         if (isZonalManager) {
+//           formattedValues = values
+//             .map(item => ({
+//               value: item.region_name,
+//               region_name: item.region_name,
+//               RegionId: item.RegionId  // Include RegionId with correct capitalization
+//             }))
+//             .filter(item => item.value && item.region_name);
+//             console.log(formattedValues);
+            
+//         } else {
+//           formattedValues = values
+//             .map(item => ({
+//               value: item[field],
+//               region_name: item[field]
+//             }))
+//             .filter(item => item.value && item.region_name);
+//         }
+//         break;
+
+//       case 'category':
+//         if (isZonalManager) {
+//           // For zonal managers, get all categories from their managed regions
+//           const bdmsInManagedRegions = await Parivartan_BDM.findAll({
+//             attributes: ['EmployeeId'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               },
+//               Deleted: 'N'
+//             }
+//           });
+
+//           const bdmIds = bdmsInManagedRegions.map(bdm => bdm.EmployeeId);
+
+//           // Add the zonal manager's ID
+//           bdmIds.push(bdmId);
+
+//           const additionalValues = await Lead_Detail.findAll({
+//             attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('category')), 'category']],
+//             where: {
+//               BDMId: {
+//                 [Op.in]: bdmIds
+//               },
+//               category: {
+//                 [Op.ne]: null,
+//                 [Op.ne]: ''
+//               }
+//             }
+//           });
+
+//           // Merge with existing values
+//           const uniqueValues = new Set([...values, ...additionalValues].map(item =>
+//             item.category || item[field]
+//           ));
+
+//           formattedValues = Array.from(uniqueValues)
+//             .filter(Boolean)
+//             .map(item => ({
+//               value: item,
+//               category: item
+//             }));
+//         } else {
+//           formattedValues = values
+//             .map(item => ({
+//               value: item[field],
+//               category: item[field]
+//             }))
+//             .filter(item => item.value && item.category);
+//         }
+//         break;
+
+//       case 'sub_category':
+//         if (isZonalManager) {
+//           // For zonal managers, get all sub_categories from their managed regions
+//           const bdmsInManagedRegions = await Parivartan_BDM.findAll({
+//             attributes: ['EmployeeId'],
+//             where: {
+//               RegionId: {
+//                 [Op.in]: managedRegionIds
+//               },
+//               Deleted: 'N'
+//             }
+//           });
+
+//           const bdmIds = bdmsInManagedRegions.map(bdm => bdm.EmployeeId);
+
+//           // Add the zonal manager's ID
+//           bdmIds.push(bdmId);
+
+//           const additionalValues = await Lead_Detail.findAll({
+//             attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('sub_category')), 'sub_category']],
+//             where: {
+//               BDMId: {
+//                 [Op.in]: bdmIds
+//               },
+//               sub_category: {
+//                 [Op.ne]: null,
+//                 [Op.ne]: ''
+//               }
+//             }
+//           });
+
+//           // Merge with existing values
+//           const uniqueValues = new Set([...values, ...additionalValues].map(item =>
+//             item.sub_category || item[field]
+//           ));
+
+//           formattedValues = Array.from(uniqueValues)
+//             .filter(Boolean)
+//             .map(item => ({
+//               value: item,
+//               sub_category: item
+//             }));
+//         } else {
+//           formattedValues = values
+//             .map(item => ({
+//               value: item[field],
+//               sub_category: item[field]
+//             }))
+//             .filter(item => item.value && item.sub_category);
+//         }
+//         break;
+//     }
+
+//     res.json(formattedValues);
+//   } catch (error) {
+//     console.error(`Error fetching distinct values for field '${field}' and BDM '${bdmId}':`, error);
+//     res.status(500).json({
+//       message: `An error occurred while fetching ${field} values for BDM ${bdmId}`,
+//       error: error.message
+//     });
+//   }
+// };
+
 exports.getBdmDistinctValues = async (req, res) => {
   const field = req.params.field;
   const bdmId = req.params.bdmId;
@@ -2454,11 +2931,12 @@ exports.getBdmDistinctValues = async (req, res) => {
 
           // Transform to match the expected format
           values = regionValues.map(region => ({
-            region_name: region.RegionName
+            region_name: region.RegionName,
+            RegionId: region.RegionId  // Store RegionId properly
           }));
         } else {
-          // Regular BDM - only show regions where they have leads
-          values = await Lead_Detail.findAll({
+          // Regular BDM - get regions where they have leads, then lookup the RegionIds
+          const leadRegions = await Lead_Detail.findAll({
             attributes: [[Sequelize.fn('DISTINCT', Sequelize.col(field)), field]],
             where: {
               ...baseWhereClause,
@@ -2469,6 +2947,26 @@ exports.getBdmDistinctValues = async (req, res) => {
             },
             order: [[field, 'ASC']]
           });
+          
+          // Extract region names from leads
+          const regionNames = leadRegions.map(item => item[field]).filter(Boolean);
+          
+          // Get the RegionIds for these region names
+          const regionDetails = await Parivartan_Region.findAll({
+            attributes: ['RegionId', 'RegionName'],
+            where: {
+              RegionName: {
+                [Op.in]: regionNames
+              },
+              Deleted: 'N'
+            }
+          });
+          
+          // Use the regionDetails instead
+          values = regionDetails.map(region => ({
+            region_name: region.RegionName,
+            RegionId: region.RegionId
+          }));
         }
         break;
 
@@ -2628,6 +3126,16 @@ exports.getBdmDistinctValues = async (req, res) => {
           .filter(item => item.value && item.AgentName);
         break;
 
+      case 'region_name':
+        formattedValues = values
+          .map(item => ({
+            value: item.region_name,
+            region_name: item.region_name,
+            RegionId: item.RegionId  // Include RegionId with correct capitalization
+          }))
+          .filter(item => item.value && item.region_name);
+        break;
+
       case 'InquiryType':
         if (isZonalManager) {
           // For zonal managers, get all InquiryTypes from their managed regions
@@ -2723,25 +3231,6 @@ exports.getBdmDistinctValues = async (req, res) => {
               Project: item[field]
             }))
             .filter(item => item.value && item.Project);
-        }
-        break;
-
-      case 'region_name':
-        if (isZonalManager) {
-          formattedValues = values
-            .map(item => ({
-              value: item.region_name,
-              region_name: item.region_name,
-              regionId: item.regionId
-            }))
-            .filter(item => item.value && item.region_name);
-        } else {
-          formattedValues = values
-            .map(item => ({
-              value: item[field],
-              region_name: item[field]
-            }))
-            .filter(item => item.value && item.region_name);
         }
         break;
 
