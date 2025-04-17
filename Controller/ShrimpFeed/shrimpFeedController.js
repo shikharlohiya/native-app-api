@@ -266,6 +266,7 @@ exports.createShrimpFeedRemark = async (req, res) => {
                 mobileNo: mobileNumber,
                 farmerType: 'New', // Default value
                 district: district || null,
+                dealerName: name || null,
                 postalCode: postalCode || null,
                 state: state || null,
                 farmerVillage: pondLocation || null,
