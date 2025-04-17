@@ -2731,7 +2731,8 @@ exports.getBdmDistinctValues = async (req, res) => {
           formattedValues = values
             .map(item => ({
               value: item.region_name,
-              region_name: item.region_name
+              region_name: item.region_name,
+              regionId: item.regionId
             }))
             .filter(item => item.value && item.region_name);
         } else {
