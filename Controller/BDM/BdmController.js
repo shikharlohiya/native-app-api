@@ -1028,260 +1028,262 @@ exports.updateEstimationDownloadStatus = async (req, res) => {
 
 
 
-// exports.getEmployeeLeads = async (req, res) => {
-//   try {
-//     const {
-//       sortBy = 'createdAt',
-//       sortOrder = 'DESC',
-//       search,
-//       InquiryType,
-//       Project,
-//       region,
-//       category,
-//       subcategory,
-//       campaignName,
-//       BdmID,
-//       agentName,
-//       location,
-//       call_status,
-//       call_type,
-//       fromDate,
-//       toDate
-//     } = req.query;
+exports.getEmployeeLeads = async (req, res) => {
+  try {
+    const {
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      search,
+      InquiryType,
+      Project,
+      region,
+      category,
+      subcategory,
+      campaignName,
+      BdmID,
+      agentName,
+      location,
+      call_status,
+      call_type,
+      fromDate,
+      toDate
+    } = req.query;
 
-//     const page = parseInt(req.query.page) || 1;
-//     const pageSize = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.limit) || 10;
 
-//     const { employeeId } = req.params;
+    const { employeeId } = req.params;
 
-//     // Get employee assignments
-//     const employeeAssignments = await ParivatanBDM.findAll({
-//       where: {
-//         EmployeeId: employeeId,
-//         Deleted: 'N',
-//         [Op.or]: [
-//           { is_active: 'Active' },
-//           {
-//             [Op.and]: [
-//               { is_zonal_manager: 'Yes' },
-//               { is_active: ['Active', 'Inactive'] }
-//             ]
-//           }
-//         ]
-//       }
-//     });
+    // Get employee assignments
+    const employeeAssignments = await ParivatanBDM.findAll({
+      where: {
+        EmployeeId: employeeId,
+        Deleted: 'N',
+        [Op.or]: [
+          { is_active: 'Active' },
+          {
+            [Op.and]: [
+              { is_zonal_manager: 'Yes' },
+              { is_active: ['Active', 'Inactive'] }
+            ]
+          }
+        ]
+      }
+    });
 
-//     if (!employeeAssignments || employeeAssignments.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'No assignments found for this employee'
-//       });
-//     }
+    if (!employeeAssignments || employeeAssignments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No assignments found for this employee'
+      });
+    }
 
-//     const regionIds = employeeAssignments.map(ea => ea.RegionId);
+    const regionIds = employeeAssignments.map(ea => ea.RegionId);
 
-//     // Build the base where clause for region and project
-//     const baseWhereClause = {
-//       RegionId: {
-//         [Op.in]: regionIds
-//       },
-//       Project: {
-//         [Op.in]: employeeAssignments.map(ea => ea.Project).filter(p => p)
-//       }
-//     };
+    // Build the base where clause for region and project
+    const baseWhereClause = {
+      RegionId: {
+        [Op.in]: regionIds
+      },
+      Project: {
+        [Op.in]: employeeAssignments.map(ea => ea.Project).filter(p => p)
+      }
+    };
 
-//     // Get category counts using Promise.all (unaffected by filters)
-//     const categoryCounts = await Promise.all([
-//       LeadDetail.count({
-//         where: {
-//           ...baseWhereClause,
-//           category: 'hot'
-//         }
-//       }),
-//       LeadDetail.count({
-//         where: {
-//           ...baseWhereClause,
-//           category: 'warm'
-//         }
-//       }),
-//       LeadDetail.count({
-//         where: {
-//           ...baseWhereClause,
-//           category: 'cold'
-//         }
-//       }),
-//       LeadDetail.count({
-//         where: {
-//           ...baseWhereClause,
-//           category: 'pending'
-//         }
-//       }),
-//       LeadDetail.count({
-//         where: {
-//           ...baseWhereClause,
-//           category: 'closed'
-//         }
-//       })
-//     ]);
+    // Get category counts using Promise.all (unaffected by filters)
+    const categoryCounts = await Promise.all([
+      LeadDetail.count({
+        where: {
+          ...baseWhereClause,
+          category: 'hot'
+        }
+      }),
+      LeadDetail.count({
+        where: {
+          ...baseWhereClause,
+          category: 'warm'
+        }
+      }),
+      LeadDetail.count({
+        where: {
+          ...baseWhereClause,
+          category: 'cold'
+        }
+      }),
+      LeadDetail.count({
+        where: {
+          ...baseWhereClause,
+          category: 'pending'
+        }
+      }),
+      LeadDetail.count({
+        where: {
+          ...baseWhereClause,
+          category: 'closed'
+        }
+      })
+    ]);
 
-//     // Build the where clause for filtered results
-//     let whereClause = { ...baseWhereClause };
+    // Build the where clause for filtered results
+    let whereClause = { ...baseWhereClause };
 
-//     // Add common search
-//     if (search) {
-//       whereClause[Op.or] = [
-//         { CustomerName: { [Op.like]: `%${search}%` } },
-//         { MobileNo: { [Op.like]: `%${search}%` } },
-//         { WhatsappNo: { [Op.like]: `%${search}%` } },
-//         { CustomerMailId: { [Op.like]: `%${search}%` } },
-//         { location: { [Op.like]: `%${search}%` } },
-//         { pincode: { [Op.like]: `%${search}%` } },
-//         { InquiryType: { [Op.like]: `%${search}%` } },
-//         { category: { [Op.like]: `%${search}%` } }
-//       ];
-//     }
+    // Add common search
+    if (search) {
+      whereClause[Op.or] = [
+        { CustomerName: { [Op.like]: `%${search}%` } },
+        { MobileNo: { [Op.like]: `%${search}%` } },
+        { WhatsappNo: { [Op.like]: `%${search}%` } },
+        { CustomerMailId: { [Op.like]: `%${search}%` } },
+        { location: { [Op.like]: `%${search}%` } },
+        { pincode: { [Op.like]: `%${search}%` } },
+        { InquiryType: { [Op.like]: `%${search}%` } },
+        { category: { [Op.like]: `%${search}%` } }
+      ];
+    }
 
-//     // Add individual filters
-//     if (InquiryType) {
-//       whereClause.InquiryType = { [Op.in]: InquiryType.split(',').map(v => v.trim()) };
-//     }
-//     if (Project) {
-//       whereClause.Project = { [Op.in]: Project.split(',').map(v => v.trim()) };
-//     }
-//     if (region) {
-//       whereClause.region_name = { [Op.in]: region.split(',').map(v => v.trim()) };
-//     }
-//     if (category) {
-//       whereClause.category = { [Op.in]: category.split(',').map(v => v.trim()) };
-//     }
-//     if (subcategory) {
-//       whereClause.sub_category = { [Op.in]: subcategory.split(',').map(v => v.trim()) };
-//     }
-//     if (location) whereClause.location = { [Op.like]: `%${location}%` };
-//     if (call_status) whereClause.call_status = call_status;
-//     if (call_type) whereClause.call_type = call_type;
-//     if (fromDate && toDate) {
-//       whereClause.createdAt = {
-//         [Op.between]: [new Date(fromDate), new Date(toDate)]
-//       };
-//     }
+    // Add individual filters
+    if (InquiryType) {
+      whereClause.InquiryType = { [Op.in]: InquiryType.split(',').map(v => v.trim()) };
+    }
+    if (Project) {
+      whereClause.Project = { [Op.in]: Project.split(',').map(v => v.trim()) };
+    }
+    if (region) {
+      whereClause.region_name = { [Op.in]: region.split(',').map(v => v.trim()) };
+    }
+    if (category) {
+      whereClause.category = { [Op.in]: category.split(',').map(v => v.trim()) };
+    }
+    if (subcategory) {
+      whereClause.sub_category = { [Op.in]: subcategory.split(',').map(v => v.trim()) };
+    }
+    if (location) whereClause.location = { [Op.like]: `%${location}%` };
+    if (call_status) whereClause.call_status = call_status;
+    if (call_type) whereClause.call_type = call_type;
+    if (fromDate && toDate) {
+      whereClause.createdAt = {
+        [Op.between]: [new Date(fromDate), new Date(toDate)]
+      };
+    }
 
-//     // Build include conditions
-//     const includeConditions = [
-//       {
-//         model: ParivatanRegion,
-//         as: 'Region',
-//         attributes: ['RegionName'],
-//         where: {
-//           Deleted: 'N'
-//         }
-//       },
-//       {
-//         model: Employee,
-//         as: 'BDM',
-//         attributes: ['EmployeeName']
-//       },
-//       {
-//         model: Employee,
-//         as: 'Agent',
-//         attributes: ['EmployeeName']
-//       },
-//       {
-//         model: Campaign,
-//         as: 'Campaign',
-//         attributes: ['CampaignName']
-//       }
-//     ];
+    // Build include conditions
+    const includeConditions = [
+      {
+        model: ParivatanRegion,
+        as: 'Region',
+        attributes: ['RegionName'],
+        where: {
+          Deleted: 'N'
+        }
+      },
+      {
+        model: Employee,
+        as: 'BDM',
+        attributes: ['EmployeeName']
+      },
+      {
+        model: Employee,
+        as: 'Agent',
+        attributes: ['EmployeeName']
+      },
+      {
+        model: Campaign,
+        as: 'Campaign',
+        attributes: ['CampaignName']
+      }
+    ];
 
-//     // Add campaign filter
-//     if (campaignName) {
-//       includeConditions.find(inc => inc.as === 'Campaign').where = {
-//         CampaignName: {
-//           [Op.in]: campaignName.split(',').map(v => v.trim())
-//         }
-//       };
-//     }
+    // Add campaign filter
+    if (campaignName) {
+      includeConditions.find(inc => inc.as === 'Campaign').where = {
+        CampaignName: {
+          [Op.in]: campaignName.split(',').map(v => v.trim())
+        }
+      };
+    }
 
-//     // Add BDM filter
-//     if (BdmID) {
-//       includeConditions.find(inc => inc.as === 'BDM').where = {
-//         EmployeeId: {
-//           [Op.in]: BdmID.split(',').map(v => v.trim())
-//         }
-//       };
-//     }
+    // Add BDM filter
+    if (BdmID) {
+      includeConditions.find(inc => inc.as === 'BDM').where = {
+        EmployeeId: {
+          [Op.in]: BdmID.split(',').map(v => v.trim())
+        }
+      };
+    }
 
-//     // Add Agent filter
-//     if (agentName) {
-//       includeConditions.find(inc => inc.as === 'Agent').where = {
-//         EmployeeId: {
-//           [Op.in]: agentName.split(',').map(v => v.trim())
-//         }
-//       };
-//     }
+    // Add Agent filter
+    if (agentName) {
+      includeConditions.find(inc => inc.as === 'Agent').where = {
+        EmployeeId: {
+          [Op.in]: agentName.split(',').map(v => v.trim())
+        }
+      };
+    }
 
-//     // Get filtered leads
-//     const { count, rows: leads } = await LeadDetail.findAndCountAll({
-//       where: whereClause,
-//       include: includeConditions,
-//       order: [[sortBy, sortOrder]],
-//       limit: parseInt(pageSize),
-//       offset: (parseInt(page) - 1) * parseInt(pageSize),
-//       distinct: true
-//     });
+    // Get filtered leads
+    const { count, rows: leads } = await LeadDetail.findAndCountAll({
+      where: whereClause,
+      include: includeConditions,
+      order: [[sortBy, sortOrder]],
+      limit: parseInt(pageSize),
+      offset: (parseInt(page) - 1) * parseInt(pageSize),
+      distinct: true
+    });
 
-//     // Process category stats (unaffected by filters)
-//     const categoryStats = {
-//       hot: categoryCounts[0],
-//       warm: categoryCounts[1],
-//       cold: categoryCounts[2],
-//       pending: categoryCounts[3],
-//       closed: categoryCounts[4],
-//       total: categoryCounts.reduce((a, b) => a + b, 0)
-//     };
+    // Process category stats (unaffected by filters)
+    const categoryStats = {
+      hot: categoryCounts[0],
+      warm: categoryCounts[1],
+      cold: categoryCounts[2],
+      pending: categoryCounts[3],
+      closed: categoryCounts[4],
+      total: categoryCounts.reduce((a, b) => a + b, 0)
+    };
 
-//     // Transform leads data
-//     const transformedLeads = leads.map(lead => {
-//       const leadData = lead.toJSON();
-//       return {
-//         ...leadData,
-//         source_of_lead_generated_name: lead.Campaign ? lead.Campaign.CampaignName : null,
-//         BDMName: lead.BDM ? lead.BDM.EmployeeName : null,
-//         AgentName: lead.Agent ? lead.Agent.EmployeeName : null,
-//         lead_owner: lead.lead_created_by === 1
-//           ? (lead.Agent ? lead.Agent.EmployeeName : 'CSE')
-//           : (lead.BDM ? lead.BDM.EmployeeName : 'BDM')
-//       };
-//     });
+    // Transform leads data
+    const transformedLeads = leads.map(lead => {
+      const leadData = lead.toJSON();
+      return {
+        ...leadData,
+        source_of_lead_generated_name: lead.Campaign ? lead.Campaign.CampaignName : null,
+        BDMName: lead.BDM ? lead.BDM.EmployeeName : null,
+        AgentName: lead.Agent ? lead.Agent.EmployeeName : null,
+        lead_owner: lead.lead_created_by === 1
+          ? (lead.Agent ? lead.Agent.EmployeeName : 'CSE')
+          : (lead.BDM ? lead.BDM.EmployeeName : 'BDM')
+      };
+    });
 
-//     res.json({
-//       success: true,
-//       totalCount: count,
-//       currentPage: parseInt(page),
-//       totalPages: Math.ceil(count / parseInt(pageSize)),
-//       pageSize: parseInt(pageSize),
-//       categoryStats,
-//       leads: transformedLeads,
-//       employeeInfo: {
-//         employeeId,
-//         assignments: employeeAssignments.map(ea => ({
-//           regionId: ea.RegionId,
-//           project: ea.Project,
-//           is_active: ea.is_active,
-//           is_zonal_manager: ea.is_zonal_manager
-//         }))
-//       }
-//     });
+    res.json({
+      success: true,
+      totalCount: count,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(count / parseInt(pageSize)),
+      pageSize: parseInt(pageSize),
+      categoryStats,
+      leads: transformedLeads,
+      employeeInfo: {
+        employeeId,
+        assignments: employeeAssignments.map(ea => ({
+          regionId: ea.RegionId,
+          project: ea.Project,
+          is_active: ea.is_active,
+          is_zonal_manager: ea.is_zonal_manager
+        }))
+      }
+    });
 
-//   } catch (error) {
-//     console.error('Error fetching employee leads:', error);
-//     res.status(500).json({
-//       success: false,
-//       message: 'Error fetching employee leads',
-//       error: error.message
-//     });
-//   }
-// };
+  } catch (error) {
+    console.error('Error fetching employee leads:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching employee leads',
+      error: error.message
+    });
+  }
+};
+
+
 
 
 
@@ -1968,225 +1970,226 @@ exports.updateEstimationDownloadStatus = async (req, res) => {
 // };
 
 
-exports.getEmployeeLeads = async (req, res) => {
-  try {
-    const {
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
-      search,
-      InquiryType,
-      Project,
-      region,
-      category,
-      subcategory,
-      campaignName,
-      BdmID,
-      agentName,
-      location,
-      call_status,
-      call_type,
-      fromDate,
-      toDate,
-      page = 1,
-      limit = 10
-    } = req.query;
 
-    const { employeeId } = req.params;
+// exports.getEmployeeLeads = async (req, res) => {
+//   try {
+//     const {
+//       sortBy = 'createdAt',
+//       sortOrder = 'DESC',
+//       search,
+//       InquiryType,
+//       Project,
+//       region,
+//       category,
+//       subcategory,
+//       campaignName,
+//       BdmID,
+//       agentName,
+//       location,
+//       call_status,
+//       call_type,
+//       fromDate,
+//       toDate,
+//       page = 1,
+//       limit = 10
+//     } = req.query;
 
-    // Define include conditions first
-    const includeConditions = [
-      {
-        model: Employee,
-        as: 'Agent',
-        attributes: ['EmployeeId', 'EmployeeName']
-      },
-      {
-        model: Employee,
-        as: 'BDM',
-        attributes: ['EmployeeId', 'EmployeeName']
-      },
-      {
-        model: Employee,
-        as: 'Superviser',
-        attributes: ['EmployeeId', 'EmployeeName']
-      },
-      {
-        model: Campaign,
-        as: 'Campaign',
-        attributes: ['CampaignId', 'CampaignName']
-      }
-    ];
+//     const { employeeId } = req.params;
 
-    // Get employee assignments
-    const employeeAssignments = await ParivatanBDM.findAll({
-      where: {
-        EmployeeId: employeeId,
-        Deleted: 'N',
-        [Op.or]: [
-          { is_active: 'Active' },
-          {
-            [Op.and]: [
-              { is_zonal_manager: 'Yes' },
-              { is_active: ['Active', 'Inactive'] }
-            ]
-          }
-        ]
-      }
-    });
+//     // Define include conditions first
+//     const includeConditions = [
+//       {
+//         model: Employee,
+//         as: 'Agent',
+//         attributes: ['EmployeeId', 'EmployeeName']
+//       },
+//       {
+//         model: Employee,
+//         as: 'BDM',
+//         attributes: ['EmployeeId', 'EmployeeName']
+//       },
+//       {
+//         model: Employee,
+//         as: 'Superviser',
+//         attributes: ['EmployeeId', 'EmployeeName']
+//       },
+//       {
+//         model: Campaign,
+//         as: 'Campaign',
+//         attributes: ['CampaignId', 'CampaignName']
+//       }
+//     ];
 
-    // Build base where clause
-    let baseWhereClause = {};
+//     // Get employee assignments
+//     const employeeAssignments = await ParivatanBDM.findAll({
+//       where: {
+//         EmployeeId: employeeId,
+//         Deleted: 'N',
+//         [Op.or]: [
+//           { is_active: 'Active' },
+//           {
+//             [Op.and]: [
+//               { is_zonal_manager: 'Yes' },
+//               { is_active: ['Active', 'Inactive'] }
+//             ]
+//           }
+//         ]
+//       }
+//     });
+
+//     // Build base where clause
+//     let baseWhereClause = {};
     
-    // Check if employee is zonal manager
-    const isZonalManager = employeeAssignments.some(ea => ea.is_zonal_manager === 'Yes');
+//     // Check if employee is zonal manager
+//     const isZonalManager = employeeAssignments.some(ea => ea.is_zonal_manager === 'Yes');
     
-    if (isZonalManager) {
-      const managedRegions = employeeAssignments.map(ea => ea.RegionId);
-      const bdmsInRegions = await ParivatanBDM.findAll({
-        attributes: ['EmployeeId'],
-        where: {
-          RegionId: { [Op.in]: managedRegions },
-          Deleted: 'N'
-        }
-      });
-      const bdmIds = [...bdmsInRegions.map(bdm => bdm.EmployeeId), employeeId];
-      baseWhereClause.BDMId = { [Op.in]: bdmIds };
-    } else {
-      baseWhereClause.BDMId = employeeId;
-    }
+//     if (isZonalManager) {
+//       const managedRegions = employeeAssignments.map(ea => ea.RegionId);
+//       const bdmsInRegions = await ParivatanBDM.findAll({
+//         attributes: ['EmployeeId'],
+//         where: {
+//           RegionId: { [Op.in]: managedRegions },
+//           Deleted: 'N'
+//         }
+//       });
+//       const bdmIds = [...bdmsInRegions.map(bdm => bdm.EmployeeId), employeeId];
+//       baseWhereClause.BDMId = { [Op.in]: bdmIds };
+//     } else {
+//       baseWhereClause.BDMId = employeeId;
+//     }
 
-    // Add filters to where clause
-    let whereClause = { ...baseWhereClause };
+//     // Add filters to where clause
+//     let whereClause = { ...baseWhereClause };
 
-    if (search) {
-      whereClause[Op.or] = [
-        { CustomerName: { [Op.like]: `%${search}%` } },
-        { MobileNo: { [Op.like]: `%${search}%` } },
-        { location: { [Op.like]: `%${search}%` } }
-      ];
-    }
+//     if (search) {
+//       whereClause[Op.or] = [
+//         { CustomerName: { [Op.like]: `%${search}%` } },
+//         { MobileNo: { [Op.like]: `%${search}%` } },
+//         { location: { [Op.like]: `%${search}%` } }
+//       ];
+//     }
 
-    // Handle multiple agent IDs
-    if (agentName) {
-      const agentIds = agentName.split(',').map(id => id.trim());
-      whereClause.AgentId = { [Op.in]: agentIds };
-    }
+//     // Handle multiple agent IDs
+//     if (agentName) {
+//       const agentIds = agentName.split(',').map(id => id.trim());
+//       whereClause.AgentId = { [Op.in]: agentIds };
+//     }
 
-    // Handle region filter
-    if (region) {
-      whereClause.RegionId = region;
-    }
+//     // Handle region filter
+//     if (region) {
+//       whereClause.RegionId = region;
+//     }
 
-    if (InquiryType) whereClause.InquiryType = InquiryType;
-    if (Project) whereClause.Project = Project;
-    if (category) whereClause.category = category;
-    if (subcategory) whereClause.sub_category = subcategory;
-    if (campaignName) whereClause.source_of_lead_generated = campaignName;
-    if (location) whereClause.location = { [Op.like]: `%${location}%` };
-    if (call_status) whereClause.call_status = call_status;
-    if (call_type) whereClause.call_type = call_type;
+//     if (InquiryType) whereClause.InquiryType = InquiryType;
+//     if (Project) whereClause.Project = Project;
+//     if (category) whereClause.category = category;
+//     if (subcategory) whereClause.sub_category = subcategory;
+//     if (campaignName) whereClause.source_of_lead_generated = campaignName;
+//     if (location) whereClause.location = { [Op.like]: `%${location}%` };
+//     if (call_status) whereClause.call_status = call_status;
+//     if (call_type) whereClause.call_type = call_type;
 
-    if (fromDate && toDate) {
-      whereClause.createdAt = {
-        [Op.between]: [
-          moment(fromDate).startOf('day'),
-          moment(toDate).endOf('day')
-        ]
-      };
-    }
+//     if (fromDate && toDate) {
+//       whereClause.createdAt = {
+//         [Op.between]: [
+//           moment(fromDate).startOf('day'),
+//           moment(toDate).endOf('day')
+//         ]
+//       };
+//     }
 
-    // Get total leads count without filters (except base filters)
-    const totalLeadsCount = await LeadDetail.count({
-      where: baseWhereClause,
-      distinct: true,
-      include: includeConditions
-    });
+//     // Get total leads count without filters (except base filters)
+//     const totalLeadsCount = await LeadDetail.count({
+//       where: baseWhereClause,
+//       distinct: true,
+//       include: includeConditions
+//     });
 
-    // Get filtered leads
-    const { count: filteredCount, rows: leads } = await LeadDetail.findAndCountAll({
-      where: whereClause,
-      include: includeConditions,
-      order: [[sortBy, sortOrder]],
-      limit: parseInt(limit),
-      offset: (parseInt(page) - 1) * parseInt(limit),
-      distinct: true
-    });
+//     // Get filtered leads
+//     const { count: filteredCount, rows: leads } = await LeadDetail.findAndCountAll({
+//       where: whereClause,
+//       include: includeConditions,
+//       order: [[sortBy, sortOrder]],
+//       limit: parseInt(limit),
+//       offset: (parseInt(page) - 1) * parseInt(limit),
+//       distinct: true
+//     });
 
-    // Calculate category stats based on the filtered whereClause
-    const categoryStats = await LeadDetail.findAll({
-      where: whereClause,
-      attributes: [
-        'category',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-      ],
-      group: ['category'],
-      raw: true
-    });
+//     // Calculate category stats based on the filtered whereClause
+//     const categoryStats = await LeadDetail.findAll({
+//       where: whereClause,
+//       attributes: [
+//         'category',
+//         [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+//       ],
+//       group: ['category'],
+//       raw: true
+//     });
 
-    // Transform category stats with proper initialization
-    const formattedCategoryStats = {
-      hot: 0,
-      warm: 0,
-      cold: 0,
-      pending: 0,
-      closed: 0,
-      total: filteredCount  // Using filtered count instead of total count
-    };
+//     // Transform category stats with proper initialization
+//     const formattedCategoryStats = {
+//       hot: 0,
+//       warm: 0,
+//       cold: 0,
+//       pending: 0,
+//       closed: 0,
+//       total: filteredCount  // Using filtered count instead of total count
+//     };
 
-    categoryStats.forEach(stat => {
-      if (stat.category && stat.category.toLowerCase() in formattedCategoryStats) {
-        formattedCategoryStats[stat.category.toLowerCase()] = parseInt(stat.count);
-      }
-    });
+//     categoryStats.forEach(stat => {
+//       if (stat.category && stat.category.toLowerCase() in formattedCategoryStats) {
+//         formattedCategoryStats[stat.category.toLowerCase()] = parseInt(stat.count);
+//       }
+//     });
 
-    // Transform leads data
-    const transformedLeads = leads.map(lead => {
-      const leadData = lead.toJSON();
-      return {
-        ...leadData,
-        source_of_lead_generated_name: lead.Campaign ? lead.Campaign.CampaignName : null,
-        BDMName: lead.BDM ? lead.BDM.EmployeeName : null,
-        AgentName: lead.Agent ? lead.Agent.EmployeeName : null,
-        lead_owner: lead.lead_created_by === 1
-          ? (lead.Agent ? lead.Agent.EmployeeName : 'CSE')
-          : (lead.BDM ? lead.BDM.EmployeeName : 'BDM')
-      };
-    });
+//     // Transform leads data
+//     const transformedLeads = leads.map(lead => {
+//       const leadData = lead.toJSON();
+//       return {
+//         ...leadData,
+//         source_of_lead_generated_name: lead.Campaign ? lead.Campaign.CampaignName : null,
+//         BDMName: lead.BDM ? lead.BDM.EmployeeName : null,
+//         AgentName: lead.Agent ? lead.Agent.EmployeeName : null,
+//         lead_owner: lead.lead_created_by === 1
+//           ? (lead.Agent ? lead.Agent.EmployeeName : 'CSE')
+//           : (lead.BDM ? lead.BDM.EmployeeName : 'BDM')
+//       };
+//     });
 
-    res.json({
-      success: true,
-      totalCount: totalLeadsCount,  // Total unfiltered count
-      filteredCount: filteredCount, // Count after applying filters
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(filteredCount / parseInt(limit)),
-      pageSize: parseInt(limit),
-      categoryStats: formattedCategoryStats,
-      leads: transformedLeads,
-      appliedFilters: { // Add this to help with debugging
-        region,
-        agentName,
-        whereClause
-      },
-      employeeInfo: {
-        employeeId,
-        assignments: employeeAssignments.map(ea => ({
-          regionId: ea.RegionId,
-          project: ea.Project,
-          is_active: ea.is_active,
-          is_zonal_manager: ea.is_zonal_manager
-        }))
-      }
-    });
+//     res.json({
+//       success: true,
+//       totalCount: totalLeadsCount,  // Total unfiltered count
+//       filteredCount: filteredCount, // Count after applying filters
+//       currentPage: parseInt(page),
+//       totalPages: Math.ceil(filteredCount / parseInt(limit)),
+//       pageSize: parseInt(limit),
+//       categoryStats: formattedCategoryStats,
+//       leads: transformedLeads,
+//       appliedFilters: { // Add this to help with debugging
+//         region,
+//         agentName,
+//         whereClause
+//       },
+//       employeeInfo: {
+//         employeeId,
+//         assignments: employeeAssignments.map(ea => ({
+//           regionId: ea.RegionId,
+//           project: ea.Project,
+//           is_active: ea.is_active,
+//           is_zonal_manager: ea.is_zonal_manager
+//         }))
+//       }
+//     });
 
-  } catch (error) {
-    console.error('Error fetching employee leads:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching employee leads',
-      error: error.message
-    });
-  }
-};
+//   } catch (error) {
+//     console.error('Error fetching employee leads:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching employee leads',
+//       error: error.message
+//     });
+//   }
+// };
 
 
 
