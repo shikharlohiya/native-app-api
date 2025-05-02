@@ -22,6 +22,7 @@ const ExcelJS = require('exceljs');
 const moment = require('moment');
 const BdmTravelDetail = require("../../models/BdmTravelDetail");
 const Attendance = require("../../models/Attendence");
+const BdmTravelDetailForm = require("../../models/BdmTravelDetailForm");
  
  
  
@@ -2082,70 +2083,74 @@ exports.getBDMSelfTasks = async (req, res) => {
 
 
 
-exports.getBdmDailyTasks = async (req, res) => {
-  try {
-    const { bdmId } = req.params;
 
-    if (!bdmId) {
-      return res.status(400).json({ message: 'BDM ID is required' });
-    }
+//changes on 1st may---10AM 
 
-    // Get today's date range
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+// exports.getBdmDailyTasks = async (req, res) => {
+//   try {
+//     const { bdmId } = req.params;
 
-    // Get attendance data for the day
-    const attendance = await Attendance.findOne({
-      where: {
-        EmployeeId: bdmId,
-        AttendanceDate: {
-          [Op.gte]: today,
-          [Op.lt]: tomorrow
-        }
-      }
-    });
+//     if (!bdmId) {
+//       return res.status(400).json({ message: 'BDM ID is required' });
+//     }
 
-    const tasks = await BdmLeadAction.findAll({
-      where: {
-        BDMId: bdmId,
-        action_date: {
-          [Op.gte]: today,
-          [Op.lt]: tomorrow
-        }
-      },
-      include: [
-        {
-          model: Lead_Detail,
-          as: 'Lead',
-          attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
-        }
-      ],
-      order: [['action_date', 'ASC']]
-    });
+//     // Get today's date range
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get travel details for the day
-    const travelDetails = await BdmTravelDetail.findAll({
-      where: {
-        bdm_id: bdmId,
-        checkin_time: {
-          [Op.gte]: today,
-          [Op.lt]: tomorrow
-        }
-      }
-    });
+//     // Get attendance data for the day
+//     const attendance = await Attendance.findOne({
+//       where: {
+//         EmployeeId: bdmId,
+//         AttendanceDate: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       }
+//     });
+
+//     const tasks = await BdmLeadAction.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         action_date: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       },
+//       include: [
+//         {
+//           model: Lead_Detail,
+//           as: 'Lead',
+//           attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
+//         }
+//       ],
+//       order: [['action_date', 'ASC']]
+//     });
+
+//     // Get travel details for the day
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Op.gte]: today,
+//           [Op.lt]: tomorrow
+//         }
+//       }
+//     });
 
 
-const formattedTasks = {
-  HO_task: [],
-  self_task: [],
-  other_task: {
-    meeting: [],
-    site_visit: [],
-    other: []  // for tasks that aren't meetings or site visits
-  }
-};
+// const formattedTasks = {
+//   HO_task: [],
+//   self_task: [],
+//   other_task: {
+//     meeting: [],
+//     site_visit: [],
+//     other: []  // for tasks that aren't meetings or site visits
+//   }
+// };
+
 
 // tasks.forEach(task => {
 //   const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
@@ -2154,6 +2159,8 @@ const formattedTasks = {
 //     id: task.id,
 //     action_type: task.action_type,
 //     specific_action: task.specific_action,
+//     branchOffice:task.branchOffice,
+//     regionalOffice: task.regionalOffice,
 //     new_follow_up_date: task.new_follow_up_date ?
 //       moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
 //     remarks: task.remarks,
@@ -2190,8 +2197,8 @@ const formattedTasks = {
 //   } else if (task.task_type === 'self_task') {
 //     formattedTasks.self_task.push(formattedTask);
 //   } else if (task.task_type === 'other_task') {
-//     // For other_task, check specific_action and organize accordingly
-//     if (task.specific_action?.toLowerCase() === 'meeting') {
+//     // Modified logic to check if specific_action contains 'meeting' instead of exact match
+//     if (task.specific_action?.toLowerCase().includes('meeting')) {
 //       formattedTasks.other_task.meeting.push({
 //         ...formattedTask,
 //         task_name: task.task_name
@@ -2216,87 +2223,207 @@ const formattedTasks = {
 //       });
 //     }
 //   }
-// });
+// }); 
 
 
 
 
+//     res.status(200).json({
+//       message: 'BDM daily tasks retrieved successfully',
+//       attendance: attendance ? {
+//         attendanceId: attendance.id,
+//         inTime: attendance.AttendanceInTime ? 
+//           moment(attendance.AttendanceInTime).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//         outTime: attendance.AttendanceOutTime ? 
+//           moment(attendance.AttendanceOutTime).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//         attendanceType: attendance.AttendanceType,
+//         location: {
+//           latitude: attendance.Latitude,
+//           longitude: attendance.Longitude
+//         }
+//       } : null,
+//       tasks: formattedTasks
+//     });
+
+//   } catch (error) {
+//     console.error('Error retrieving BDM daily tasks:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
 
 
 
-tasks.forEach(task => {
-  const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+exports.getBdmDailyTasks = async (req, res) => {
+  try {
+    const { bdmId } = req.params;
 
-  const formattedTask = {
-    id: task.id,
-    action_type: task.action_type,
-    specific_action: task.specific_action,
-    new_follow_up_date: task.new_follow_up_date ?
-      moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
-    remarks: task.remarks,
-    action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-    completion_status: task.completion_status,
-    travel_details: travelDetail ? {
-      travel_detailsId: travelDetail.id,
-      checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-      checkout_time: travelDetail.checkout_time ?
-        moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
-      checkin_location: {
-        latitude: travelDetail.checkin_latitude,
-        longitude: travelDetail.checkin_longitude
+    if (!bdmId) {
+      return res.status(400).json({ message: 'BDM ID is required' });
+    }
+
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get attendance data for the day
+    const attendance = await Attendance.findOne({
+      where: {
+        EmployeeId: bdmId,
+        AttendanceDate: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
+      }
+    });
+
+    // Get tasks with lead details and travel form details for the day
+    const tasks = await BdmLeadAction.findAll({
+      where: {
+        BDMId: bdmId,
+        action_date: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
       },
-      checkout_location: travelDetail.checkout_time ? {
-        latitude: travelDetail.checkout_latitude,
-        longitude: travelDetail.checkout_longitude
-      } : null
-    } : null,
-    lead: task.Lead ? {
-      Id: task.Lead.id,
-      CustomerName: task.Lead.CustomerName,
-      MobileNo: task.Lead.MobileNo,
-      location: task.Lead.location,
-      category: task.Lead.category,
-      sub_category: task.Lead.sub_category,
-      agent_remark: task.Lead.agent_remark,
-      bdm_remark: task.Lead.bdm_remark
-    } : null
-  };
+      include: [
+        {
+          model: Lead_Detail,
+          as: 'Lead',
+          attributes: ['id', 'CustomerName', 'MobileNo', 'location', 'category', 'sub_category', 'agent_remark', 'bdm_remark']
+        },
+        // Include travel details for travel-related actions
+        {
+          model: BdmTravelDetailForm,
+          as: 'TravelDetails',
+          required: false // Use LEFT JOIN to include even if there's no travel detail
+        }
+      ],
+      order: [['action_date', 'ASC']]
+    });
 
-  if (task.task_type === 'HO_task') {
-    formattedTasks.HO_task.push(formattedTask);
-  } else if (task.task_type === 'self_task') {
-    formattedTasks.self_task.push(formattedTask);
-  } else if (task.task_type === 'other_task') {
-    // Modified logic to check if specific_action contains 'meeting' instead of exact match
-    if (task.specific_action?.toLowerCase().includes('meeting')) {
-      formattedTasks.other_task.meeting.push({
-        ...formattedTask,
-        task_name: task.task_name
-      });
-    } else if (task.specific_action?.toLowerCase() === 'site visit') {
-      formattedTasks.other_task.site_visit.push({
-        ...formattedTask,
-        task_name: task.task_name
-      });
-    } else {
-      formattedTasks.other_task.other.push({
+    // Get travel details for the day
+    const travelDetails = await BdmTravelDetail.findAll({
+      where: {
+        bdm_id: bdmId,
+        checkin_time: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
+      }
+    });
+
+    const formattedTasks = {
+      HO_task: [],
+      self_task: [],
+      other_task: {
+        meeting: [],
+        site_visit: [],
+        other: []  // for tasks that aren't meetings or site visits
+      }
+    };
+
+    tasks.forEach(task => {
+      const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === task.id);
+
+      // Check if this is a travel-related action
+      const isTravelAction = ['Travel', 'RO Visit', 'HO Visit', 'BO Visit'].some(
+        type => task.specific_action && task.specific_action.includes(type)
+      );
+
+      // Format travel form details if this is a travel-related action
+      const travelFormDetails = isTravelAction && task.TravelDetails ? {
+        id: task.TravelDetails.id,
+        taskType: task.TravelDetails.taskType,
+        branchName: task.TravelDetails.branchName,
+        regionalOfficeName: task.TravelDetails.regionalOfficeName,
+        purposeForVisit: task.TravelDetails.purposeForVisit,
+        concernPersonName: task.TravelDetails.concernPersonName,
+        adminTaskSelect: task.TravelDetails.adminTaskSelect,
+        remarks: task.TravelDetails.remarks,
+        hoSelection: task.TravelDetails.hoSelection,
+        modeOfTravel: task.TravelDetails.modeOfTravel,
+        travelFrom: task.TravelDetails.travelFrom,
+        travelTo: task.TravelDetails.travelTo,
+        reasonForTravel: task.TravelDetails.reasonForTravel,
+        mandatoryVisitImage: task.TravelDetails.mandatoryVisitImage,
+        optionalVisitImage: task.TravelDetails.optionalVisitImage
+      } : null;
+
+      const formattedTask = {
         id: task.id,
-        task_name: task.task_name,
         action_type: task.action_type,
         specific_action: task.specific_action,
-        new_follow_up_date: task.new_follow_up_date ? 
+        branchOffice: task.branchOffice,
+        regionalOffice: task.regionalOffice,
+        new_follow_up_date: task.new_follow_up_date ?
           moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
         remarks: task.remarks,
         action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
-        travel_details: formattedTask.travel_details,
-        completion_status: task.completion_status
-      });
-    }
-  }
-}); 
+        completion_status: task.completion_status,
+        // Include both types of travel details
+        travel_details: travelDetail ? {
+          travel_detailsId: travelDetail.id,
+          checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+          checkout_time: travelDetail.checkout_time ?
+            moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+          checkin_location: {
+            latitude: travelDetail.checkin_latitude,
+            longitude: travelDetail.checkin_longitude
+          },
+          checkout_location: travelDetail.checkout_time ? {
+            latitude: travelDetail.checkout_latitude,
+            longitude: travelDetail.checkout_longitude
+          } : null
+        } : null,
+        // Include travel form details if this is a travel-related action
+        travel_form_details: travelFormDetails,
+        lead: task.Lead ? {
+          Id: task.Lead.id,
+          CustomerName: task.Lead.CustomerName,
+          MobileNo: task.Lead.MobileNo,
+          location: task.Lead.location,
+          category: task.Lead.category,
+          sub_category: task.Lead.sub_category,
+          agent_remark: task.Lead.agent_remark,
+          bdm_remark: task.Lead.bdm_remark
+        } : null
+      };
 
-
-
+      if (task.task_type === 'HO_task') {
+        formattedTasks.HO_task.push(formattedTask);
+      } else if (task.task_type === 'self_task') {
+        formattedTasks.self_task.push(formattedTask);
+      } else if (task.task_type === 'other_task') {
+        // Modified logic to check if specific_action contains 'meeting' instead of exact match
+        if (task.specific_action?.toLowerCase().includes('meeting')) {
+          formattedTasks.other_task.meeting.push({
+            ...formattedTask,
+            task_name: task.task_name
+          });
+        } else if (task.specific_action?.toLowerCase() === 'site visit') {
+          formattedTasks.other_task.site_visit.push({
+            ...formattedTask,
+            task_name: task.task_name
+          });
+        } else {
+          formattedTasks.other_task.other.push({
+            id: task.id,
+            task_name: task.task_name,
+            action_type: task.action_type,
+            specific_action: task.specific_action,
+            new_follow_up_date: task.new_follow_up_date ? 
+              moment(task.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+            remarks: task.remarks,
+            action_date: moment(task.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+            travel_details: formattedTask.travel_details,
+            travel_form_details: formattedTask.travel_form_details,
+            completion_status: task.completion_status
+          });
+        }
+      }
+    }); 
 
     res.status(200).json({
       message: 'BDM daily tasks retrieved successfully',

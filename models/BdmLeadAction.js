@@ -2,6 +2,7 @@ const { Sequelize, DataTypes, Model } = require("sequelize");
 const sequelize = require("./index");
 const lead_detail = require('./lead_detail');
 const Employee = require("./employee");
+const BdmTravelDetailForm = require("./BdmTravelDetailForm");
 
 class BdmLeadAction extends Model {}
 
@@ -62,6 +63,29 @@ BdmLeadAction.init(
       type: DataTypes.ENUM("completed", "not_completed"),
       allowNull: true,
     },
+    branchOffice: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    regionalOffice: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    selectedTaskLocation: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    lead_detail_form_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    meeting_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+
   },
   {
     sequelize,
@@ -87,4 +111,18 @@ lead_detail.hasMany(BdmLeadAction, {
     targetKey: "EmployeeId",
     as: 'bdm'
   });
+
+  BdmLeadAction.belongsTo(BdmTravelDetailForm, {
+    foreignKey: "lead_detail_form_id",
+    as: 'TravelDetails'
+  });
+  
+  // Add reverse association
+  BdmTravelDetailForm.hasMany(BdmLeadAction, {
+    foreignKey: "lead_detail_form_id",
+    as: 'LeadActions'
+  });
+
+
+
 module.exports = BdmLeadAction;

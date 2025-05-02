@@ -976,6 +976,316 @@ exports.getBdmStatistics = async (req, res) => {
 const Parivartan_BDM = require('../../models/Parivartan_BDM');
 const Parivartan_Region = require('../../models/Parivartan_Region')
 const EmployeeRole = require('../../models/employeRole');
+const BdmTravelDetailForm = require('../../models/BdmTravelDetailForm');
+
+
+
+
+
+// exports.getBdmDetailedActivities = async (req, res) => {
+//   try {
+//     // Extract query parameters
+//     const { bdmId, startDate, endDate } = req.query;
+
+//     // Validate required parameters
+//     if (!bdmId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'BDM ID is required'
+//       });
+//     }
+
+//     if (!startDate || !endDate) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Start date and end date are required'
+//       });
+//     }
+
+//     // Parse dates
+//     const parsedStartDate = moment(startDate).startOf('day');
+//     const parsedEndDate = moment(endDate).endOf('day');
+
+//     if (!parsedStartDate.isValid() || !parsedEndDate.isValid()) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid date format. Please use YYYY-MM-DD format.'
+//       });
+//     }
+
+//     // Get BDM details
+
+
+//     const bdm = await Employee.findOne({
+//       where: { EmployeeId: bdmId }, 
+//       include: [{
+//         model: EmployeeRole,
+//         attributes: ['RoleName'],
+//         as: 'role'
+//       }],
+//       attributes: ['EmployeeId', 'EmployeeName']
+//     });
+
+//     if (!bdm) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'BDM not found'
+//       });
+//     }
+
+//     // Get BDM region
+//     const bdmRegion = await Parivartan_BDM.findOne({
+//       where: {
+//         EmployeeId: bdmId,
+//         is_bdm: 'Yes',
+//         is_active: 'Active',
+//         Deleted: 'N'
+//       },
+//       include: [{
+//         model: Parivartan_Region,
+//         attributes: ['RegionName'],
+//         where: { Deleted: 'N' }
+//       }],
+//       attributes: ['RegionId']
+//     });
+
+
+
+
+    
+
+//     // Date filter for queries
+//     const dateFilter = {
+//       [Op.between]: [parsedStartDate.toDate(), parsedEndDate.toDate()]
+//     };
+
+//     // Get detailed meeting information
+//     const meetings = await BdmLeadAction.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         specific_action: 'Meeting',
+//         action_date: dateFilter
+//       },
+//       include: [{
+//         model: Lead_Detail,
+//         as: 'Lead',
+//         attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category']
+//       }],
+//       attributes: [
+//         'id',
+//         'LeadId',
+//         'specific_action',
+//         'action_date',
+//         'remarks',
+//         'task_name',
+//         'completion_status'
+//       ],
+//       order: [['action_date', 'DESC']]
+//     });
+
+//     // Get detailed field visit information
+//     const fieldVisits = await site_visit.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         createdAt: dateFilter
+//       },
+//       include: [{
+//         model: Lead_Detail,
+//         attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category']
+//       }],
+//       attributes: [
+//         'id',
+//         'LeadDetailId',
+//         'BirdsCapacity',
+//         'LandDimension',
+//         'ShedSize',
+//         'IsLandDirectionEastWest',
+//         'DirectionDeviationDegree',
+//         'ElectricityPower',
+//         'Water',
+//         'ApproachRoad',
+//         'ModelType',
+//         'EstimationRequirement',
+//         'Image',
+//         'category',
+//         'sub_category',
+//         'closure_month',
+//         'follow_up_date',
+//         'ActionType',
+//         'remark',
+//         'createdAt'
+//       ],
+//       order: [['createdAt', 'DESC']]
+//     });
+
+//     // Get detailed group meeting information
+//     const groupMeetings = await GroupMeeting.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         createdAt: dateFilter
+//       },
+//       attributes: [
+//         'id',
+//         'group_id',
+//         'group_meeting_title',
+//         'customer_name',
+//         'mobile',
+//         'location',
+//         'pincode',
+//         'is_unique',
+//         'action_type',
+//         'created_at'
+//       ],
+//       order: [['created_at', 'DESC']]
+//     });
+
+//     // Get detailed visit information (RO, HO, BO)
+//     const visitTypes = ['RO Visit', 'HO Visit', 'BO Visit'];
+//     const visits = await BdmLeadAction.findAll({
+//       where: {
+//         BDMId: bdmId,
+//         specific_action: {
+//           [Op.in]: visitTypes
+//         },
+//         action_date: dateFilter
+//       },
+//       include: [{
+//         model: Lead_Detail,
+//         as: 'Lead',
+//         attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category']
+//       }],
+//       attributes: [
+//         'id',
+//         'LeadId',
+//         'specific_action',
+//         'action_date',
+//         'remarks',
+//         'task_name',
+//         'completion_status'
+//       ],
+//       order: [['action_date', 'DESC']]
+//     });
+
+//     // Group visits by type
+//     const visitsByType = {};
+//     visitTypes.forEach(type => {
+//       visitsByType[type.replace(' ', '_').toLowerCase()] = visits.filter(visit => visit.specific_action === type);
+//     });
+
+//     // Process group meetings to get unique counts and organize by groups
+//     const uniqueGroupIds = new Set(groupMeetings.map(gm => gm.group_id));
+//     const totalGroupMeetingsCustomers = groupMeetings.length;
+//     const uniqueGroupMeetingsCount = uniqueGroupIds.size;
+    
+//     // Organize all group meetings by group_id
+//     const organizedGroupMeetings = [];
+    
+//     uniqueGroupIds.forEach(groupId => {
+//       const meetingsInGroup = groupMeetings.filter(gm => gm.group_id === groupId);
+      
+//       // Create a group meeting object with all customers
+//       organizedGroupMeetings.push({
+//         group_id: groupId,
+//         group_meeting_title: meetingsInGroup[0].group_meeting_title,
+//         created_at: meetingsInGroup[0].created_at,
+//         location: meetingsInGroup[0].location,
+//         pincode: meetingsInGroup[0].pincode,
+//         customers: meetingsInGroup.map(meeting => ({
+//           id: meeting.id,
+//           customer_name: meeting.customer_name,
+//           mobile: meeting.mobile,
+//           location: meeting.location,
+//           is_unique: meeting.is_unique
+//         })),
+//         customer_count: meetingsInGroup.length
+//       });
+//     });
+
+//     // Calculate summary counts
+//     const summary = {
+//       total_meetings: meetings.length,
+//       total_unique_meetings: new Set(meetings.map(m => m.LeadId)).size,
+//       total_field_visits: fieldVisits.length,
+//       total_unique_field_visits: new Set(fieldVisits.map(fv => fv.LeadDetailId)).size,
+//       total_group_meetings_customers: totalGroupMeetingsCustomers,
+//       total_unique_group_meetings: uniqueGroupMeetingsCount,
+//       ro_visit: visitsByType.ro_visit.length,
+//       ho_visit: visitsByType.ho_visit.length,
+//       bo_visit: visitsByType.bo_visit.length
+//     };
+
+//     // Calculate target achievement percentages
+//     const achievementPercentages = {
+//       group_meetings: {
+//         target: MONTHLY_BDM_TARGETS.GROUP_MEETINGS,
+//         achievement: uniqueGroupMeetingsCount, // Changed to count unique group meetings
+//         percentage: Math.round((uniqueGroupMeetingsCount / MONTHLY_BDM_TARGETS.GROUP_MEETINGS) * 100)
+//       },
+//       unique_field_visits: {
+//         target: MONTHLY_BDM_TARGETS.UNIQUE_FIELD_VISITS,
+//         achievement: summary.total_unique_field_visits,
+//         percentage: Math.round((summary.total_unique_field_visits / MONTHLY_BDM_TARGETS.UNIQUE_FIELD_VISITS) * 100)
+//       },
+//       unique_meetings: {
+//         target: MONTHLY_BDM_TARGETS.UNIQUE_MEETINGS,
+//         achievement: summary.total_unique_meetings,
+//         percentage: Math.round((summary.total_unique_meetings / MONTHLY_BDM_TARGETS.UNIQUE_MEETINGS) * 100)
+//       }
+//     };
+
+//     // Calculate overall performance
+//     const performanceSummary = {
+//       overall_target_achievement: Math.round(
+//         (
+//           achievementPercentages.group_meetings.percentage +
+//           achievementPercentages.unique_field_visits.percentage +
+//           achievementPercentages.unique_meetings.percentage
+//         ) / 3
+//       )
+//     };
+
+//     // Prepare response
+//     const response = {
+//       success: true,
+//       data: {
+//         bdm: {
+//           id: bdm.EmployeeId,
+//           name: bdm.EmployeeName,
+//           role: bdm.role?.RoleName,
+//           region: bdmRegion?.Parivartan_Region?.RegionName,
+//           regionId: bdmRegion?.RegionId
+//         },
+//         date_range: {
+//           start_date: parsedStartDate.format('YYYY-MM-DD'),
+//           end_date: parsedEndDate.format('YYYY-MM-DD')
+//         },
+//         summary: summary,
+//         targets: achievementPercentages,
+//         performance_summary: performanceSummary,
+//         details: {
+//           meetings: meetings,
+//           field_visits: fieldVisits,
+//           group_meetings: organizedGroupMeetings,
+//           visits: visitsByType
+//         }
+//       }
+//     };
+
+//     return res.status(200).json(response);
+//   } catch (error) {
+//     console.error('Error in getBdmDetailedActivities:', error);
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Internal server error',
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+
+
 
 
 
@@ -1011,8 +1321,6 @@ exports.getBdmDetailedActivities = async (req, res) => {
     }
 
     // Get BDM details
-
-
     const bdm = await Employee.findOne({
       where: { EmployeeId: bdmId }, 
       include: [{
@@ -1045,11 +1353,6 @@ exports.getBdmDetailedActivities = async (req, res) => {
       }],
       attributes: ['RegionId']
     });
-
-
-
-
-    
 
     // Date filter for queries
     const dateFilter = {
@@ -1146,11 +1449,19 @@ exports.getBdmDetailedActivities = async (req, res) => {
         },
         action_date: dateFilter
       },
-      include: [{
-        model: Lead_Detail,
-        as: 'Lead',
-        attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category']
-      }],
+      include: [
+        {
+          model: Lead_Detail,
+          as: 'Lead',
+          attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category']
+        },
+        // Include the travel details
+        {
+          model: BdmTravelDetailForm,
+          as: 'TravelDetails',
+          required: false
+        }
+      ],
       attributes: [
         'id',
         'LeadId',
@@ -1158,16 +1469,162 @@ exports.getBdmDetailedActivities = async (req, res) => {
         'action_date',
         'remarks',
         'task_name',
-        'completion_status'
+        'completion_status',
+        'lead_detail_form_id'
       ],
       order: [['action_date', 'DESC']]
+    });
+
+    // Get travel details for the date range
+    const travelDetails = await BdmTravelDetailForm.findAll({
+      where: {
+        BDMId: bdmId,
+        createdAt: dateFilter
+      }
+    });
+
+    // Process the visits to include travel form details
+    const processedVisits = visits.map(visit => {
+      const visitObj = visit.toJSON();
+      
+      // Add travel form details if available through association
+      if (visitObj.TravelDetails) {
+        visitObj.travel_form_details = {
+          id: visitObj.TravelDetails.id,
+          taskType: visitObj.TravelDetails.taskType,
+          branchName: visitObj.TravelDetails.branchName,
+          regionalOfficeName: visitObj.TravelDetails.regionalOfficeName,
+          purposeForVisit: visitObj.TravelDetails.purposeForVisit,
+          concernPersonName: visitObj.TravelDetails.concernPersonName,
+          adminTaskSelect: visitObj.TravelDetails.adminTaskSelect,
+          remarks: visitObj.TravelDetails.remarks,
+          hoSelection: visitObj.TravelDetails.hoSelection,
+          modeOfTravel: visitObj.TravelDetails.modeOfTravel,
+          travelFrom: visitObj.TravelDetails.travelFrom,
+          travelTo: visitObj.TravelDetails.travelTo,
+          reasonForTravel: visitObj.TravelDetails.reasonForTravel,
+          mandatoryVisitImage: visitObj.TravelDetails.mandatoryVisitImage,
+          optionalVisitImage: visitObj.TravelDetails.optionalVisitImage
+        };
+      } else if (visitObj.lead_detail_form_id) {
+        // If the association didn't work but we have an ID, try to find it in our separate query
+        const matchingTravelDetail = travelDetails.find(td => td.id === visitObj.lead_detail_form_id);
+        if (matchingTravelDetail) {
+          visitObj.travel_form_details = {
+            id: matchingTravelDetail.id,
+            taskType: matchingTravelDetail.taskType,
+            branchName: matchingTravelDetail.branchName,
+            regionalOfficeName: matchingTravelDetail.regionalOfficeName,
+            purposeForVisit: matchingTravelDetail.purposeForVisit,
+            concernPersonName: matchingTravelDetail.concernPersonName,
+            adminTaskSelect: matchingTravelDetail.adminTaskSelect,
+            remarks: matchingTravelDetail.remarks,
+            hoSelection: matchingTravelDetail.hoSelection,
+            modeOfTravel: matchingTravelDetail.modeOfTravel,
+            travelFrom: matchingTravelDetail.travelFrom,
+            travelTo: matchingTravelDetail.travelTo,
+            reasonForTravel: matchingTravelDetail.reasonForTravel,
+            mandatoryVisitImage: matchingTravelDetail.mandatoryVisitImage,
+            optionalVisitImage: matchingTravelDetail.optionalVisitImage
+          };
+        }
+      }
+      
+      // Remove the TravelDetails object to clean up response
+      delete visitObj.TravelDetails;
+      
+      return visitObj;
     });
 
     // Group visits by type
     const visitsByType = {};
     visitTypes.forEach(type => {
-      visitsByType[type.replace(' ', '_').toLowerCase()] = visits.filter(visit => visit.specific_action === type);
+      visitsByType[type.replace(' ', '_').toLowerCase()] = processedVisits.filter(visit => visit.specific_action === type);
     });
+
+    // Add a separate travel category for direct travel records
+    const travelRecords = await BdmLeadAction.findAll({
+      where: {
+        BDMId: bdmId,
+        specific_action: 'Travel',
+        action_date: dateFilter
+      },
+      include: [
+        {
+          model: Lead_Detail,
+          as: 'Lead',
+          attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category']
+        },
+        {
+          model: BdmTravelDetailForm,
+          as: 'TravelDetails',
+          required: false
+        }
+      ],
+      attributes: [
+        'id',
+        'LeadId',
+        'specific_action',
+        'action_date',
+        'remarks',
+        'task_name',
+        'completion_status',
+        'lead_detail_form_id'
+      ],
+      order: [['action_date', 'DESC']]
+    });
+
+    // Process travel records similarly to visits
+    const processedTravelRecords = travelRecords.map(travel => {
+      const travelObj = travel.toJSON();
+      
+      if (travelObj.TravelDetails) {
+        travelObj.travel_form_details = {
+          id: travelObj.TravelDetails.id,
+          taskType: travelObj.TravelDetails.taskType,
+          branchName: travelObj.TravelDetails.branchName,
+          regionalOfficeName: travelObj.TravelDetails.regionalOfficeName,
+          purposeForVisit: travelObj.TravelDetails.purposeForVisit,
+          concernPersonName: travelObj.TravelDetails.concernPersonName,
+          adminTaskSelect: travelObj.TravelDetails.adminTaskSelect,
+          remarks: travelObj.TravelDetails.remarks,
+          hoSelection: travelObj.TravelDetails.hoSelection,
+          modeOfTravel: travelObj.TravelDetails.modeOfTravel,
+          travelFrom: travelObj.TravelDetails.travelFrom,
+          travelTo: travelObj.TravelDetails.travelTo,
+          reasonForTravel: travelObj.TravelDetails.reasonForTravel,
+          mandatoryVisitImage: travelObj.TravelDetails.mandatoryVisitImage,
+          optionalVisitImage: travelObj.TravelDetails.optionalVisitImage
+        };
+      } else if (travelObj.lead_detail_form_id) {
+        const matchingTravelDetail = travelDetails.find(td => td.id === travelObj.lead_detail_form_id);
+        if (matchingTravelDetail) {
+          travelObj.travel_form_details = {
+            id: matchingTravelDetail.id,
+            taskType: matchingTravelDetail.taskType,
+            branchName: matchingTravelDetail.branchName,
+            regionalOfficeName: matchingTravelDetail.regionalOfficeName,
+            purposeForVisit: matchingTravelDetail.purposeForVisit,
+            concernPersonName: matchingTravelDetail.concernPersonName,
+            adminTaskSelect: matchingTravelDetail.adminTaskSelect,
+            remarks: matchingTravelDetail.remarks,
+            hoSelection: matchingTravelDetail.hoSelection,
+            modeOfTravel: matchingTravelDetail.modeOfTravel,
+            travelFrom: matchingTravelDetail.travelFrom,
+            travelTo: matchingTravelDetail.travelTo,
+            reasonForTravel: matchingTravelDetail.reasonForTravel,
+            mandatoryVisitImage: matchingTravelDetail.mandatoryVisitImage,
+            optionalVisitImage: matchingTravelDetail.optionalVisitImage
+          };
+        }
+      }
+      
+      delete travelObj.TravelDetails;
+      
+      return travelObj;
+    });
+
+    visitsByType.travel = processedTravelRecords;
 
     // Process group meetings to get unique counts and organize by groups
     const uniqueGroupIds = new Set(groupMeetings.map(gm => gm.group_id));
@@ -1208,7 +1665,9 @@ exports.getBdmDetailedActivities = async (req, res) => {
       total_unique_group_meetings: uniqueGroupMeetingsCount,
       ro_visit: visitsByType.ro_visit.length,
       ho_visit: visitsByType.ho_visit.length,
-      bo_visit: visitsByType.bo_visit.length
+      bo_visit: visitsByType.bo_visit.length,
+      travel: visitsByType.travel.length,
+      total_travel_details: travelDetails.length  // New count for all travel detail forms
     };
 
     // Calculate target achievement percentages
@@ -1263,7 +1722,26 @@ exports.getBdmDetailedActivities = async (req, res) => {
           meetings: meetings,
           field_visits: fieldVisits,
           group_meetings: organizedGroupMeetings,
-          visits: visitsByType
+          visits: visitsByType,
+          // Include a section for all travel detail forms
+          travel_detail_forms: travelDetails.map(detail => ({
+            id: detail.id,
+            taskType: detail.taskType,
+            branchName: detail.branchName,
+            regionalOfficeName: detail.regionalOfficeName,
+            purposeForVisit: detail.purposeForVisit,
+            concernPersonName: detail.concernPersonName,
+            adminTaskSelect: detail.adminTaskSelect,
+            remarks: detail.remarks,
+            hoSelection: detail.hoSelection,
+            modeOfTravel: detail.modeOfTravel,
+            travelFrom: detail.travelFrom,
+            travelTo: detail.travelTo,
+            reasonForTravel: detail.reasonForTravel,
+            mandatoryVisitImage: detail.mandatoryVisitImage,
+            optionalVisitImage: detail.optionalVisitImage,
+            createdAt: moment(detail.createdAt).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss')
+          }))
         }
       }
     };
@@ -1278,11 +1756,3 @@ exports.getBdmDetailedActivities = async (req, res) => {
     });
   }
 };
-
-
-
-
-
-
-
-

@@ -79,6 +79,9 @@ lead_Meeting.init(
     remark: {
       type: DataTypes.STRING,
     },
+    meeting_place: {
+      type: DataTypes.STRING,
+    },
     extra_field3: {
       type: DataTypes.STRING,
     },

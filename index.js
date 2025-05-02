@@ -171,6 +171,7 @@ const Notification = require('./Routes/Notificaation/Notification.js');
 const RegisteredPartner = require('./Routes/RegisteredPartner/RegisteredPartner.js')
 // const EstimationGeneration = require('./Routes/Estimation/EstimationGeneration.js');
 const shrimp_feed = require('./Routes/ShrimpFeed/shrimpFeedRoutes.js');
+const Travel = require('./Routes/TravelRoutes/TravelRoutes.js')
 const path = require('path');
 
 
@@ -227,6 +228,7 @@ app.use('/api',Notification);
 app.use('/api', RegisteredPartner);
 // app.use('/api/estimation', EstimationGeneration);
 app.use('/api', shrimp_feed); 
+app.use('/api/create', Travel); 
 
 // Root route
 app.get('/', function (req, res) {

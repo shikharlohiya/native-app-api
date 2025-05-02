@@ -47,6 +47,8 @@ const Notification = require('./Notification.js');
 const RegisteredPartner = require('./RegisteredPartner.js');
 const TravelRegistration = require('./TravelRegistration.js');
 const GroupMeeting = require('./GroupMeeting.js');
+const Parivartan_Branch = require('./Parivartan_Branch.js');
+const BdmTravelDetailForm = require('./BdmTravelDetailForm.js');
 
 const { ShrimpFeedMaster, ShrimpFeedRemark } = require('./associations');
 
@@ -58,13 +60,9 @@ const { ShrimpFeedMaster, ShrimpFeedRemark } = require('./associations');
 
 
 
-// ShrimpFeedRemark.sync({alter: true});
+// BdmTravelDetailForm.sync({force: true});
 
  
-
-
-
-
 // async function syncTables() {
 //   try {
 //     // First drop and recreate the child table (remarks)

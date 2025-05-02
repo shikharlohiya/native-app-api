@@ -14,6 +14,8 @@ const Employee_Role = require("../../models/employeRole");
 const GroupMeeting = require('../../models/GroupMeeting');
 const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
+const Parivartan_Branch = require('../../models/Parivartan_Branch');
+const Parivartan_Region = require('../../models/Parivartan_Region');
  
 
 
@@ -907,79 +909,203 @@ exports.updateLead = async (req, res) => {
 
 
 
+// exports.getLeadByMobileNo = async (req, res) => {
+//   try {
+//       const { mobileNo } = req.params;
+
+//       const lead = await Lead_Detail.findOne({
+//           where: {
+//               [Op.or]: [
+//                   { MobileNo: mobileNo },
+//                   { AlternateMobileNo: mobileNo },
+//                   { WhatsappNo: mobileNo },
+//               ],
+//           },
+//           include: [{
+//               model: Employee,
+//               as: 'Agent',
+//               attributes: ['EmployeeName']
+//           }, {
+//               model: Employee,
+//               as: 'BDM',
+//               attributes: ['EmployeeName']
+//           }]
+//       });
+
+//       if (!lead) {
+//           return res.status(200).json({ 
+//               success: false,
+//               message: "Lead not found for the given mobile number" 
+//           });
+//       }
+
+//       let responseMessage = "Lead already exists";
+
+//       // If created_by is empty, show follow-up info
+//       if (!lead.created_by) {
+//           const followerName = lead.Agent?.EmployeeName || lead.BDM?.EmployeeName || 'Unknown';
+//           const followerType = lead.Agent ? 'Agent' : lead.BDM ? 'BDM' : 'Unknown';
+//           responseMessage = `Lead already exists, and is being followed up by ${followerName}`;
+//       } else {
+//           // If created_by exists, show creator info
+//           let creatorType = '';
+//           let creatorName = '';
+
+//           if (lead.lead_created_by === 1) {
+//               creatorType = 'Agent';
+//               creatorName = lead.Agent?.EmployeeName || 'Unknown Agent';
+//           } else if (lead.lead_created_by === 2) {
+//               creatorType = 'BDM';
+//               creatorName = lead.BDM?.EmployeeName || 'Unknown BDM';
+//           } else if (lead.lead_created_by === 3) {
+//               creatorType = 'Zonal Manager';
+//               creatorName = lead.BDM?.EmployeeName || 'Unknown Zonal Manager';
+//           }
+
+//           responseMessage = `Lead already exists. Lead was created by ${creatorType} ${creatorName}`;
+//       }
+
+//       res.status(200).json({
+//           success: true,
+//           message: responseMessage,
+//           lead: {
+//               ...lead.toJSON(),
+//               lastFollowUpDate: lead.follow_up_date,
+//               lastFollowUpBy: lead.Agent?.EmployeeName || lead.BDM?.EmployeeName || 'Unknown'
+//           }
+//       });
+
+//   } catch (error) {
+//       console.error("Error fetching lead:", error);
+//       res.status(500).json({
+//           success: false,
+//           message: "Error fetching lead details",
+//           error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//       });
+//   }
+// };
+
+
+
 exports.getLeadByMobileNo = async (req, res) => {
   try {
-      const { mobileNo } = req.params;
+    const { mobileNo } = req.params;
 
-      const lead = await Lead_Detail.findOne({
-          where: {
-              [Op.or]: [
-                  { MobileNo: mobileNo },
-                  { AlternateMobileNo: mobileNo },
-                  { WhatsappNo: mobileNo },
-              ],
-          },
-          include: [{
-              model: Employee,
-              as: 'Agent',
-              attributes: ['EmployeeName']
-          }, {
-              model: Employee,
-              as: 'BDM',
-              attributes: ['EmployeeName']
-          }]
+    // Find lead by mobile number
+    const lead = await Lead_Detail.findOne({
+      where: {
+        [Op.or]: [
+          { MobileNo: mobileNo },
+          { AlternateMobileNo: mobileNo },
+          { WhatsappNo: mobileNo },
+        ],
+      },
+      include: [
+        {
+          model: Employee,
+          as: 'Agent',
+          attributes: ['EmployeeName']
+        }, 
+        {
+          model: Employee,
+          as: 'BDM',
+          attributes: ['EmployeeName']
+        },
+        {
+          model: Parivartan_Region,
+          as: 'Region',
+          attributes: ['RegionId', 'RegionName']
+        }
+      ]
+    });
+
+    if (!lead) {
+      return res.status(200).json({
+        success: false,
+        message: "Lead not found for the given mobile number"
       });
+    }
 
-      if (!lead) {
-          return res.status(200).json({ 
-              success: false,
-              message: "Lead not found for the given mobile number" 
-          });
+    let responseMessage = "Lead already exists";
+
+    // If created_by is empty, show follow-up info
+    if (!lead.created_by) {
+      const followerName = lead.Agent?.EmployeeName || lead.BDM?.EmployeeName || 'Unknown';
+      const followerType = lead.Agent ? 'Agent' : lead.BDM ? 'BDM' : 'Unknown';
+      responseMessage = `Lead already exists, and is being followed up by ${followerName}`;
+    } else {
+      // If created_by exists, show creator info
+      let creatorType = '';
+      let creatorName = '';
+
+      if (lead.lead_created_by === 1) {
+        creatorType = 'Agent';
+        creatorName = lead.Agent?.EmployeeName || 'Unknown Agent';
+      } else if (lead.lead_created_by === 2) {
+        creatorType = 'BDM';
+        creatorName = lead.BDM?.EmployeeName || 'Unknown BDM';
+      } else if (lead.lead_created_by === 3) {
+        creatorType = 'Zonal Manager';
+        creatorName = lead.BDM?.EmployeeName || 'Unknown Zonal Manager';
       }
 
-      let responseMessage = "Lead already exists";
+      responseMessage = `Lead already exists. Lead was created by ${creatorType} ${creatorName}`;
+    }
 
-      // If created_by is empty, show follow-up info
-      if (!lead.created_by) {
-          const followerName = lead.Agent?.EmployeeName || lead.BDM?.EmployeeName || 'Unknown';
-          const followerType = lead.Agent ? 'Agent' : lead.BDM ? 'BDM' : 'Unknown';
-          responseMessage = `Lead already exists, and is being followed up by ${followerName}`;
-      } else {
-          // If created_by exists, show creator info
-          let creatorType = '';
-          let creatorName = '';
+    // Get branch and RO information based on RegionId from the lead
+    let branchInfo = [];
+    let uniqueROs = [];
+    let branchesByRO = {};
 
-          if (lead.lead_created_by === 1) {
-              creatorType = 'Agent';
-              creatorName = lead.Agent?.EmployeeName || 'Unknown Agent';
-          } else if (lead.lead_created_by === 2) {
-              creatorType = 'BDM';
-              creatorName = lead.BDM?.EmployeeName || 'Unknown BDM';
-          } else if (lead.lead_created_by === 3) {
-              creatorType = 'Zonal Manager';
-              creatorName = lead.BDM?.EmployeeName || 'Unknown Zonal Manager';
-          }
-
-          responseMessage = `Lead already exists. Lead was created by ${creatorType} ${creatorName}`;
-      }
-
-      res.status(200).json({
-          success: true,
-          message: responseMessage,
-          lead: {
-              ...lead.toJSON(),
-              lastFollowUpDate: lead.follow_up_date,
-              lastFollowUpBy: lead.Agent?.EmployeeName || lead.BDM?.EmployeeName || 'Unknown'
-          }
+    if (lead.RegionId) {
+      branchInfo = await Parivartan_Branch.findAll({
+        where: {
+          RegionId: lead.RegionId,
+          Deleted: 'N'
+        },
+        attributes: ['BranchCode', 'Branch', 'Zone', 'RO'],
+        raw: true
       });
+
+      // Process branches to group by RO and extract unique RO names
+      branchInfo.forEach(branch => {
+        if (branch.RO) {
+          if (!branchesByRO[branch.RO]) {
+            branchesByRO[branch.RO] = [];
+          }
+          branchesByRO[branch.RO].push(branch);
+        }
+      });
+
+      uniqueROs = Object.keys(branchesByRO);
+    }
+
+    // Prepare response with lead, branch and RO information
+    res.status(200).json({
+      success: true,
+      message: responseMessage,
+      lead: {
+        ...lead.toJSON(),
+        lastFollowUpDate: lead.follow_up_date,
+        lastFollowUpBy: lead.Agent?.EmployeeName || lead.BDM?.EmployeeName || 'Unknown',
+        regionName: lead.Region?.RegionName || lead.region_name || 'Unknown Region',
+        regionId: lead.RegionId
+      },
+      branchInfo: {
+        totalBranches: branchInfo.length,
+        regionalOffices: uniqueROs,
+        branchesByRO: branchesByRO,
+        allBranches: branchInfo
+      }
+    });
 
   } catch (error) {
-      console.error("Error fetching lead:", error);
-      res.status(500).json({
-          success: false,
-          message: "Error fetching lead details",
-          error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+    console.error("Error fetching lead:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching lead details",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };
 
