@@ -7985,7 +7985,7 @@ exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
         if (matchingAction) {
           // Add travel form details to the detail object
           detail.travelFormDetails = matchingAction.TravelDetails || 
-                                    travelFormsMap.get(matchingAction.lead_detail_form_id);
+            travelFormsMap.get(matchingAction.lead_detail_form_id);
         }
       }
     });
