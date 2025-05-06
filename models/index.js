@@ -85,3 +85,5 @@ connectDB();
 module.exports = sequelize;
 
 
+
+
