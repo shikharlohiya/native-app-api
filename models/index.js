@@ -37,7 +37,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     dialect: process.env.DB_DIALECT,
     pool: {
-      max: 60, 
+      max: 150, 
       min: 5,
       acquire: 40000,
       idle: 20000,
