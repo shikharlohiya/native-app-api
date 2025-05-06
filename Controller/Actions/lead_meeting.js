@@ -634,7 +634,7 @@ exports.createMeeting = async (req, res) => {
     try {
       await LeadLog.create(
         {
-          action_type: "Meeting Completed",
+          action_type: `${meeting_place} completed`,
           category,
           sub_category,
           remarks: remark,

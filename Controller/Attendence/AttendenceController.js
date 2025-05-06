@@ -1135,6 +1135,372 @@ exports.handleAttendanceOut = async (req, res) => {
 //distance calucation  Google map
 
 
+// exports.getBdmDailyDistance = async (req, res) => {
+//   // Helper function to get address from coordinates
+//   const getAddressFromCoordinates = async (latitude, longitude) => {
+//     try {
+//       const response = await axios.get(
+//         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+//         {
+//           headers: {
+//             'User-Agent': 'BDM-Travel-App'
+//           }
+//         }
+//       );
+//       return {
+//         address: response.data.display_name,
+//         city: response.data.address.city || 
+//               response.data.address.town || 
+//               response.data.address.village || 
+//               response.data.address.county || 
+//               'Unknown'
+//       };
+//     } catch (error) {
+//       console.error('Error fetching address:', error);
+//       return {
+//         address: 'Address not found',
+//         city: 'Unknown'
+//       };
+//     }
+//   };
+
+//   try {
+//     const { bdmId, date } = req.body;
+
+//     if (!bdmId) {
+//       return res.status(400).json({
+//         message: "BDM ID is required"
+//       });
+//     }
+
+//     // If date is not provided, use today's date
+//     const targetDate = date ? new Date(date) : new Date();
+//     targetDate.setHours(0, 0, 0, 0);
+
+//     const nextDate = new Date(targetDate);
+//     nextDate.setDate(nextDate.getDate() + 1);
+
+//     // Get all check-ins for the BDM on the specified date
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Sequelize.Op.gte]: targetDate,
+//           [Sequelize.Op.lt]: nextDate
+//         }
+//       },
+//       order: [['checkin_time', 'ASC']]
+//     });
+
+//     if (travelDetails.length === 0) {
+//       return res.status(200).json({
+//         message: "No travel records found for the specified date",
+//         totalDistanceKm: 0,
+//         locations: [],
+//         date: targetDate
+//       });
+//     }
+
+//     // Calculate distances between consecutive points
+//     const locations = [];
+//     let totalDistanceMeters = 0;
+
+//     for (let i = 0; i < travelDetails.length - 1; i++) {
+//       const point1 = travelDetails[i];
+//       const point2 = travelDetails[i + 1];
+
+//       // Get addresses for both points
+//       const [fromAddress, toAddress] = await Promise.all([
+//         getAddressFromCoordinates(point1.checkin_latitude, point1.checkin_longitude),
+//         getAddressFromCoordinates(point2.checkin_latitude, point2.checkin_longitude)
+//       ]);
+
+//       try {
+//         // Call OSRM API to get route distance
+//         const routeUrl = `http://router.project-osrm.org/route/v1/driving/${point1.checkin_longitude},${point1.checkin_latitude};${point2.checkin_longitude},${point2.checkin_latitude}?overview=false`;
+//         const routeResponse = await axios.get(routeUrl);
+
+//         if (routeResponse.data.routes && routeResponse.data.routes[0]) {
+//           const distance = routeResponse.data.routes[0].distance; // distance in meters
+//           totalDistanceMeters += distance;
+
+//           locations.push({
+//             from: {
+//               latitude: point1.checkin_latitude,
+//               longitude: point1.checkin_longitude,
+//               time: point1.checkin_time,
+//               action: point1.action,
+//               address: fromAddress.address,
+//               city: fromAddress.city
+//             },
+//             to: {
+//               latitude: point2.checkin_latitude,
+//               longitude: point2.checkin_longitude,
+//               time: point2.checkin_time,
+//               action: point2.action,
+//               address: toAddress.address,
+//               city: toAddress.city
+//             },
+//             segmentDistanceKm: +(distance / 1000).toFixed(2)
+//           });
+//         }
+//       } catch (routeError) {
+//         console.error('Error calculating route:', routeError);
+//         // Fallback to direct distance calculation using Haversine formula
+//         const distance = calculateHaversineDistance(
+//           parseFloat(point1.checkin_latitude),
+//           parseFloat(point1.checkin_longitude),
+//           parseFloat(point2.checkin_latitude),
+//           parseFloat(point2.checkin_longitude)
+//         );
+//         totalDistanceMeters += distance;
+
+//         locations.push({
+//           from: {
+//             latitude: point1.checkin_latitude,
+//             longitude: point1.checkin_longitude,
+//             time: point1.checkin_time,
+//             action: point1.action,
+//             address: fromAddress.address,
+//             city: fromAddress.city
+//           },
+//           to: {
+//             latitude: point2.checkin_latitude,
+//             longitude: point2.checkin_longitude,
+//             time: point2.checkin_time,
+//             action: point2.action,
+//             address: toAddress.address,
+//             city: toAddress.city
+//           },
+//           segmentDistanceKm: +(distance / 1000).toFixed(2),
+//           isDirectDistance: true // Flag to indicate this is a direct distance, not route distance
+//         });
+//       }
+
+//       // Add delay to respect Nominatim's usage policy
+//       await new Promise(resolve => setTimeout(resolve, 1000));
+//     }
+
+//     // If there are travel details, include the last point's address
+//     if (travelDetails.length > 0) {
+//       const lastPoint = travelDetails[travelDetails.length - 1];
+//       const lastAddress = await getAddressFromCoordinates(
+//         lastPoint.checkin_latitude,
+//         lastPoint.checkin_longitude
+//       );
+
+//       // Add last location to show final destination
+//       locations.push({
+//         final_location: {
+//           latitude: lastPoint.checkin_latitude,
+//           longitude: lastPoint.checkin_longitude,
+//           time: lastPoint.checkin_time,
+//           action: lastPoint.action,
+//           address: lastAddress.address,
+//           city: lastAddress.city
+//         }
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: "Distance calculated successfully",
+//       totalDistanceKm: +(totalDistanceMeters / 1000).toFixed(2),
+//       locations,
+//       date: targetDate,
+//       numberOfLocations: travelDetails.length
+//     });
+
+//   } catch (error) {
+//     console.error("Error calculating distance:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+//changes on 6may
+// exports.getBdmDailyDistance = async (req, res) => {
+//   // Helper function to get address from coordinates
+//   const getAddressFromCoordinates = async (latitude, longitude) => {
+//     try {
+//       const response = await axios.get(
+//         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+//         {
+//           headers: {
+//             'User-Agent': 'BDM-Travel-App'
+//           }
+//         }
+//       );
+//       return {
+//         address: response.data.display_name,
+//         city: response.data.address.city || 
+//               response.data.address.town || 
+//               response.data.address.village || 
+//               response.data.address.county || 
+//               'Unknown'
+//       };
+//     } catch (error) {
+//       console.error('Error fetching address:', error);
+//       return {
+//         address: 'Address not found',
+//         city: 'Unknown'
+//       };
+//     }
+//   };
+
+//   // Haversine formula implementation to calculate distance between two points
+//   // Matching the implementation from the first API
+
+//   const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+//     const toRadians = (degrees) => {
+//       return degrees * (Math.PI / 180);
+//     };
+    
+//     const R = 6371; // Earth's radius in km
+//     const dLat = toRadians(lat2 - lat1);
+//     const dLon = toRadians(lon2 - lon1);
+    
+//     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+//               Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+//               Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+//     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+//     const distance = R * c; // Distance in km
+    
+//     // Add 38% to approximate road distance (matching first API)
+//     const roadDistance = distance * 1.38;
+    
+//     return roadDistance;
+//   };
+
+//   try {
+//     const { bdmId, date } = req.body;
+
+//     if (!bdmId) {
+//       return res.status(400).json({
+//         message: "BDM ID is required"
+//       });
+//     }
+
+//     // If date is not provided, use today's date
+//     const targetDate = date ? new Date(date) : new Date();
+//     targetDate.setHours(0, 0, 0, 0);
+
+//     const nextDate = new Date(targetDate);
+//     nextDate.setDate(nextDate.getDate() + 1);
+
+//     // Get all check-ins for the BDM on the specified date
+//     const travelDetails = await BdmTravelDetail.findAll({
+//       where: {
+//         bdm_id: bdmId,
+//         checkin_time: {
+//           [Sequelize.Op.gte]: targetDate,
+//           [Sequelize.Op.lt]: nextDate
+//         }
+//       },
+//       order: [['checkin_time', 'ASC']]
+//     });
+
+//     if (travelDetails.length === 0) {
+//       return res.status(200).json({
+//         message: "No travel records found for the specified date",
+//         totalDistanceKm: 0,
+//         locations: [],
+//         date: targetDate
+//       });
+//     }
+
+//     // Calculate distances between consecutive points
+//     const locations = [];
+//     let totalDistance = 0;
+
+//     for (let i = 0; i < travelDetails.length - 1; i++) {
+//       const point1 = travelDetails[i];
+//       const point2 = travelDetails[i + 1];
+
+//       // Get addresses for both points
+//       const [fromAddress, toAddress] = await Promise.all([
+//         getAddressFromCoordinates(point1.checkin_latitude, point1.checkin_longitude),
+//         getAddressFromCoordinates(point2.checkin_latitude, point2.checkin_longitude)
+//       ]);
+
+//       // Calculate distance using Haversine formula (consistent with first API)
+//       const distance = calculateHaversineDistance(
+//         parseFloat(point1.checkin_latitude),
+//         parseFloat(point1.checkin_longitude),
+//         parseFloat(point2.checkin_latitude),
+//         parseFloat(point2.checkin_longitude)
+//       );
+      
+//       totalDistance += distance;
+
+//       locations.push({
+//         from: {
+//           latitude: point1.checkin_latitude,
+//           longitude: point1.checkin_longitude,
+//           time: point1.checkin_time,
+//           action: point1.action,
+//           address: fromAddress.address,
+//           city: fromAddress.city
+//         },
+//         to: {
+//           latitude: point2.checkin_latitude,
+//           longitude: point2.checkin_longitude,
+//           time: point2.checkin_time,
+//           action: point2.action,
+//           address: toAddress.address,
+//           city: toAddress.city
+//         },
+//         segmentDistanceKm: +distance.toFixed(2)
+//       });
+
+//       // Add delay to respect Nominatim's usage policy
+//       await new Promise(resolve => setTimeout(resolve, 1000));
+//     }
+
+//     // If there are travel details, include the last point's address
+//     if (travelDetails.length > 0) {
+//       const lastPoint = travelDetails[travelDetails.length - 1];
+//       const lastAddress = await getAddressFromCoordinates(
+//         lastPoint.checkin_latitude,
+//         lastPoint.checkin_longitude
+//       );
+
+//       // Add last location to show final destination
+//       locations.push({
+//         final_location: {
+//           latitude: lastPoint.checkin_latitude,
+//           longitude: lastPoint.checkin_longitude,
+//           time: lastPoint.checkin_time,
+//           action: lastPoint.action,
+//           address: lastAddress.address,
+//           city: lastAddress.city
+//         }
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: "Distance calculated successfully",
+//       totalDistanceKm: +totalDistance.toFixed(2),
+//       locations,
+//       date: targetDate,
+//       numberOfLocations: travelDetails.length
+//     });
+
+//   } catch (error) {
+//     console.error("Error calculating distance:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+//changes on 6 may
 exports.getBdmDailyDistance = async (req, res) => {
   // Helper function to get address from coordinates
   const getAddressFromCoordinates = async (latitude, longitude) => {
@@ -1162,6 +1528,30 @@ exports.getBdmDailyDistance = async (req, res) => {
         city: 'Unknown'
       };
     }
+  };
+
+  // Haversine formula implementation to calculate distance between two points
+  // Matching the implementation from the first API
+  const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+    const toRadians = (degrees) => {
+      return degrees * (Math.PI / 180);
+    };
+    
+    const R = 6371; // Earth's radius in km
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in km
+    
+    // Add 38% to approximate road distance (matching first API)
+    const roadDistance = distance * 1.38;
+    
+    return roadDistance;
   };
 
   try {
@@ -1203,7 +1593,7 @@ exports.getBdmDailyDistance = async (req, res) => {
 
     // Calculate distances between consecutive points
     const locations = [];
-    let totalDistanceMeters = 0;
+    let totalDistance = 0;
 
     for (let i = 0; i < travelDetails.length - 1; i++) {
       const point1 = travelDetails[i];
@@ -1215,67 +1605,35 @@ exports.getBdmDailyDistance = async (req, res) => {
         getAddressFromCoordinates(point2.checkin_latitude, point2.checkin_longitude)
       ]);
 
-      try {
-        // Call OSRM API to get route distance
-        const routeUrl = `http://router.project-osrm.org/route/v1/driving/${point1.checkin_longitude},${point1.checkin_latitude};${point2.checkin_longitude},${point2.checkin_latitude}?overview=false`;
-        const routeResponse = await axios.get(routeUrl);
+      // Calculate distance using Haversine formula (consistent with first API)
+      const distance = calculateHaversineDistance(
+        parseFloat(point1.checkin_latitude),
+        parseFloat(point1.checkin_longitude),
+        parseFloat(point2.checkin_latitude),
+        parseFloat(point2.checkin_longitude)
+      );
+      
+      totalDistance += distance;
 
-        if (routeResponse.data.routes && routeResponse.data.routes[0]) {
-          const distance = routeResponse.data.routes[0].distance; // distance in meters
-          totalDistanceMeters += distance;
-
-          locations.push({
-            from: {
-              latitude: point1.checkin_latitude,
-              longitude: point1.checkin_longitude,
-              time: point1.checkin_time,
-              action: point1.action,
-              address: fromAddress.address,
-              city: fromAddress.city
-            },
-            to: {
-              latitude: point2.checkin_latitude,
-              longitude: point2.checkin_longitude,
-              time: point2.checkin_time,
-              action: point2.action,
-              address: toAddress.address,
-              city: toAddress.city
-            },
-            segmentDistanceKm: +(distance / 1000).toFixed(2)
-          });
-        }
-      } catch (routeError) {
-        console.error('Error calculating route:', routeError);
-        // Fallback to direct distance calculation using Haversine formula
-        const distance = calculateHaversineDistance(
-          parseFloat(point1.checkin_latitude),
-          parseFloat(point1.checkin_longitude),
-          parseFloat(point2.checkin_latitude),
-          parseFloat(point2.checkin_longitude)
-        );
-        totalDistanceMeters += distance;
-
-        locations.push({
-          from: {
-            latitude: point1.checkin_latitude,
-            longitude: point1.checkin_longitude,
-            time: point1.checkin_time,
-            action: point1.action,
-            address: fromAddress.address,
-            city: fromAddress.city
-          },
-          to: {
-            latitude: point2.checkin_latitude,
-            longitude: point2.checkin_longitude,
-            time: point2.checkin_time,
-            action: point2.action,
-            address: toAddress.address,
-            city: toAddress.city
-          },
-          segmentDistanceKm: +(distance / 1000).toFixed(2),
-          isDirectDistance: true // Flag to indicate this is a direct distance, not route distance
-        });
-      }
+      locations.push({
+        from: {
+          latitude: point1.checkin_latitude,
+          longitude: point1.checkin_longitude,
+          time: point1.checkin_time,
+          action: point1.action,
+          address: fromAddress.address,
+          city: fromAddress.city
+        },
+        to: {
+          latitude: point2.checkin_latitude,
+          longitude: point2.checkin_longitude,
+          time: point2.checkin_time,
+          action: point2.action,
+          address: toAddress.address,
+          city: toAddress.city
+        },
+        segmentDistanceKm: +distance.toFixed(2)
+      });
 
       // Add delay to respect Nominatim's usage policy
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1304,7 +1662,7 @@ exports.getBdmDailyDistance = async (req, res) => {
 
     res.status(200).json({
       message: "Distance calculated successfully",
-      totalDistanceKm: +(totalDistanceMeters / 1000).toFixed(2),
+      totalDistanceKm: +totalDistance.toFixed(2),
       locations,
       date: targetDate,
       numberOfLocations: travelDetails.length
@@ -1318,6 +1676,16 @@ exports.getBdmDailyDistance = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
+
+
 
 // Haversine formula for calculating direct distance between two points
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {

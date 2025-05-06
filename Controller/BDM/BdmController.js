@@ -20,6 +20,7 @@ const Employee_Role = require("../../models/employeRole");
 const Parivartan_BDM = require("../../models/Parivartan_BDM");
 const Parivartan_Region = require("../../models/Parivartan_Region");
 const BdmLeadAction = require("../../models/BdmLeadAction");
+const BdmTravelDetailForm = require("../../models/BdmTravelDetailForm");
 
 exports.getLeadsByBDMId = async (req, res) => {
   try {
@@ -4265,197 +4266,615 @@ exports.getEmployeeRegionsWithLeads = async (req, res) => {
 // };
 
 
-exports.getZonalManagerRegions = async (req, res) => {
-  try {
-    const { employeeId, startDate, endDate } = req.query;
 
-    // Set up date range filter - default to today if not provided
-    let dateStart, dateEnd;
+//changes on 5may
 
-    if (startDate && endDate) {
-      // If both dates are provided, use them
-      dateStart = new Date(startDate);
-      dateStart.setHours(0, 0, 0, 0);
+  // exports.getZonalManagerRegions = async (req, res) => {
+  //   try {
+  //     const { employeeId, startDate, endDate } = req.query;
 
-      dateEnd = new Date(endDate);
-      dateEnd.setHours(23, 59, 59, 999);
-    } else {
-      // Default to today
-      dateStart = new Date();
-      dateStart.setHours(0, 0, 0, 0);
+  //     // Set up date range filter - default to today if not provided
+  //     let dateStart, dateEnd;
 
-      dateEnd = new Date();
-      dateEnd.setHours(23, 59, 59, 999);
-    }
+  //     if (startDate && endDate) {
+  //       // If both dates are provided, use them
+  //       dateStart = new Date(startDate);
+  //       dateStart.setHours(0, 0, 0, 0);
 
-    // Find all regions where this employee is a zonal manager
-    const zonalManagerRegions = await Parivartan_BDM.findAll({
-      where: {
-        EmployeeId: employeeId,
-        is_zonal_manager: 'Yes',  // Only get regions where employee is a zonal manager
-        Deleted: 'N',             // Not deleted
-        // is_active: 'Active'       // Active status
-      },
-      include: [
-        {
-          model: Parivartan_Region,
-          attributes: ['RegionId', 'RegionName']
-        }
-      ],
-      attributes: ['RegionId', 'EmployeeId', 'EmployeeName', 'Project']
-    });
+  //       dateEnd = new Date(endDate);
+  //       dateEnd.setHours(23, 59, 59, 999);
+  //     } else {
+  //       // Default to today
+  //       dateStart = new Date();
+  //       dateStart.setHours(0, 0, 0, 0);
 
-    if (!zonalManagerRegions || zonalManagerRegions.length === 0) {
-      return res.status(404).json({
-        status: "404",
-        message: "No regions found where this employee is a zonal manager"
-      });
-    }
+  //       dateEnd = new Date();
+  //       dateEnd.setHours(23, 59, 59, 999);
+  //     }
 
-    // Extract the employee details only once
-    const employeeInfo = {
-      EmployeeId: zonalManagerRegions[0].EmployeeId,
-      EmployeeName: zonalManagerRegions[0].EmployeeName
-    };
+  //     // Find all regions where this employee is a zonal manager
+  //     const zonalManagerRegions = await Parivartan_BDM.findAll({
+  //       where: {
+  //         EmployeeId: employeeId,
+  //         is_zonal_manager: 'Yes',  // Only get regions where employee is a zonal manager
+  //         Deleted: 'N',             // Not deleted
+  //         // is_active: 'Active'       // Active status
+  //       },
+  //       include: [
+  //         {
+  //           model: Parivartan_Region,
+  //           attributes: ['RegionId', 'RegionName']
+  //         }
+  //       ],
+  //       attributes: ['RegionId', 'EmployeeId', 'EmployeeName', 'Project']
+  //     });
 
-    // Create an array to store region data with associated BDMs
-    const regionsWithBdms = [];
+  //     if (!zonalManagerRegions || zonalManagerRegions.length === 0) {
+  //       return res.status(404).json({
+  //         status: "404",
+  //         message: "No regions found where this employee is a zonal manager"
+  //       });
+  //     }
 
-    // For each region, find other BDMs associated with it
-    for (const region of zonalManagerRegions) {
-      // Find BDMs for this region with the same Project value
-      const bdmsForRegion = await Parivartan_BDM.findAll({
+  //     // Extract the employee details only once
+  //     const employeeInfo = {
+  //       EmployeeId: zonalManagerRegions[0].EmployeeId,
+  //       EmployeeName: zonalManagerRegions[0].EmployeeName
+  //     };
+
+  //     // Create an array to store region data with associated BDMs
+  //     const regionsWithBdms = [];
+
+  //     // For each region, find other BDMs associated with it
+  //     for (const region of zonalManagerRegions) {
+  //       // Find BDMs for this region with the same Project value
+  //       const bdmsForRegion = await Parivartan_BDM.findAll({
+  //         where: {
+  //           RegionId: region.RegionId,
+  //           Project: region.Project,  // Match the Project value
+  //           EmployeeId: {
+  //             [Op.ne]: employeeId // Not equal to the zonal manager
+  //           },
+  //           Deleted: 'N',
+  //           // is_active: 'Active'
+  //         },
+  //         attributes: ['EmployeeId', 'EmployeeName', 'is_bdm']
+  //       });
+
+  //       // Create an array to store BDMs with their actions
+  //       const bdmsWithActions = [];
+
+  //       // For each BDM, fetch actions within the date range
+  //       for (const bdm of bdmsForRegion) {
+  //         // Get actions for this BDM within the date range
+  //         const dateRangeActions = await BdmLeadAction.findAll({
+  //           where: {
+  //             BDMId: bdm.EmployeeId,
+  //             action_date: {
+  //               [Op.gte]: dateStart,
+  //               [Op.lte]: dateEnd
+  //             }
+  //           },
+  //           attributes: [
+  //             'id', 'LeadId', 'task_type', 'action_type',
+  //             'specific_action', 'new_follow_up_date',
+  //             'remarks', 'action_date', 'task_name',
+  //             'completion_status'
+  //           ],
+  //           order: [['action_date', 'DESC']] // Most recent first
+  //         });
+
+  //         // Add BDM with their actions to the array
+  //         bdmsWithActions.push({
+  //           EmployeeId: bdm.EmployeeId,
+  //           EmployeeName: bdm.EmployeeName,
+  //           is_bdm: 'Yes',
+  //           actions: dateRangeActions.map(action => ({
+  //             id: action.id,
+  //             LeadId: action.LeadId,
+  //             task_type: action.task_type,
+  //             action_type: action.action_type,
+  //             specific_action: action.specific_action,
+  //             new_follow_up_date: action.new_follow_up_date,
+  //             remarks: action.remarks,
+  //             action_date: action.action_date,
+  //             task_name: action.task_name,
+  //             completion_status: action.completion_status
+  //           })),
+  //           actionCount: dateRangeActions.length
+  //         });
+  //       }
+
+  //       // Get actions for the zonal manager for this region
+  //       let zonalManagerActions = [];
+  //       if (bdmsForRegion.length === 0) {
+  //         // If there are no BDMs for this region, fetch the zonal manager's actions
+  //         zonalManagerActions = await BdmLeadAction.findAll({
+  //           where: {
+  //             BDMId: employeeId, // The zonal manager's ID
+  //             action_date: {
+  //               [Op.gte]: dateStart,
+  //               [Op.lte]: dateEnd
+  //             }
+  //           },
+  //           attributes: [
+  //             'id', 'LeadId', 'task_type', 'action_type',
+  //             'specific_action', 'new_follow_up_date',
+  //             'remarks', 'action_date', 'task_name',
+  //             'completion_status'
+  //           ],
+  //           order: [['action_date', 'DESC']] // Most recent first
+  //         });
+
+  //         if (zonalManagerActions.length > 0) {
+  //           // If the zonal manager has actions, add them to the array
+  //           bdmsWithActions.push({
+  //             EmployeeId: employeeId,
+  //             EmployeeName: employeeInfo.EmployeeName,
+  //             is_zonal_manager: 'Yes',
+  //             actions: zonalManagerActions.map(action => ({
+  //               id: action.id,
+  //               LeadId: action.LeadId,
+  //               task_type: action.task_type,
+  //               action_type: action.action_type,
+  //               specific_action: action.specific_action,
+  //               new_follow_up_date: action.new_follow_up_date,
+  //               remarks: action.remarks,
+  //               action_date: action.action_date,
+  //               task_name: action.task_name,
+  //               completion_status: action.completion_status
+  //             })),
+  //             actionCount: zonalManagerActions.length
+  //           });
+  //         }
+  //       }
+
+  //       // Add region with its BDMs to result array
+  //       regionsWithBdms.push({
+  //         RegionId: region.RegionId,
+  //         RegionName: region.parivartan_region ? region.parivartan_region.RegionName : null,
+  //         Project: region.Project,
+  //         bdms: bdmsWithActions
+  //       });
+  //     }
+
+  //     // Return employee info once and all regions with their BDMs
+  //     return res.status(200).json({
+  //       status: "200",
+  //       message: "Zonal manager regions with BDMs and actions fetched successfully",
+  //       dateRange: {
+  //         startDate: dateStart,
+  //         endDate: dateEnd
+  //       },
+  //       employeeInfo: employeeInfo,
+  //       totalRegions: regionsWithBdms.length,
+  //       regions: regionsWithBdms
+  //     });
+
+  //   } catch (error) {
+  //     console.error("Error fetching zonal manager regions with BDMs:", error);
+  //     return res.status(500).json({
+  //       status: "500",
+  //       message: "An error occurred while fetching zonal manager regions with BDMs and actions"
+  //     });
+  //   }
+  // };
+
+
+
+  exports.getZonalManagerRegions = async (req, res) => {
+    try {
+      const { employeeId, startDate, endDate } = req.query;
+  
+      // Set up date range filter - default to today if not provided
+      let dateStart, dateEnd;
+  
+      if (startDate && endDate) {
+        // If both dates are provided, use them
+        dateStart = new Date(startDate);
+        dateStart.setHours(0, 0, 0, 0);
+  
+        dateEnd = new Date(endDate);
+        dateEnd.setHours(23, 59, 59, 999);
+      } else {
+        // Default to today
+        dateStart = new Date();
+        dateStart.setHours(0, 0, 0, 0);
+  
+        dateEnd = new Date();
+        dateEnd.setHours(23, 59, 59, 999);
+      }
+  
+      // Find all regions where this employee is a zonal manager
+      const zonalManagerRegions = await Parivartan_BDM.findAll({
         where: {
-          RegionId: region.RegionId,
-          Project: region.Project,  // Match the Project value
-          EmployeeId: {
-            [Op.ne]: employeeId // Not equal to the zonal manager
-          },
-          Deleted: 'N',
-          // is_active: 'Active'
+          EmployeeId: employeeId,
+          is_zonal_manager: 'Yes',  // Only get regions where employee is a zonal manager
+          Deleted: 'N',             // Not deleted
+          // is_active: 'Active'       // Active status
         },
-        attributes: ['EmployeeId', 'EmployeeName', 'is_bdm']
+        include: [
+          {
+            model: Parivartan_Region,
+            attributes: ['RegionId', 'RegionName']
+          }
+        ],
+        attributes: ['RegionId', 'EmployeeId', 'EmployeeName', 'Project']
       });
-
-      // Create an array to store BDMs with their actions
-      const bdmsWithActions = [];
-
-      // For each BDM, fetch actions within the date range
-      for (const bdm of bdmsForRegion) {
-        // Get actions for this BDM within the date range
-        const dateRangeActions = await BdmLeadAction.findAll({
-          where: {
-            BDMId: bdm.EmployeeId,
-            action_date: {
-              [Op.gte]: dateStart,
-              [Op.lte]: dateEnd
-            }
-          },
-          attributes: [
-            'id', 'LeadId', 'task_type', 'action_type',
-            'specific_action', 'new_follow_up_date',
-            'remarks', 'action_date', 'task_name',
-            'completion_status'
-          ],
-          order: [['action_date', 'DESC']] // Most recent first
-        });
-
-        // Add BDM with their actions to the array
-        bdmsWithActions.push({
-          EmployeeId: bdm.EmployeeId,
-          EmployeeName: bdm.EmployeeName,
-          is_bdm: 'Yes',
-          actions: dateRangeActions.map(action => ({
-            id: action.id,
-            LeadId: action.LeadId,
-            task_type: action.task_type,
-            action_type: action.action_type,
-            specific_action: action.specific_action,
-            new_follow_up_date: action.new_follow_up_date,
-            remarks: action.remarks,
-            action_date: action.action_date,
-            task_name: action.task_name,
-            completion_status: action.completion_status
-          })),
-          actionCount: dateRangeActions.length
+  
+      if (!zonalManagerRegions || zonalManagerRegions.length === 0) {
+        return res.status(404).json({
+          status: "404",
+          message: "No regions found where this employee is a zonal manager"
         });
       }
-
-      // Get actions for the zonal manager for this region
-      let zonalManagerActions = [];
-      if (bdmsForRegion.length === 0) {
-        // If there are no BDMs for this region, fetch the zonal manager's actions
-        zonalManagerActions = await BdmLeadAction.findAll({
+  
+      // Extract the employee details only once
+      const employeeInfo = {
+        EmployeeId: zonalManagerRegions[0].EmployeeId,
+        EmployeeName: zonalManagerRegions[0].EmployeeName
+      };
+  
+      // Create an array to store region data with associated BDMs
+      const regionsWithBdms = [];
+  
+      // For each region, find other BDMs associated with it
+      for (const region of zonalManagerRegions) {
+        // Find BDMs for this region with the same Project value
+        const bdmsForRegion = await Parivartan_BDM.findAll({
           where: {
-            BDMId: employeeId, // The zonal manager's ID
-            action_date: {
-              [Op.gte]: dateStart,
-              [Op.lte]: dateEnd
-            }
+            RegionId: region.RegionId,
+            Project: region.Project,  // Match the Project value
+            EmployeeId: {
+              [Op.ne]: employeeId // Not equal to the zonal manager
+            },
+            Deleted: 'N',
+            // is_active: 'Active'
           },
-          attributes: [
-            'id', 'LeadId', 'task_type', 'action_type',
-            'specific_action', 'new_follow_up_date',
-            'remarks', 'action_date', 'task_name',
-            'completion_status'
-          ],
-          order: [['action_date', 'DESC']] // Most recent first
+          attributes: ['EmployeeId', 'EmployeeName', 'is_bdm']
         });
-
-        if (zonalManagerActions.length > 0) {
-          // If the zonal manager has actions, add them to the array
+  
+        // Create an array to store BDMs with their actions
+        const bdmsWithActions = [];
+  
+        // For each BDM, fetch actions within the date range
+        for (const bdm of bdmsForRegion) {
+          // Get actions for this BDM within the date range
+          const dateRangeActions = await BdmLeadAction.findAll({
+            where: {
+              BDMId: bdm.EmployeeId,
+              action_date: {
+                [Op.gte]: dateStart,
+                [Op.lte]: dateEnd
+              }
+            },
+            include: [
+              {
+                model: Lead_Detail,
+                as: 'Lead',
+                attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category', 'bdm_remark'],
+                required: false
+              },
+              {
+                model: BdmTravelDetailForm,
+                as: 'TravelDetails',
+                required: false
+              }
+            ],
+            attributes: [
+              'id', 'LeadId', 'task_type', 'action_type',
+              'specific_action', 'new_follow_up_date',
+              'remarks', 'action_date', 'task_name',
+              'completion_status', 'branchOffice', 'regionalOffice',
+              'lead_detail_form_id'
+            ],
+            order: [['action_date', 'DESC']] // Most recent first
+          });
+  
+          // Fetch all travel forms for this BDM (for lookup if needed)
+          const travelForms = await BdmTravelDetailForm.findAll({
+            where: {
+              BDMId: bdm.EmployeeId,
+              createdAt: {
+                [Op.gte]: dateStart,
+                [Op.lte]: dateEnd
+              }
+            }
+          });
+  
+          // Create a map for efficient lookup
+          const travelFormsMap = new Map();
+          travelForms.forEach(form => {
+            travelFormsMap.set(form.id.toString(), form);
+          });
+  
+          // Process the actions to include travel form and meeting details
+          const processedActions = await Promise.all(dateRangeActions.map(async action => {
+            const actionObj = action.toJSON();
+            
+            // Format meeting data if this is a meeting
+            if (actionObj.specific_action && actionObj.specific_action.toLowerCase().includes('meeting')) {
+              // Meeting data is already included via the Lead association
+            }
+            
+            // Add travel form details if this is a travel-related action
+            if (['Travel', 'RO Visit', 'HO Visit', 'BO Visit'].includes(actionObj.specific_action)) {
+              if (actionObj.TravelDetails) {
+                actionObj.travel_form_details = {
+                  id: actionObj.TravelDetails.id,
+                  taskType: actionObj.TravelDetails.taskType,
+                  branchName: actionObj.TravelDetails.branchName,
+                  regionalOfficeName: actionObj.TravelDetails.regionalOfficeName,
+                  purposeForVisit: actionObj.TravelDetails.purposeForVisit,
+                  concernPersonName: actionObj.TravelDetails.concernPersonName,
+                  adminTaskSelect: actionObj.TravelDetails.adminTaskSelect,
+                  remarks: actionObj.TravelDetails.remarks,
+                  hoSelection: actionObj.TravelDetails.hoSelection,
+                  modeOfTravel: actionObj.TravelDetails.modeOfTravel,
+                  travelFrom: actionObj.TravelDetails.travelFrom,
+                  travelTo: actionObj.TravelDetails.travelTo,
+                  reasonForTravel: actionObj.TravelDetails.reasonForTravel,
+                  mandatoryVisitImage: actionObj.TravelDetails.mandatoryVisitImage,
+                  optionalVisitImage: actionObj.TravelDetails.optionalVisitImage
+                };
+              } else if (actionObj.lead_detail_form_id && travelFormsMap.has(actionObj.lead_detail_form_id.toString())) {
+                const travelForm = travelFormsMap.get(actionObj.lead_detail_form_id.toString());
+                actionObj.travel_form_details = {
+                  id: travelForm.id,
+                  taskType: travelForm.taskType,
+                  branchName: travelForm.branchName,
+                  regionalOfficeName: travelForm.regionalOfficeName,
+                  purposeForVisit: travelForm.purposeForVisit,
+                  concernPersonName: travelForm.concernPersonName,
+                  adminTaskSelect: travelForm.adminTaskSelect,
+                  remarks: travelForm.remarks,
+                  hoSelection: travelForm.hoSelection,
+                  modeOfTravel: travelForm.modeOfTravel,
+                  travelFrom: travelForm.travelFrom,
+                  travelTo: travelForm.travelTo,
+                  reasonForTravel: travelForm.reasonForTravel,
+                  mandatoryVisitImage: travelForm.mandatoryVisitImage,
+                  optionalVisitImage: travelForm.optionalVisitImage
+                };
+              }
+            }
+            
+            // Remove the TravelDetails object to clean up response
+            delete actionObj.TravelDetails;
+            
+            return actionObj;
+          }));
+  
+          // Calculate summary information
+          const activitySummary = {
+            totalActivities: processedActions.length,
+            meetings: processedActions.filter(action => 
+              action.specific_action && action.specific_action.toLowerCase().includes('meeting')
+            ).length,
+            roVisits: processedActions.filter(action => action.specific_action === 'RO Visit').length,
+            hoVisits: processedActions.filter(action => action.specific_action === 'HO Visit').length,
+            boVisits: processedActions.filter(action => action.specific_action === 'BO Visit').length,
+            travels: processedActions.filter(action => action.specific_action === 'Travel').length,
+            siteVisits: processedActions.filter(action => action.specific_action === 'Site Visit').length,
+            other: processedActions.filter(action => 
+              !['Meeting', 'RO Visit', 'HO Visit', 'BO Visit', 'Travel', 'Site Visit'].includes(action.specific_action)
+            ).length
+          };
+  
+          // Add BDM with their actions to the array
           bdmsWithActions.push({
-            EmployeeId: employeeId,
-            EmployeeName: employeeInfo.EmployeeName,
-            is_zonal_manager: 'Yes',
-            actions: zonalManagerActions.map(action => ({
-              id: action.id,
-              LeadId: action.LeadId,
-              task_type: action.task_type,
-              action_type: action.action_type,
-              specific_action: action.specific_action,
-              new_follow_up_date: action.new_follow_up_date,
-              remarks: action.remarks,
-              action_date: action.action_date,
-              task_name: action.task_name,
-              completion_status: action.completion_status
-            })),
-            actionCount: zonalManagerActions.length
+            EmployeeId: bdm.EmployeeId,
+            EmployeeName: bdm.EmployeeName,
+            is_bdm: 'Yes',
+            actions: processedActions,
+            actionCount: processedActions.length,
+            activitySummary: activitySummary
           });
         }
+  
+        // Get actions for the zonal manager for this region
+        let zonalManagerActions = [];
+        if (bdmsForRegion.length === 0 || true) { // Always include zonal manager's actions
+          // Fetch the zonal manager's actions
+          const zmActions = await BdmLeadAction.findAll({
+            where: {
+              BDMId: employeeId, // The zonal manager's ID
+              action_date: {
+                [Op.gte]: dateStart,
+                [Op.lte]: dateEnd
+              }
+            },
+            include: [
+              {
+                model: Lead_Detail,
+                as: 'Lead',
+                attributes: ['id', 'CustomerName', 'MobileNo', 'CustomerMailId', 'location', 'category', 'sub_category', 'bdm_remark'],
+                required: false
+              },
+              {
+                model: BdmTravelDetailForm,
+                as: 'TravelDetails',
+                required: false
+              }
+            ],
+            attributes: [
+              'id', 'LeadId', 'task_type', 'action_type',
+              'specific_action', 'new_follow_up_date',
+              'remarks', 'action_date', 'task_name',
+              'completion_status', 'branchOffice', 'regionalOffice',
+              'lead_detail_form_id'
+            ],
+            order: [['action_date', 'DESC']] // Most recent first
+          });
+  
+          // Fetch all travel forms for the zonal manager
+          const zmTravelForms = await BdmTravelDetailForm.findAll({
+            where: {
+              BDMId: employeeId,
+              createdAt: {
+                [Op.gte]: dateStart,
+                [Op.lte]: dateEnd
+              }
+            }
+          });
+  
+          // Create a map for efficient lookup
+          const zmTravelFormsMap = new Map();
+          zmTravelForms.forEach(form => {
+            zmTravelFormsMap.set(form.id.toString(), form);
+          });
+  
+          // Process the zonal manager's actions
+          zonalManagerActions = await Promise.all(zmActions.map(async action => {
+            const actionObj = action.toJSON();
+            
+            // Add travel form details if this is a travel-related action
+            if (['Travel', 'RO Visit', 'HO Visit', 'BO Visit'].includes(actionObj.specific_action)) {
+              if (actionObj.TravelDetails) {
+                actionObj.travel_form_details = {
+                  id: actionObj.TravelDetails.id,
+                  taskType: actionObj.TravelDetails.taskType,
+                  branchName: actionObj.TravelDetails.branchName,
+                  regionalOfficeName: actionObj.TravelDetails.regionalOfficeName,
+                  purposeForVisit: actionObj.TravelDetails.purposeForVisit,
+                  concernPersonName: actionObj.TravelDetails.concernPersonName,
+                  adminTaskSelect: actionObj.TravelDetails.adminTaskSelect,
+                  remarks: actionObj.TravelDetails.remarks,
+                  hoSelection: actionObj.TravelDetails.hoSelection,
+                  modeOfTravel: actionObj.TravelDetails.modeOfTravel,
+                  travelFrom: actionObj.TravelDetails.travelFrom,
+                  travelTo: actionObj.TravelDetails.travelTo,
+                  reasonForTravel: actionObj.TravelDetails.reasonForTravel,
+                  mandatoryVisitImage: actionObj.TravelDetails.mandatoryVisitImage,
+                  optionalVisitImage: actionObj.TravelDetails.optionalVisitImage
+                };
+              } else if (actionObj.lead_detail_form_id && zmTravelFormsMap.has(actionObj.lead_detail_form_id.toString())) {
+                const travelForm = zmTravelFormsMap.get(actionObj.lead_detail_form_id.toString());
+                actionObj.travel_form_details = {
+                  id: travelForm.id,
+                  taskType: travelForm.taskType,
+                  branchName: travelForm.branchName,
+                  regionalOfficeName: travelForm.regionalOfficeName,
+                  purposeForVisit: travelForm.purposeForVisit,
+                  concernPersonName: travelForm.concernPersonName,
+                  adminTaskSelect: travelForm.adminTaskSelect,
+                  remarks: travelForm.remarks,
+                  hoSelection: travelForm.hoSelection,
+                  modeOfTravel: travelForm.modeOfTravel,
+                  travelFrom: travelForm.travelFrom,
+                  travelTo: travelForm.travelTo,
+                  reasonForTravel: travelForm.reasonForTravel,
+                  mandatoryVisitImage: travelForm.mandatoryVisitImage,
+                  optionalVisitImage: travelForm.optionalVisitImage
+                };
+              }
+            }
+            
+            // Remove the TravelDetails object to clean up response
+            delete actionObj.TravelDetails;
+            
+            return actionObj;
+          }));
+  
+          if (zonalManagerActions.length > 0) {
+            // Calculate summary information for zonal manager
+            const zmActivitySummary = {
+              totalActivities: zonalManagerActions.length,
+              meetings: zonalManagerActions.filter(action => 
+                action.specific_action && action.specific_action.toLowerCase().includes('meeting')
+              ).length,
+              roVisits: zonalManagerActions.filter(action => action.specific_action === 'RO Visit').length,
+              hoVisits: zonalManagerActions.filter(action => action.specific_action === 'HO Visit').length,
+              boVisits: zonalManagerActions.filter(action => action.specific_action === 'BO Visit').length,
+              travels: zonalManagerActions.filter(action => action.specific_action === 'Travel').length,
+              siteVisits: zonalManagerActions.filter(action => action.specific_action === 'Site Visit').length,
+              other: zonalManagerActions.filter(action => 
+                !['Meeting', 'RO Visit', 'HO Visit', 'BO Visit', 'Travel', 'Site Visit'].includes(action.specific_action)
+              ).length
+            };
+  
+            // If the zonal manager has actions, add them to the array
+            bdmsWithActions.push({
+              EmployeeId: employeeId,
+              EmployeeName: employeeInfo.EmployeeName,
+              is_zonal_manager: 'Yes',
+              actions: zonalManagerActions,
+              actionCount: zonalManagerActions.length,
+              activitySummary: zmActivitySummary
+            });
+          }
+        }
+  
+        // Calculate region-level summary
+        const allActionsInRegion = bdmsWithActions.flatMap(bdm => bdm.actions);
+        const regionSummary = {
+          totalBdms: bdmsWithActions.length,
+          totalActivities: allActionsInRegion.length,
+          meetings: allActionsInRegion.filter(action => 
+            action.specific_action && action.specific_action.toLowerCase().includes('meeting')
+          ).length,
+          roVisits: allActionsInRegion.filter(action => action.specific_action === 'RO Visit').length,
+          hoVisits: allActionsInRegion.filter(action => action.specific_action === 'HO Visit').length,
+          boVisits: allActionsInRegion.filter(action => action.specific_action === 'BO Visit').length,
+          travels: allActionsInRegion.filter(action => action.specific_action === 'Travel').length,
+          siteVisits: allActionsInRegion.filter(action => action.specific_action === 'Site Visit').length,
+          other: allActionsInRegion.filter(action => 
+            !['Meeting', 'RO Visit', 'HO Visit', 'BO Visit', 'Travel', 'Site Visit'].includes(action.specific_action)
+          ).length
+        };
+  
+        // Add region with its BDMs to result array
+        regionsWithBdms.push({
+          RegionId: region.RegionId,
+          RegionName: region.parivartan_region ? region.parivartan_region.RegionName : null,
+          Project: region.Project,
+          summary: regionSummary,
+          bdms: bdmsWithActions
+        });
       }
-
-      // Add region with its BDMs to result array
-      regionsWithBdms.push({
-        RegionId: region.RegionId,
-        RegionName: region.parivartan_region ? region.parivartan_region.RegionName : null,
-        Project: region.Project,
-        bdms: bdmsWithActions
+  
+      // Calculate overall summary across all regions
+      const allBdms = regionsWithBdms.flatMap(region => region.bdms);
+      const allActions = allBdms.flatMap(bdm => bdm.actions);
+      
+      const overallSummary = {
+        totalRegions: regionsWithBdms.length,
+        totalBdms: allBdms.length,
+        totalActivities: allActions.length,
+        meetings: allActions.filter(action => 
+          action.specific_action && action.specific_action.toLowerCase().includes('meeting')
+        ).length,
+        roVisits: allActions.filter(action => action.specific_action === 'RO Visit').length,
+        hoVisits: allActions.filter(action => action.specific_action === 'HO Visit').length,
+        boVisits: allActions.filter(action => action.specific_action === 'BO Visit').length,
+        travels: allActions.filter(action => action.specific_action === 'Travel').length,
+        siteVisits: allActions.filter(action => action.specific_action === 'Site Visit').length,
+        other: allActions.filter(action => 
+          !['Meeting', 'RO Visit', 'HO Visit', 'BO Visit', 'Travel', 'Site Visit'].includes(action.specific_action)
+        ).length
+      };
+  
+      // Return employee info, summary, and all regions with their BDMs
+      return res.status(200).json({
+        status: "200",
+        message: "Zonal manager regions with BDMs and actions fetched successfully",
+        dateRange: {
+          startDate: dateStart.toISOString(),
+          endDate: dateEnd.toISOString()
+        },
+        employeeInfo: employeeInfo,
+        overallSummary: overallSummary,
+        regions: regionsWithBdms
+      });
+  
+    } catch (error) {
+      console.error("Error fetching zonal manager regions with BDMs:", error);
+      return res.status(500).json({
+        status: "500",
+        message: "An error occurred while fetching zonal manager regions with BDMs and actions",
+        error: error.message
       });
     }
-
-    // Return employee info once and all regions with their BDMs
-    return res.status(200).json({
-      status: "200",
-      message: "Zonal manager regions with BDMs and actions fetched successfully",
-      dateRange: {
-        startDate: dateStart,
-        endDate: dateEnd
-      },
-      employeeInfo: employeeInfo,
-      totalRegions: regionsWithBdms.length,
-      regions: regionsWithBdms
-    });
-
-  } catch (error) {
-    console.error("Error fetching zonal manager regions with BDMs:", error);
-    return res.status(500).json({
-      status: "500",
-      message: "An error occurred while fetching zonal manager regions with BDMs and actions"
-    });
-  }
-};
-
-
+  };
 
 

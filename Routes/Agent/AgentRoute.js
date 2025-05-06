@@ -4,6 +4,9 @@ const auth = require('../../middleware/check-auth');
 const AgentController = require('../../Controller/Agent/AgentController');
 const { sendTestNotification } = require('../../config/firebase');
 
+
+router.get('/bdm-followups/details', AgentController.getAgentBdmFollowups);
+
 // Test route for sending notifications
 router.post('/test-notification', async (req, res) => {
     try {

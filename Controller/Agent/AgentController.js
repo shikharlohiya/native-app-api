@@ -16,6 +16,9 @@ const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
 const Parivartan_Branch = require('../../models/Parivartan_Branch');
 const Parivartan_Region = require('../../models/Parivartan_Region');
+const BdmLeadAction = require("../../models/BdmLeadAction");
+const BdmTravelDetailForm = require("../../models/BdmTravelDetailForm");
+const BdmTravelDetail = require("../../models/BdmTravelDetail");
  
 
 
@@ -2895,6 +2898,668 @@ exports.getGroupMeetingsByBdmId = async (req, res) => {
       success: false,
       message: "Error fetching group meetings",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+
+
+
+///
+
+// exports.getAgentBdmFollowups = async (req, res) => {
+//   try {
+//     const { agentId, startDate, endDate, taskType = 'HO_task' } = req.query;
+
+//     if (!agentId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Agent ID is required'
+//       });
+//     }
+
+//     // Handle date range parameters
+//     let dateStart, dateEnd;
+    
+//     if (startDate && endDate) {
+//       // If both dates are provided, use them
+//       dateStart = new Date(startDate);
+//       dateStart.setHours(0, 0, 0, 0);
+      
+//       dateEnd = new Date(endDate);
+//       dateEnd.setHours(23, 59, 59, 999);
+//     } else if (startDate) {
+//       // If only start date is provided, set range to that single day
+//       dateStart = new Date(startDate);
+//       dateStart.setHours(0, 0, 0, 0);
+      
+//       dateEnd = new Date(startDate);
+//       dateEnd.setHours(23, 59, 59, 999);
+//     } else {
+//       // Default to today if no dates provided
+//       dateStart = new Date();
+//       dateStart.setHours(0, 0, 0, 0);
+      
+//       dateEnd = new Date();
+//       dateEnd.setHours(23, 59, 59, 999);
+//     }
+
+//     // Verify the agent exists
+//     const agent = await Employee.findOne({
+//       where: { EmployeeId: agentId },
+//       attributes: ['EmployeeId', 'EmployeeName']
+//     });
+
+//     if (!agent) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Agent not found'
+//       });
+//     }
+
+//     // First, find all leads assigned to this agent
+//     const agentLeads = await Lead_Detail.findAll({
+//       where: {
+//         AgentId: agentId,
+//         follow_up_date: {
+//           [Op.between]: [dateStart, dateEnd]
+//         }
+//       },
+//       attributes: [
+//         'id', 'CustomerName', 'MobileNo', 'CustomerMailId',
+//         'location', 'pincode', 'state_name', 'region_name',
+//         'category', 'sub_category', 'agent_remark', 'bdm_remark',
+//         'follow_up_date', 'BDMId', 'RegionId'
+//       ],
+//       include: [
+//         {
+//           model: Employee,
+//           as: 'BDM',
+//           attributes: ['EmployeeId', 'EmployeeName']
+//         },
+//         {
+//           model: Parivartan_Region,
+//           as: 'Region',
+//           attributes: ['RegionId', 'RegionName']
+//         }
+//       ]
+//     });
+
+//     // Group leads by BDM
+//     const leadsByBdm = {};
+//     agentLeads.forEach(lead => {
+//       const bdmId = lead.BDMId;
+//       if (bdmId) {
+//         if (!leadsByBdm[bdmId]) {
+//           leadsByBdm[bdmId] = {
+//             bdmId: bdmId,
+//             bdmName: lead.BDM ? lead.BDM.EmployeeName : 'Unknown',
+//             leads: []
+//           };
+//         }
+//         leadsByBdm[bdmId].leads.push(lead);
+//       }
+//     });
+
+//     // For each BDM, fetch their lead actions
+//     const bdmsWithActions = [];
+    
+//     for (const bdmId in leadsByBdm) {
+//       const bdmLeadIds = leadsByBdm[bdmId].leads.map(lead => lead.id);
+      
+//       // Get BDM's actions for these leads
+//       const leadActions = await BdmLeadAction.findAll({
+//         where: {
+//           BDMId: bdmId,
+//           LeadId: {
+//             [Op.in]: bdmLeadIds
+//           },
+//           task_type: taskType // Filter by taskType (default 'HO_task')
+//         },
+//         include: [
+//           {
+//             model: Lead_Detail,
+//             as: 'Lead',
+//             attributes: [
+//               'id', 'CustomerName', 'MobileNo', 'CustomerMailId',
+//               'location', 'pincode', 'state_name', 'region_name',
+//               'category', 'sub_category', 'agent_remark', 'bdm_remark',
+//               'follow_up_date'
+//             ]
+//           },
+//           {
+//             model: BdmTravelDetailForm,
+//             as: 'TravelDetails',
+//             required: false
+//           }
+//         ],
+//         attributes: [
+//           'id', 'LeadId', 'task_type', 'action_type',
+//           'specific_action', 'new_follow_up_date',
+//           'remarks', 'action_date', 'task_name',
+//           'completion_status', 'branchOffice',
+//           'regionalOffice', 'lead_detail_form_id'
+//         ],
+//         order: [['action_date', 'DESC']]
+//       });
+
+//       // Get travel details for this BDM
+//       const travelDetails = await BdmTravelDetail.findAll({
+//         where: {
+//           bdm_id: bdmId,
+//           leaddetail_id: {
+//             [Op.in]: bdmLeadIds
+//           },
+//           checkin_time: {
+//             [Op.between]: [dateStart, dateEnd]
+//           }
+//         }
+//       });
+
+//       // Process the lead actions to include travel details
+//       const processedLeadActions = leadActions.map(action => {
+//         const actionObj = action.toJSON();
+        
+//         // Find matching travel detail if any
+//         const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === action.id);
+        
+//         // Add travel form details if this is a travel-related action
+//         if (['Travel', 'RO Visit', 'HO Visit', 'BO Visit'].includes(actionObj.specific_action)) {
+//           if (actionObj.TravelDetails) {
+//             actionObj.travel_form_details = {
+//               id: actionObj.TravelDetails.id,
+//               taskType: actionObj.TravelDetails.taskType,
+//               branchName: actionObj.TravelDetails.branchName,
+//               regionalOfficeName: actionObj.TravelDetails.regionalOfficeName,
+//               purposeForVisit: actionObj.TravelDetails.purposeForVisit,
+//               concernPersonName: actionObj.TravelDetails.concernPersonName,
+//               adminTaskSelect: actionObj.TravelDetails.adminTaskSelect,
+//               remarks: actionObj.TravelDetails.remarks,
+//               hoSelection: actionObj.TravelDetails.hoSelection,
+//               modeOfTravel: actionObj.TravelDetails.modeOfTravel,
+//               travelFrom: actionObj.TravelDetails.travelFrom,
+//               travelTo: actionObj.TravelDetails.travelTo,
+//               reasonForTravel: actionObj.TravelDetails.reasonForTravel,
+//               mandatoryVisitImage: actionObj.TravelDetails.mandatoryVisitImage,
+//               optionalVisitImage: actionObj.TravelDetails.optionalVisitImage
+//             };
+//           }
+//         }
+        
+//         // Add travel details if available
+//         if (travelDetail) {
+//           actionObj.travel_details = {
+//             travel_detailsId: travelDetail.id,
+//             checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+//             checkout_time: travelDetail.checkout_time ?
+//               moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+//             checkin_location: {
+//               latitude: travelDetail.checkin_latitude,
+//               longitude: travelDetail.checkin_longitude
+//             },
+//             checkout_location: travelDetail.checkout_time ? {
+//               latitude: travelDetail.checkout_latitude,
+//               longitude: travelDetail.checkout_longitude
+//             } : null
+//           };
+//         }
+        
+//         // Format dates using moment
+//         if (actionObj.action_date) {
+//           actionObj.action_date = moment(actionObj.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
+//         }
+        
+//         if (actionObj.new_follow_up_date) {
+//           actionObj.new_follow_up_date = moment(actionObj.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
+//         }
+        
+//         // Remove the TravelDetails object to clean up response
+//         delete actionObj.TravelDetails;
+        
+//         return actionObj;
+//       });
+
+//       // Group lead actions by lead
+//       const actionsGroupedByLead = {};
+      
+//       processedLeadActions.forEach(action => {
+//         const leadId = action.LeadId;
+//         if (!actionsGroupedByLead[leadId]) {
+//           actionsGroupedByLead[leadId] = {
+//             leadInfo: action.Lead,
+//             actions: []
+//           };
+//         }
+        
+//         // Remove the Lead object to avoid duplication
+//         delete action.Lead;
+        
+//         actionsGroupedByLead[leadId].actions.push(action);
+//       });
+
+//       // Format the leads with their actions
+//       const formattedLeads = Object.values(actionsGroupedByLead);
+
+//       // Calculate action statistics
+//       const totalActions = processedLeadActions.length;
+//       const confirmedActions = processedLeadActions.filter(a => a.action_type === 'confirm').length;
+//       const postponedActions = processedLeadActions.filter(a => a.action_type === 'postpone').length;
+//       const completedActions = processedLeadActions.filter(a => a.completion_status === 'completed').length;
+//       const pendingActions = processedLeadActions.filter(a => a.completion_status === 'not_completed').length;
+
+//       // Group actions by type
+//       const meetingActions = processedLeadActions.filter(a => a.specific_action && a.specific_action.toLowerCase().includes('meeting')).length;
+//       const roVisitActions = processedLeadActions.filter(a => a.specific_action === 'RO Visit').length;
+//       const hoVisitActions = processedLeadActions.filter(a => a.specific_action === 'HO Visit').length;
+//       const boVisitActions = processedLeadActions.filter(a => a.specific_action === 'BO Visit').length;
+//       const travelActions = processedLeadActions.filter(a => a.specific_action === 'Travel').length;
+//       const siteVisitActions = processedLeadActions.filter(a => a.specific_action === 'Site Visit').length;
+
+//       // Add to the BDMs array
+//       bdmsWithActions.push({
+//         bdmId: bdmId,
+//         bdmName: leadsByBdm[bdmId].bdmName,
+//         stats: {
+//           totalLeads: leadsByBdm[bdmId].leads.length,
+//           totalActions: totalActions,
+//           confirmedActions: confirmedActions,
+//           postponedActions: postponedActions,
+//           completedActions: completedActions,
+//           pendingActions: pendingActions,
+//           meetingActions: meetingActions,
+//           roVisitActions: roVisitActions,
+//           hoVisitActions: hoVisitActions,
+//           boVisitActions: boVisitActions,
+//           travelActions: travelActions,
+//           siteVisitActions: siteVisitActions
+//         },
+//         leads: formattedLeads
+//       });
+//     }
+
+//     // Calculate overall statistics
+//     const totalLeads = agentLeads.length;
+//     const totalBdms = bdmsWithActions.length;
+//     const totalActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.totalActions, 0);
+//     const completedActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.completedActions, 0);
+//     const pendingActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.pendingActions, 0);
+
+//     // Return the response
+//     res.status(200).json({
+//       success: true,
+//       message: "Agent BDM follow-ups retrieved successfully",
+//       agentInfo: {
+//         agentId: agent.EmployeeId,
+//         agentName: agent.EmployeeName
+//       },
+//       dateRange: {
+//         startDate: moment(dateStart).format('DD-MM-YYYY'),
+//         endDate: moment(dateEnd).format('DD-MM-YYYY')
+//       },
+//       summary: {
+//         totalLeads: totalLeads,
+//         totalBdms: totalBdms,
+//         totalActions: totalActions,
+//         completedActions: completedActions,
+//         pendingActions: pendingActions,
+//         completionRate: totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0
+//       },
+//       bdms: bdmsWithActions
+//     });
+
+//   } catch (error) {
+//     console.error('Error retrieving agent BDM follow-ups:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Internal server error',
+//       error: error.message
+//     });
+//   }
+// };
+
+exports.getAgentBdmFollowups = async (req, res) => {
+  try {
+    const { agentId, startDate, endDate, taskType = 'HO_task' } = req.query;
+
+    if (!agentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Agent ID is required'
+      });
+    }
+
+    // Handle date range parameters
+    let dateStart, dateEnd;
+    
+    if (startDate && endDate) {
+      // If both dates are provided, use them
+      dateStart = new Date(startDate);
+      dateStart.setHours(0, 0, 0, 0);
+      
+      dateEnd = new Date(endDate);
+      dateEnd.setHours(23, 59, 59, 999);
+    } else if (startDate) {
+      // If only start date is provided, set range to that single day
+      dateStart = new Date(startDate);
+      dateStart.setHours(0, 0, 0, 0);
+      
+      dateEnd = new Date(startDate);
+      dateEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Default to today if no dates provided
+      dateStart = new Date();
+      dateStart.setHours(0, 0, 0, 0);
+      
+      dateEnd = new Date();
+      dateEnd.setHours(23, 59, 59, 999);
+    }
+
+    // Verify the agent exists
+    const agent = await Employee.findOne({
+      where: { EmployeeId: agentId },
+      attributes: ['EmployeeId', 'EmployeeName']
+    });
+
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Agent not found'
+      });
+    }
+
+    // First, find all leads assigned to this agent
+    const agentLeads = await Lead_Detail.findAll({
+      where: {
+        AgentId: agentId,
+        follow_up_date: {
+          [Op.between]: [dateStart, dateEnd]
+        }
+      },
+      attributes: [
+        'id', 'CustomerName', 'MobileNo', 'CustomerMailId',
+        'location', 'pincode', 'state_name', 'region_name',
+        'category', 'sub_category', 'agent_remark', 'bdm_remark',
+        'follow_up_date', 'BDMId', 'RegionId'
+      ],
+      include: [
+        {
+          model: Employee,
+          as: 'BDM',
+          attributes: ['EmployeeId', 'EmployeeName']
+        },
+        {
+          model: Parivartan_Region,
+          as: 'Region',
+          attributes: ['RegionId', 'RegionName']
+        }
+      ]
+    });
+
+    // Group leads by BDM
+    const leadsByBdm = {};
+    agentLeads.forEach(lead => {
+      const bdmId = lead.BDMId;
+      if (bdmId) {
+        if (!leadsByBdm[bdmId]) {
+          leadsByBdm[bdmId] = {
+            bdmId: bdmId,
+            bdmName: lead.BDM ? lead.BDM.EmployeeName : 'Unknown',
+            leads: []
+          };
+        }
+        leadsByBdm[bdmId].leads.push(lead);
+      }
+    });
+
+    // For each BDM, fetch their lead actions
+    const bdmsWithActions = [];
+    
+    for (const bdmId in leadsByBdm) {
+      const bdmLeadIds = leadsByBdm[bdmId].leads.map(lead => lead.id);
+      
+      // Get BDM's actions for these leads
+      const leadActions = await BdmLeadAction.findAll({
+        where: {
+          BDMId: bdmId,
+          LeadId: {
+            [Op.in]: bdmLeadIds
+          },
+          task_type: taskType // Filter by taskType (default 'HO_task')
+        },
+        include: [
+          {
+            model: Lead_Detail,
+            as: 'Lead',
+            attributes: [
+              'id', 'CustomerName', 'MobileNo', 'CustomerMailId',
+              'location', 'pincode', 'state_name', 'region_name',
+              'category', 'sub_category', 'agent_remark', 'bdm_remark',
+              'follow_up_date'
+            ]
+          },
+          {
+            model: BdmTravelDetailForm,
+            as: 'TravelDetails',
+            required: false
+          }
+        ],
+        attributes: [
+          'id', 'LeadId', 'task_type', 'action_type',
+          'specific_action', 'new_follow_up_date',
+          'remarks', 'action_date', 'task_name',
+          'completion_status', 'branchOffice',
+          'regionalOffice', 'lead_detail_form_id'
+        ],
+        order: [['action_date', 'DESC']]
+      });
+
+      // Get travel details for this BDM
+      const travelDetails = await BdmTravelDetail.findAll({
+        where: {
+          bdm_id: bdmId,
+          leaddetail_id: {
+            [Op.in]: bdmLeadIds
+          },
+          checkin_time: {
+            [Op.between]: [dateStart, dateEnd]
+          }
+        }
+      });
+
+      // Process the lead actions to include travel details
+      const processedLeadActions = leadActions.map(action => {
+        const actionObj = action.toJSON();
+        
+        // Find matching travel detail if any
+        const travelDetail = travelDetails.find(td => td.bdm_lead_action_id === action.id);
+        
+        // Add travel form details if this is a travel-related action
+        if (['Travel', 'RO Visit', 'HO Visit', 'BO Visit'].includes(actionObj.specific_action)) {
+          if (actionObj.TravelDetails) {
+            actionObj.travel_form_details = {
+              id: actionObj.TravelDetails.id,
+              taskType: actionObj.TravelDetails.taskType,
+              branchName: actionObj.TravelDetails.branchName,
+              regionalOfficeName: actionObj.TravelDetails.regionalOfficeName,
+              purposeForVisit: actionObj.TravelDetails.purposeForVisit,
+              concernPersonName: actionObj.TravelDetails.concernPersonName,
+              adminTaskSelect: actionObj.TravelDetails.adminTaskSelect,
+              remarks: actionObj.TravelDetails.remarks,
+              hoSelection: actionObj.TravelDetails.hoSelection,
+              modeOfTravel: actionObj.TravelDetails.modeOfTravel,
+              travelFrom: actionObj.TravelDetails.travelFrom,
+              travelTo: actionObj.TravelDetails.travelTo,
+              reasonForTravel: actionObj.TravelDetails.reasonForTravel,
+              mandatoryVisitImage: actionObj.TravelDetails.mandatoryVisitImage,
+              optionalVisitImage: actionObj.TravelDetails.optionalVisitImage
+            };
+          }
+        }
+        
+        // Add travel details if available
+        if (travelDetail) {
+          actionObj.travel_details = {
+            travel_detailsId: travelDetail.id,
+            checkin_time: moment(travelDetail.checkin_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss'),
+            checkout_time: travelDetail.checkout_time ?
+              moment(travelDetail.checkout_time).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss') : null,
+            checkin_location: {
+              latitude: travelDetail.checkin_latitude,
+              longitude: travelDetail.checkin_longitude
+            },
+            checkout_location: travelDetail.checkout_time ? {
+              latitude: travelDetail.checkout_latitude,
+              longitude: travelDetail.checkout_longitude
+            } : null
+          };
+        }
+        
+        // Format dates using moment
+        if (actionObj.action_date) {
+          actionObj.action_date = moment(actionObj.action_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
+        }
+        
+        if (actionObj.new_follow_up_date) {
+          actionObj.new_follow_up_date = moment(actionObj.new_follow_up_date).tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
+        }
+        
+        // Remove the TravelDetails object to clean up response
+        delete actionObj.TravelDetails;
+        
+        return actionObj;
+      });
+
+      // Group lead actions by lead ID
+      const actionsGroupedByLead = {};
+      
+      processedLeadActions.forEach(action => {
+        const leadId = action.LeadId;
+        if (!actionsGroupedByLead[leadId]) {
+          actionsGroupedByLead[leadId] = {
+            leadInfo: action.Lead,
+            actions: []
+          };
+        }
+        
+        // Remove the Lead object to avoid duplication
+        delete action.Lead;
+        
+        actionsGroupedByLead[leadId].actions.push(action);
+      });
+
+      // Format the leads with their actions
+      let formattedLeads = Object.values(actionsGroupedByLead);
+      
+      // Add leads that have no actions
+      const leadsWithActions = new Set(formattedLeads.map(lead => lead.leadInfo.id));
+      const leadsWithoutActions = leadsByBdm[bdmId].leads.filter(lead => !leadsWithActions.has(lead.id));
+      
+      // Format leads without actions
+      const formattedLeadsWithoutActions = leadsWithoutActions.map(lead => {
+        return {
+          leadInfo: {
+            id: lead.id,
+            CustomerName: lead.CustomerName,
+            MobileNo: lead.MobileNo,
+            CustomerMailId: lead.CustomerMailId,
+            location: lead.location,
+            pincode: lead.pincode,
+            state_name: lead.state_name,
+            region_name: lead.region_name,
+            category: lead.category,
+            sub_category: lead.sub_category,
+            agent_remark: lead.agent_remark,
+            bdm_remark: lead.bdm_remark,
+            follow_up_date: lead.follow_up_date
+          },
+          actions: [],
+          action_status: "no_action_taken" // Flag to indicate no actions taken
+        };
+      });
+      
+      // Combine leads with and without actions
+      formattedLeads = [...formattedLeads, ...formattedLeadsWithoutActions];
+
+      // Calculate action statistics
+      const totalActions = processedLeadActions.length;
+      const confirmedActions = processedLeadActions.filter(a => a.action_type === 'confirm').length;
+      const postponedActions = processedLeadActions.filter(a => a.action_type === 'postpone').length;
+      const completedActions = processedLeadActions.filter(a => a.completion_status === 'completed').length;
+      const pendingActions = processedLeadActions.filter(a => a.completion_status === 'not_completed').length;
+
+      // Group actions by type
+      const meetingActions = processedLeadActions.filter(a => a.specific_action && a.specific_action.toLowerCase().includes('meeting')).length;
+      const roVisitActions = processedLeadActions.filter(a => a.specific_action === 'RO Visit').length;
+      const hoVisitActions = processedLeadActions.filter(a => a.specific_action === 'HO Visit').length;
+      const boVisitActions = processedLeadActions.filter(a => a.specific_action === 'BO Visit').length;
+      const travelActions = processedLeadActions.filter(a => a.specific_action === 'Travel').length;
+      const siteVisitActions = processedLeadActions.filter(a => a.specific_action === 'Site Visit').length;
+      
+      // Count leads without actions
+      const noActionLeads = formattedLeadsWithoutActions.length;
+
+      // Add to the BDMs array
+      bdmsWithActions.push({
+        bdmId: bdmId,
+        bdmName: leadsByBdm[bdmId].bdmName,
+        stats: {
+          totalLeads: leadsByBdm[bdmId].leads.length,
+          leadsWithActions: formattedLeads.length - noActionLeads,
+          leadsWithoutActions: noActionLeads,
+          totalActions: totalActions,
+          confirmedActions: confirmedActions,
+          postponedActions: postponedActions,
+          completedActions: completedActions,
+          pendingActions: pendingActions,
+          meetingActions: meetingActions,
+          roVisitActions: roVisitActions,
+          hoVisitActions: hoVisitActions,
+          boVisitActions: boVisitActions,
+          travelActions: travelActions,
+          siteVisitActions: siteVisitActions
+        },
+        leads: formattedLeads
+      });
+    }
+
+    // Calculate overall statistics
+    const totalLeads = agentLeads.length;
+    const totalBdms = bdmsWithActions.length;
+    const totalActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.totalActions, 0);
+    const completedActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.completedActions, 0);
+    const pendingActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.pendingActions, 0);
+    const leadsWithoutActions = bdmsWithActions.reduce((sum, bdm) => sum + bdm.stats.leadsWithoutActions, 0);
+
+    // Return the response
+    res.status(200).json({
+      success: true,
+      message: "Agent BDM follow-ups retrieved successfully",
+      agentInfo: {
+        agentId: agent.EmployeeId,
+        agentName: agent.EmployeeName
+      },
+      dateRange: {
+        startDate: moment(dateStart).format('DD-MM-YYYY'),
+        endDate: moment(dateEnd).format('DD-MM-YYYY')
+      },
+      summary: {
+        totalLeads: totalLeads,
+        totalBdms: totalBdms,
+        totalActions: totalActions,
+        completedActions: completedActions,
+        pendingActions: pendingActions,
+        leadsWithoutActions: leadsWithoutActions,
+        completionRate: totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0
+      },
+      bdms: bdmsWithActions
+    });
+
+  } catch (error) {
+    console.error('Error retrieving agent BDM follow-ups:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
