@@ -1080,15 +1080,17 @@ exports.getEmployeeLeads = async (req, res) => {
     }
 
     const regionIds = employeeAssignments.map(ea => ea.RegionId);
+    console.log(regionIds , '-----------');
+    
 
     // Build the base where clause for region and project
     const baseWhereClause = {
       RegionId: {
         [Op.in]: regionIds
       },
-      Project: {
-        [Op.in]: employeeAssignments.map(ea => ea.Project).filter(p => p)
-      }
+      // Project: {
+      //   [Op.in]: employeeAssignments.map(ea => ea.Project).filter(p => p)
+      // }
     };
 
     // Get category counts using Promise.all (unaffected by filters)

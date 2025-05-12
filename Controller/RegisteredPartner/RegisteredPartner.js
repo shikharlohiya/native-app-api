@@ -247,6 +247,203 @@ exports.getPartnerByMobile = async (req, res) => {
 
 
 
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const uploadDir = 'uploads/';
+//     if (!fs.existsSync(uploadDir)) {
+//       fs.mkdirSync(uploadDir, { recursive: true });
+//     }
+//     cb(null, uploadDir);
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, `${Date.now()}-${file.originalname}`);
+//   }
+//  });
+ 
+//  // Modified fileFilter to accept any file
+//  // We'll attempt to process it as Excel later
+//  const fileFilter = (req, file, cb) => {
+//   // Accept all files - validation moved to processing stage
+//   return cb(null, true);
+//  };
+ 
+//  const upload = multer({ 
+//   storage: storage,
+//   fileFilter: fileFilter,
+//   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+//  }).single('file');
+ 
+//  // Function to handle Excel file upload and processing
+//  exports.bulkUploadPartners = async (req, res) => {
+//   upload(req, res, async function(err) {
+//     if (err instanceof multer.MulterError) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: `Upload error: ${err.message}`
+//       });
+//     } else if (err) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: err.message
+//       });
+//     }
+ 
+//     // Check if a file was uploaded
+//     if (!req.file) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: "No file uploaded. Please upload a file."
+//       });
+//     }
+ 
+//     try {
+//       const filePath = req.file.path;
+      
+//       // Try to read the file as Excel - will throw an error if not valid
+//       let workbook, partnersData;
+//       try {
+//         // Read Excel file
+//         workbook = XLSX.readFile(filePath);
+//         const sheetName = workbook.SheetNames[0];
+//         const worksheet = workbook.Sheets[sheetName];
+        
+//         // Convert to JSON
+//         partnersData = XLSX.utils.sheet_to_json(worksheet);
+//       } catch (excelError) {
+//         // Clean up file
+//         if (fs.existsSync(filePath)) {
+//           fs.unlinkSync(filePath);
+//         }
+        
+//         return res.status(400).json({
+//           status: "400",
+//           message: "Could not process file as Excel. Please check file format.",
+//           error: excelError.message
+//         });
+//       }
+ 
+//       // Delete the file after processing
+//       fs.unlinkSync(filePath);
+      
+//       if (!Array.isArray(partnersData) || partnersData.length === 0) {
+//         return res.status(400).json({
+//           status: "400",
+//           message: "No data found in the file or format is incorrect."
+//         });
+//       }
+ 
+//       // Validate all entries
+//       const validationErrors = [];
+//       for (const partner of partnersData) {
+//         const { mobileNumber, partnerName, partnerCode, location, type } = partner;
+        
+//         if (!mobileNumber || !partnerName || !partnerCode || !location || !type) {
+//           validationErrors.push({
+//             entry: partner,
+//             error: "Missing required fields"
+//           });
+//           continue;
+//         }
+ 
+//         if (!String(mobileNumber).match(/^[6-9]\d{9}$/)) {
+//           validationErrors.push({
+//             entry: partner,
+//             error: "Invalid mobile number format"
+//           });
+//           continue;
+//         }
+        
+//         // Validate type field (if you have specific valid types)
+//         const validTypes = ['farmer', 'trader','vistaar']; // Add any other valid types here
+//         if (!validTypes.includes(String(type).toLowerCase())) {
+//           validationErrors.push({
+//             entry: partner,
+//             error: "Invalid type. Must be one of: " + validTypes.join(', ')
+//           });
+//           continue;
+//         }
+//       }
+ 
+//       if (validationErrors.length > 0) {
+//         return res.status(400).json({
+//           status: "400",
+//           message: "Validation errors in the data",
+//           errors: validationErrors
+//         });
+//       }
+ 
+//       // Extract mobile numbers and format the data properly
+//       const formattedData = partnersData.map(partner => ({
+//         mobileNumber: String(partner.mobileNumber),
+//         partnerName: String(partner.partnerName),
+//         partnerCode: String(partner.partnerCode),
+//         location: String(partner.location),
+//         type: String(partner.type).toLowerCase() // Added type field here
+//       }));
+ 
+//       const mobileNumbers = formattedData.map(p => p.mobileNumber);
+      
+//       // Check for existing partners
+//       const existingPartners = await RegisteredPartner.findAll({
+//         where: { 
+//           mobileNumber: { [Op.in]: mobileNumbers }
+//         }
+//       });
+ 
+//       const existingMobilesMap = {};
+//       existingPartners.forEach(partner => {
+//         existingMobilesMap[partner.mobileNumber] = partner;
+//       });
+ 
+//       // Separate new entries and updates
+//       const newPartners = [];
+//       const updatePromises = [];
+ 
+//       for (const partner of formattedData) {
+//         if (existingMobilesMap[partner.mobileNumber]) {
+//           // Update existing partner (except mobile number)
+//           const existingPartner = existingMobilesMap[partner.mobileNumber];
+//           updatePromises.push(
+//             existingPartner.update({
+//               partnerName: partner.partnerName,
+//               partnerCode: partner.partnerCode,
+//               location: partner.location,
+//               type: partner.type // Added type field here
+//             })
+//           );
+//         } else {
+//           // New partner
+//           newPartners.push(partner);
+//         }
+//       }
+ 
+//       // Process updates and new entries
+//       const updatedPartners = await Promise.all(updatePromises);
+//       const createdPartners = newPartners.length > 0 ? 
+//         await RegisteredPartner.bulkCreate(newPartners) : [];
+ 
+//       return res.status(200).json({
+//         status: "200",
+//         message: "Partners bulk upload completed successfully",
+//         created: createdPartners.length,
+//         updated: updatedPartners.length,
+//         total: partnersData.length,
+//         newPartners: createdPartners,
+//         updatedPartners: updatedPartners
+//       });
+//     } catch (error) {
+//       console.error("Error bulk uploading partners:", error);
+//       return res.status(500).json({
+//         status: "500",
+//         message: "An error occurred during bulk upload",
+//         error: error.message
+//       });
+//     }
+//   });
+//  };
+
+
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = 'uploads/';
@@ -258,23 +455,197 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
   }
- });
+});
  
- // Modified fileFilter to accept any file
- // We'll attempt to process it as Excel later
- const fileFilter = (req, file, cb) => {
+// Modified fileFilter to accept any file
+// We'll attempt to process it as Excel later
+const fileFilter = (req, file, cb) => {
   // Accept all files - validation moved to processing stage
   return cb(null, true);
- };
+};
  
- const upload = multer({ 
+const upload = multer({ 
   storage: storage,
   fileFilter: fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
- }).single('file');
+}).single('file');
  
- // Function to handle Excel file upload and processing
- exports.bulkUploadPartners = async (req, res) => {
+// Function to handle Excel file upload and processing
+
+
+// exports.bulkUploadPartners = async (req, res) => {
+//   upload(req, res, async function(err) {
+//     if (err instanceof multer.MulterError) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: `Upload error: ${err.message}`
+//       });
+//     } else if (err) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: err.message
+//       });
+//     }
+ 
+//     // Check if a file was uploaded
+//     if (!req.file) {
+//       return res.status(400).json({
+//         status: "400",
+//         message: "No file uploaded. Please upload a file."
+//       });
+//     }
+ 
+//     try {
+//       const filePath = req.file.path;
+      
+//       // Try to read the file as Excel - will throw an error if not valid
+//       let workbook, partnersData;
+//       try {
+//         // Read Excel file
+//         workbook = XLSX.readFile(filePath);
+//         const sheetName = workbook.SheetNames[0];
+//         const worksheet = workbook.Sheets[sheetName];
+        
+//         // Convert to JSON
+//         partnersData = XLSX.utils.sheet_to_json(worksheet);
+//       } catch (excelError) {
+//         // Clean up file
+//         if (fs.existsSync(filePath)) {
+//           fs.unlinkSync(filePath);
+//         }
+        
+//         return res.status(400).json({
+//           status: "400",
+//           message: "Could not process file as Excel. Please check file format.",
+//           error: excelError.message
+//         });
+//       }
+ 
+//       // Delete the file after processing
+//       fs.unlinkSync(filePath);
+      
+//       if (!Array.isArray(partnersData) || partnersData.length === 0) {
+//         return res.status(400).json({
+//           status: "400",
+//           message: "No data found in the file or format is incorrect."
+//         });
+//       }
+ 
+//       // Validate all entries
+//       const validationErrors = [];
+//       for (const partner of partnersData) {
+//         const { mobileNumber, partnerName, partnerCode, location, type, region } = partner;
+        
+//         if (!mobileNumber || !partnerName || !partnerCode || !location || !type || !region) {
+//           validationErrors.push({
+//             entry: partner,
+//             error: "Missing required fields"
+//           });
+//           continue;
+//         }
+ 
+//         if (!String(mobileNumber).match(/^[6-9]\d{9}$/)) {
+//           validationErrors.push({
+//             entry: partner,
+//             error: "Invalid mobile number format"
+//           });
+//           continue;
+//         }
+        
+//         // Validate type field
+//         const validTypes = ['farmer', 'trader', 'vistaar']; // Add any other valid types here
+//         if (!validTypes.includes(String(type).toLowerCase())) {
+//           validationErrors.push({
+//             entry: partner,
+//             error: "Invalid type. Must be one of: " + validTypes.join(', ')
+//           });
+//           continue;
+//         }
+//       }
+ 
+//       if (validationErrors.length > 0) {
+//         return res.status(400).json({
+//           status: "400",
+//           message: "Validation errors in the data",
+//           errors: validationErrors
+//         });
+//       }
+ 
+//       // Extract mobile numbers and format the data properly
+//       const formattedData = partnersData.map(partner => ({
+//         mobileNumber: String(partner.mobileNumber),
+//         partnerName: String(partner.partnerName),
+//         partnerCode: String(partner.partnerCode),
+//         location: String(partner.location),
+//         type: String(partner.type).toLowerCase(),
+//         region: String(partner.region) // Added region field here
+//       }));
+ 
+//       const mobileNumbers = formattedData.map(p => p.mobileNumber);
+      
+//       // Check for existing partners
+//       const existingPartners = await RegisteredPartner.findAll({
+//         where: { 
+//           mobileNumber: { [Op.in]: mobileNumbers }
+//         }
+//       });
+ 
+//       const existingMobilesMap = {};
+//       existingPartners.forEach(partner => {
+//         existingMobilesMap[partner.mobileNumber] = partner;
+//       });
+ 
+//       // Separate new entries and updates
+//       const newPartners = [];
+//       const updatePromises = [];
+ 
+//       for (const partner of formattedData) {
+//         if (existingMobilesMap[partner.mobileNumber]) {
+//           // Update existing partner (except mobile number)
+//           const existingPartner = existingMobilesMap[partner.mobileNumber];
+//           updatePromises.push(
+//             existingPartner.update({
+//               partnerName: partner.partnerName,
+//               partnerCode: partner.partnerCode,
+//               location: partner.location,
+//               type: partner.type,
+//               region: partner.region // Added region field here
+//             })
+//           );
+//         } else {
+//           // New partner
+//           newPartners.push(partner);
+//         }
+//       }
+ 
+//       // Process updates and new entries
+//       const updatedPartners = await Promise.all(updatePromises);
+//       const createdPartners = newPartners.length > 0 ? 
+//         await RegisteredPartner.bulkCreate(newPartners) : [];
+ 
+//       return res.status(200).json({
+//         status: "200",
+//         message: "Partners bulk upload completed successfully",
+//         created: createdPartners.length,
+//         updated: updatedPartners.length,
+//         total: partnersData.length,
+//         newPartners: createdPartners,
+//         updatedPartners: updatedPartners
+//       });
+//     } catch (error) {
+//       console.error("Error bulk uploading partners:", error);
+//       return res.status(500).json({
+//         status: "500",
+//         message: "An error occurred during bulk upload",
+//         error: error.message
+//       });
+//     }
+//   });
+// };
+
+
+
+exports.bulkUploadPartners = async (req, res) => {
   upload(req, res, async function(err) {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({
@@ -335,9 +706,9 @@ const storage = multer.diskStorage({
       // Validate all entries
       const validationErrors = [];
       for (const partner of partnersData) {
-        const { mobileNumber, partnerName, partnerCode, location, type } = partner;
+        const { mobileNumber, partnerName, partnerCode, location, type, region } = partner;
         
-        if (!mobileNumber || !partnerName || !partnerCode || !location || !type) {
+        if (!mobileNumber || !partnerName || !partnerCode || !location || !type || !region) {
           validationErrors.push({
             entry: partner,
             error: "Missing required fields"
@@ -353,8 +724,8 @@ const storage = multer.diskStorage({
           continue;
         }
         
-        // Validate type field (if you have specific valid types)
-        const validTypes = ['farmer', 'trader']; // Add any other valid types here
+        // Validate type field
+        const validTypes = ['farmer', 'trader', 'vistaar']; // Add any other valid types here
         if (!validTypes.includes(String(type).toLowerCase())) {
           validationErrors.push({
             entry: partner,
@@ -378,7 +749,8 @@ const storage = multer.diskStorage({
         partnerName: String(partner.partnerName),
         partnerCode: String(partner.partnerCode),
         location: String(partner.location),
-        type: String(partner.type).toLowerCase() // Added type field here
+        type: String(partner.type).toLowerCase(),
+        region: String(partner.region)
       }));
  
       const mobileNumbers = formattedData.map(p => p.mobileNumber);
@@ -395,30 +767,21 @@ const storage = multer.diskStorage({
         existingMobilesMap[partner.mobileNumber] = partner;
       });
  
-      // Separate new entries and updates
+      // Separate new entries and existing entries
       const newPartners = [];
-      const updatePromises = [];
+      const existingPartnersList = [];
  
       for (const partner of formattedData) {
         if (existingMobilesMap[partner.mobileNumber]) {
-          // Update existing partner (except mobile number)
-          const existingPartner = existingMobilesMap[partner.mobileNumber];
-          updatePromises.push(
-            existingPartner.update({
-              partnerName: partner.partnerName,
-              partnerCode: partner.partnerCode,
-              location: partner.location,
-              type: partner.type // Added type field here
-            })
-          );
+          // Add to existing partners list instead of updating
+          existingPartnersList.push(existingMobilesMap[partner.mobileNumber]);
         } else {
           // New partner
           newPartners.push(partner);
         }
       }
  
-      // Process updates and new entries
-      const updatedPartners = await Promise.all(updatePromises);
+      // Only process new entries
       const createdPartners = newPartners.length > 0 ? 
         await RegisteredPartner.bulkCreate(newPartners) : [];
  
@@ -426,10 +789,10 @@ const storage = multer.diskStorage({
         status: "200",
         message: "Partners bulk upload completed successfully",
         created: createdPartners.length,
-        updated: updatedPartners.length,
+        skipped: existingPartnersList.length, // Changed from updated to skipped
         total: partnersData.length,
         newPartners: createdPartners,
-        updatedPartners: updatedPartners
+        existingPartners: existingPartnersList // Changed from updatedPartners to existingPartners
       });
     } catch (error) {
       console.error("Error bulk uploading partners:", error);
@@ -440,8 +803,7 @@ const storage = multer.diskStorage({
       });
     }
   });
- };
-
+};
 
 
 

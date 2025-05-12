@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Estimation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: rgb(0, 0, 0);
+            background-color: rgb(255, 255, 255);
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+            border: 2px solid rgb(0, 0, 0);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgb(0, 0, 0);
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            margin: 0;
+            color: rgb(0, 0, 0);
+            font-size: 24px;
+        }
+        .header p {
+            margin: 5px 0 0;
+            font-size: 14px;
+            color: rgb(0, 0, 0);
+        }
+        .customer-info-box {
+            margin-bottom: 20px;
+            border: 1px solid rgb(204, 204, 204);
+            padding: 15px;
+            border-radius: 4px;
+            background-color: rgb(252, 252, 252);
+        }
+        .info-item {
+            margin-bottom: 10px;
+            display: flex;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 150px;
+            color: rgb(51, 51, 51);
+        }
+        .info-value {
+            color: rgb(0, 0, 0);
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgb(204, 204, 204);
+            padding-bottom: 5px;
+            color: rgb(0, 51, 102); /* Dark blue for section titles */
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 5px;
+        }
+        .info-label {
+            width: 150px;
+            font-weight: bold;
+            color: rgb(51, 51, 51);
+        }
+        .info-value {
+            flex: 1;
+            color: rgb(0, 0, 0);
+        }
+        .project-details {
+            margin-bottom: 20px;
+            border: 1px solid rgb(204, 204, 204);
+            padding: 10px;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid rgb(0, 0, 0);
+        }
+        th, td {
+            padding: 6px;
+            text-align: left;
+            color: rgb(0, 0, 0);
+            font-size: 11px;
+        }
+        th {
+            background-color: rgb(200, 200, 200);
+            color: rgb(0, 0, 0);
+            text-align: center;
+            font-weight: bold;
+        }
+        tr:first-child {
+            background-color: rgb(100, 100, 100);
+        }
+        tr:first-child th {
+            background-color: rgb(100, 100, 100);
+            color: rgb(255, 255, 255);
+            text-align: center;
+        }
+        tr:nth-child(2) td {
+            background-color: rgb(200, 200, 200);
+            font-weight: bold;
+            text-align: center;
+        }
+        tr:nth-child(even) {
+            background-color: rgb(240, 240, 240);
+        }
+        .equipment-section {
+            margin-bottom: 20px;
+            border: 1px solid rgb(204, 204, 204);
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .total-section {
+            margin-top: 20px;
+            border-top: 1px solid rgb(0, 0, 0);
+            padding-top: 10px;
+            background-color: rgb(245, 245, 245);
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: rgb(0, 0, 0);
+        }
+        .terms-section {
+            margin-top: 30px;
+            font-size: 12px;
+            color: rgb(51, 51, 51);
+            border: 1px solid rgb(204, 204, 204);
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgb(252, 252, 252);
+        }
+        .signature {
+            margin-top: 50px;
+            text-align: right;
+            color: rgb(0, 0, 0);
+        }
+        .outbox-section {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgb(204, 204, 204);
+            padding: 15px;
+            background-color: rgb(250, 250, 250);
+        }
+        .outbox-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .outbox-table td {
+            padding: 5px;
+            border: none;
+        }
+        .outbox-label {
+            font-weight: bold;
+            width: 150px;
+            color: rgb(51, 51, 51);
+        }
+        .outbox-value {
+            color: rgb(0, 0, 0);
+        }
+        .page-number {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+            color: rgb(128, 128, 128);
+            border-top: 1px solid rgb(230, 230, 230);
+            padding-top: 5px;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ABIS EXPORTS (INDIA) PVT. LTD.</h1>
+            <p>CORPORATE HOUSE: INDRAPURA GE ROAD RAIMANDIGAON (C.G.)</p>
+            <p>Email: parivartan@abisexports.com | Web: www.abisexports.in | Ph: 9893999999</p>
+            <p>GSTIN : 22AACCA8211Z1</p>
+        </div>
+
+        <div class="customer-info-box">
+            <div class="info-item">
+                <div class="info-label">Estimation No</div>
+                <div class="info-value">: <%= estimationId %></div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Estimation Date</div>
+                <div class="info-value">: <%= estimationDate %></div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Shed Type</div>
+                <div class="info-value">: Parivartan Semi EC</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Customer Number</div>
+                <div class="info-value">: xxxxx</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Customer Name</div>
+                <div class="info-value">: <%= customerName %></div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Customer Location</div>
+                <div class="info-value">: <%= customerLocation || 'N/A' %></div>
+            </div>
+        </div>
+
+        <div class="project-details">
+            <div class="section-title">PARIVARTAN PROJECT</div>
+
+            <table>
+                <tr>
+                    <th colspan="3">COMPLETE HOUSE INFORMATION</th>
+                    <th colspan="3">TECHNICAL INFORMATION</th>
+                    <th colspan="2">MINIMUM PARIVARTAN EQUIPMENT</th>
+                </tr>
+                <tr>
+                    <td>SN</td>
+                    <td>DIMENTION & CAPACITY</td>
+                    <td></td>
+                    <td colspan="3">TECHNICAL INFORMATION</td>
+                    <td>ITEM REQUIRMENT</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>01</td>
+                    <td>House Length (Ft)</td>
+                    <td><%= length %></td>
+                    <td>Total Feeder Pans</td>
+                    <td>345</td>
+                    <td>Q</td>
+                    <td>Feeding Line with Transtechno make Motor</td>
+                    <td>9</td>
+                </tr>
+                <tr>
+                    <td>02</td>
+                    <td>HouseWidth (Ft)</td>
+                    <td><%= width %></td>
+                    <td>Total Nipple drip cup</td>
+                    <td>1404</td>
+                    <td>U</td>
+                    <td>Nipple Drinking Line with Drip Cup</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>03</td>
+                    <td>House Side Hight (Ft)</td>
+                    <td>8</td>
+                    <td>Birds/Feeder</td>
+                    <td>38</td>
+                    <td>O</td>
+                    <td>Ventilation centrifugal 50" Fan with Motor</td>
+                    <td>8</td>
+                </tr>
+                <tr>
+                    <td>04</td>
+                    <td>Bird /Sq.Ft</td>
+                    <td>0.65</td>
+                    <td>Birds/Nipple</td>
+                    <td>9</td>
+                    <td>T</td>
+                    <td>Cooling Pad with Distribution Pad & Cooling Gutt</td>
+                    <td>48</td>
+                </tr>
+                <tr>
+                    <td>05</td>
+                    <td>Birds Avg. Live weight in kg</td>
+                    <td>2.2</td>
+                    <td>Air Speed min. (Ft/min)</td>
+                    <td>600</td>
+                    <td>E</td>
+                    <td>Curtain System (Both Side Wall) Sqmt</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>06</td>
+                    <td>House SF</td>
+                    <td><%= area %></td>
+                    <td>Cooling Pad Area (SqFt)</td>
+                    <td>620</td>
+                    <td></td>
+                    <td>Diesel Brooder 50 KW</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>07</td>
+                    <td>Free Passage in EC House(10' Front & 5' Back)m</td>
+                    <td>15</td>
+                    <td>Heat Output KCA1/hr.</td>
+                    <td>2.3</td>
+                    <td></td>
+                    <td>Environment Control Panel</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>08</td>
+                    <td>Birds Capacity</td>
+                    <td>13154</td>
+                    <td>2Pt Temp</td>
+                    <td>2</td>
+                    <td></td>
+                    <td>Air Circulation Fan</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>09</td>
+                    <td>No of Shed</td>
+                    <td>1</td>
+                    <td>Electric power supply</td>
+                    <td>1 Phase</td>
+                    <td></td>
+                    <td>Stabilizer</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>C Shape</td>
+                    <td>No</td>
+                    <td>RH Sensor</td>
+                    <td>1</td>
+                    <td></td>
+                    <td>EC Spare kit</td>
+                    <td>1</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="equipment-section">
+            <div class="section-title">Equipment Package Part - 1</div>
+
+            <table>
+                <tr>
+                    <th>SR</th>
+                    <th>ITEM DESCRIPTION</th>
+                    <th>UNIT</th>
+                    <th>TOTAL PRICE</th>
+                    <th>PER BIRD COST</th>
+                </tr>
+                <tr>
+                    <td>01</td>
+                    <td>Ventilation Fan, Feeder Line & Sensor Hybrid</td>
+                    <td>1</td>
+                    <td>5,72,375</td>
+                    <td>357</td>
+                </tr>
+                <tr>
+                    <td>02</td>
+                    <td>Cooling System With Accessories</td>
+                    <td>1</td>
+                    <td>2,28,950</td>
+                    <td>143</td>
+                </tr>
+                <tr>
+                    <td>03</td>
+                    <td>PLC Main For Broiler Nipple Line Connection</td>
+                    <td>1</td>
+                    <td>1,14,475</td>
+                    <td>71</td>
+                </tr>
+                <tr>
+                    <td>04</td>
+                    <td>Electrical Back-Up & Panel</td>
+                    <td>1</td>
+                    <td>1,14,475</td>
+                    <td>71</td>
+                </tr>
+                <tr>
+                    <td>05</td>
+                    <td>Fogger Kit</td>
+                    <td>1</td>
+                    <td>1,14,475</td>
+                    <td>71</td>
+                </tr>
+                <tr>
+                    <td colspan="3">Total EXWORKS (Actual Price)</td>
+                    <td>11,44,750</td>
+                    <td>715</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="total-section">
+            <div style="margin-bottom: 10px; font-weight: bold;">Total Amount: ₹ 13,75,648</div>
+            <div style="margin-bottom: 10px; font-weight: bold;">Per Bird: ₹ 89</div>
+            <div style="margin-bottom: 10px; font-weight: bold;">Tax: ₹ 1,41,078</div>
+        </div>
+
+        <div style="border: 1px solid #000; padding: 10px; margin: 20px 0; text-align: center; font-weight: bold; font-size: 16px;">
+            Final Amount: ₹ 13,16,726
+        </div>
+
+        <div class="page-break"></div>
+        <div class="outbox-section">
+            <div class="section-title">BANK DETAIL</div>
+            <table class="outbox-table" border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse;">
+                <tr style="background-color: rgb(200, 200, 200);">
+                    <th style="width:30%; text-align:left;">Bank Name</th>
+                    <th style="text-align:left;">: YES BANK LTD</th>
+                </tr>
+                <tr>
+                    <td style="width:30%; text-align:left;">Beneficiary Name</td>
+                    <td style="text-align:left;">: ABIS EXPORTS (INDIA) PRIVATE LIMITED</td>
+                </tr>
+                <tr>
+                    <td style="width:30%; text-align:left;">Account Number</td>
+                    <td style="text-align:left;">: XXXXXXXXXX</td>
+                </tr>
+                <tr>
+                    <td style="width:30%; text-align:left;">IFSC</td>
+                    <td style="text-align:left;">: YESB0000001</td>
+                </tr>
+                <tr>
+                    <td style="width:30%; text-align:left;">Branch</td>
+                    <td style="text-align:left;">: LUDHIANA</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="terms-section">
+            <div class="section-title">TERMS & CONDITIONS</div>
+            <ul>
+                <li>Prices are Ex-works (ABIS EXPORTS (INDIA) PVT. LTD. Rajnandgaon) - GST as applicable.</li>
+                <li>AGREEMENTS: Parivartan Broiler Integration agreement will be signed separately between the farmer & ABIS EXPORTS (INDIA) PVT. LTD.</li>
+                <li>SCOPE OF COMPANY: Supply of materials for the project reports and technical support.</li>
+                <li>WARRANTY: Warranty of supplied equipment - 12 Months from the date of Invoice (Against manufacturing defects only).</li>
+                <li>VALIDITY: The validity of estimation is up to 30 days. Post expiry of valid period, price of equipment's might vary.</li>
+                <li>CUSTOMER SUPPORT: For any assistance of support, call on 7610255555 or mail us at parivartan@abisexports.in.</li>
+            </ul>
+        </div>
+
+        <div class="signature">
+            <p>Authorised signatory</p>
+            <p>ABIS EXPORTS (INDIA) PRIVATE LIMITED</p>
+        </div>
+
+        <div class="page-number">
+            <p>Page 1 of 1</p>
+        </div>
+    </div>
+</body>
+</html>

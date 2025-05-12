@@ -1,0 +1,14 @@
+This is a placeholder for the PDF template.
+
+Since we can't directly create a PDF file through this interface, you'll need to:
+
+1. Create a PDF template that matches the format shown in your screenshot
+2. Save it as "estimation_template.pdf" in this directory
+
+The template should have placeholders for:
+- Estimation ID (top left)
+- Estimation Date (top left)
+- Customer Name (top right)
+- Shed dimensions (length, width, area)
+
+The controller will fill in these values based on the user's input.

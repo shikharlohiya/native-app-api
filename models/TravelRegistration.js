@@ -265,7 +265,7 @@ TravelRegistration.init(
       type: DataTypes.STRING,
       // allowNull: false,
       validate: {
-        isIn: [['farmer', 'trader']] // Ensure type is either 'farmer' or 'trader'
+        isIn: [['farmer', 'trader', 'vistaar']] // Ensure type is either 'farmer' or 'trader'
       }
     },
     // Details submitted by customer

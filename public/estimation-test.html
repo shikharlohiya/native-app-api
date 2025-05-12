@@ -1,0 +1,966 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Estimation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #000;
+            font-size: 12px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0;
+            box-sizing: border-box;
+            border: 1px solid #000;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 5px;
+            padding: 10px 0;
+        }
+        .header h1 {
+            margin: 0;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 3px 0 0;
+            font-size: 12px;
+        }
+        .estimation-info {
+            display: table;
+            width: 100%;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+        }
+        .info-row {
+            display: table-row;
+        }
+        .info-left, .info-right {
+            display: table-cell;
+            padding: 3px 10px;
+        }
+        .info-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 130px;
+        }
+        .info-value {
+            display: inline-block;
+        }
+        .project-title {
+            background-color: #f2f2f2;
+            padding: 5px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+            border-bottom: 1px solid #000;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0;
+            font-size: 11px;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 4px 6px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #c0c0c0;
+            font-weight: bold;
+        }
+        .section-header {
+            background-color: #c0c0c0;
+            font-weight: bold;
+            text-align: center;
+            padding: 4px;
+        }
+        .sub-header {
+            background-color: #c0c0c0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .sn-column {
+            width: 30px;
+            text-align: center;
+        }
+        .description-column {
+            width: 200px;
+        }
+        .value-column {
+            width: 80px;
+            text-align: center;
+        }
+        .total-row {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .total-section {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .total-section td {
+            background-color: #c0c0c0;
+            font-weight: bold;
+            text-align: center;
+            padding: 6px;
+        }
+        .terms-section {
+            margin-top: 0;
+            font-size: 11px;
+            padding: 10px;
+        }
+        .terms-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .terms-category {
+            font-weight: bold;
+            margin-top: 8px;
+        }
+        .terms-section ul {
+            margin: 0;
+            padding-left: 15px;
+            list-style-type: none;
+        }
+        .terms-section li {
+            margin-bottom: 2px;
+            position: relative;
+            padding-left: 12px;
+        }
+        .terms-section li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+        }
+        .bank-details {
+            margin-top: 10px;
+            padding: 0 10px;
+        }
+        .bank-row {
+            display: flex;
+            margin-bottom: 2px;
+        }
+        .bank-label {
+            font-weight: bold;
+            width: 130px;
+        }
+        .bank-value {
+            flex: 1;
+        }
+        .signature {
+            margin-top: 20px;
+            padding: 0 10px 10px;
+            font-weight: bold;
+        }
+        .col-blue {
+            background-color: #cfddf0;
+        }
+        .align-right {
+            text-align: right;
+        }
+        .align-center {
+            text-align: center;
+        }
+        .quote-table {
+            width: 100%;
+            margin-top: -1px;
+        }
+        .min-width {
+            width: 1%;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ABIS EXPORTS (INDIA) PVT. LTD.</h1>
+            <p>CORPORATE HOUSE: INDAMARA GE ROAD RAJNANDGAON (C.G.)</p>
+            <p>Email: parivartan@ibgroup.co.in | Web: www.ibgroup.co.in | Ph: +91 7610255555</p>
+            <p>GSTIN :22AACCA2881J1ZU</p>
+        </div>
+
+        <table class="estimation-info">
+            <tr>
+                <td style="width: 50%; border: none; padding: 5px;">
+                    <div><span class="info-label">Estimation No</span> - <%= estimationId %></div>
+                    <div><span class="info-label">Estimation Date</span> - <%= estimationDate %></div>
+                    <div><span class="info-label">Shed Type</span> - Parivartan Semi EC</div>
+                </td>
+                <td style="width: 50%; border: none; padding: 5px;">
+                    <div><span class="info-label">Customer Number</span> - xxxxx</div>
+                    <div><span class="info-label">Customer Name</span> - <%= customerName %></div>
+                    <div><span class="info-label">Customer Location</span> - <%= customerLocation %></div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="project-title">PARIVARTAN PROJECT</div>
+        
+        <table>
+            <tr>
+                <th colspan="4" class="section-header">COMPLETE HOUSE INFORMATION</th>
+                <th colspan="4" class="section-header">MINIMUM PARIVARTAN EQUIPMENT</th>
+            </tr>
+            <tr>
+                <th class="sn-column">SN</th>
+                <th class="col-blue">DIMENTION & CAPACITY</th>
+                <th class="col-blue">TECHNICAL INFORMATION</th>
+                <th class="value-column"></th>
+                <th class="sn-column">Q</th>
+                <th class="col-blue">ITEM REQUIRMENT</th>
+                <th class="value-column"></th>
+            </tr>
+            <tr>
+                <td class="align-center">01</td>
+                <td>House Length (Ft)</td>
+                <td>Total Feeder Pans</td>
+                <td class="align-center">345</td>
+                <td class="align-center">U</td>
+                <td>Feeding Line with Transhipmet motor & Motor</td>
+                <td class="align-center">9</td>
+            </tr>
+            <tr>
+                <td class="align-center">02</td>
+                <td>House Width (Ft)</td>
+                <td>Total Nipple drip cup</td>
+                <td class="align-center">1404</td>
+                <td class="align-center">O</td>
+                <td>Nipple Drinking Line with Drip Cup</td>
+                <td class="align-center">4</td>
+            </tr>
+            <tr>
+                <td class="align-center">03</td>
+                <td>House Side Hight (Ft)</td>
+                <td>Birds/Feeder</td>
+                <td class="align-center">38</td>
+                <td class="align-center">T</td>
+                <td>Ventilation centrifugal 50" Fan with Motor</td>
+                <td class="align-center">8</td>
+            </tr>
+            <tr>
+                <td class="align-center">04</td>
+                <td>Bird /Sq.Ft</td>
+                <td>Birds/Nipple</td>
+                <td class="align-center">9</td>
+                <td class="align-center">E</td>
+                <td>6"Cooling Pad with Distribution Pad & Cooling Gutt</td>
+                <td class="align-center">48</td>
+            </tr>
+            <tr>
+                <td class="align-center">05</td>
+                <td>Birds Avg. Live weight in kg</td>
+                <td>Air Speed min. (Ft/min)</td>
+                <td class="align-center">600</td>
+                <td></td>
+                <td>Curtain System (Both Side Wall) Sqmt</td>
+                <td class="align-center">0</td>
+            </tr>
+            <tr>
+                <td class="align-center">06</td>
+                <td>House Sf</td>
+                <td>Cooling Pad Area (SqFt)</td>
+                <td class="align-center">620</td>
+                <td></td>
+                <td>Diesel Brooder 50 KW</td>
+                <td class="align-center"><%= width < 25 ? 4 : 6 %></td>
+            </tr>
+            <tr>
+                <td class="align-center">07</td>
+                <td>Free Passage in EC House(10' Front & 5' Back)m</td>
+                <td>Heat Output KCAL/hr.</td>
+                <td class="align-center">2.3</td>
+                <td></td>
+                <td>Environment Control Panel</td>
+                <td class="align-center">1</td>
+            </tr>
+            <tr>
+                <td class="align-center">08</td>
+                <td>Birds Capacity</td>
+                <td>2% Temp</td>
+                <td class="align-center">2</td>
+                <td></td>
+                <td>Air Circulation Fan</td>
+                <td class="align-center">4</td>
+            </tr>
+            <tr>
+                <td class="align-center">09</td>
+                <td>No of Shed</td>
+                <td>Electric power supply</td>
+                <td class="align-center">1 Phase</td>
+                <td></td>
+                <td>Stabilizer</td>
+                <td class="align-center">1</td>
+            </tr>
+            <tr>
+                <td class="align-center">10</td>
+                <td>C Shape</td>
+                <td>RH Sensor</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td>EC Spare kit</td>
+                <td class="align-center">1</td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="3" class="align-right">Total EXW/House (Actual Price)</td>
+                <td colspan="2"></td>
+                <td colspan="1" class="align-right">29,90,912</td>
+                <td class="align-center">775</td>
+            </tr>
+        </table>
+
+        <div class="section-header">Equipment Package Part - I</div>
+        
+        <table class="quote-table">
+            <tr>
+                <th class="sn-column">SN</th>
+                <th class="col-blue">ITEM DESCRIPTION</th>
+                <th class="value-column">UNIT</th>
+                <th class="col-blue">TOTAL PRICE</th>
+                <th class="col-blue">PER BIRD COST</th>
+            </tr>
+            <tr>
+                <td class="align-center">01</td>
+                <td>Ventilation Fan, Feeder Line & Sensor Wiring</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">02</td>
+                <td>Cooling System With Accessories</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">03</td>
+                <td>Pvc Item For Drinker Nipple Line Connection</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">04</td>
+                <td>Shed Lighting (led) With Wiring</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">05</td>
+                <td>Fogger Kit</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="2" class="align-right">Total EXW/House (Actual Price)</td>
+                <td></td>
+                <td class="align-right">₹1,84,736</td>
+                <td class="align-center">₹14</td>
+            </tr>
+        </table>
+
+        <table class="total-section">
+            <tr>
+                <td style="width: 25%;">Total Amount- ₹ 1,175,648</td>
+                <td style="width: 25%;">Per Bird- ₹ 89</td>
+                <td style="width: 25%;">Tax- ₹ 1,41,078</td>
+                <td style="width: 25%;">Final Amount- ₹ 1,316,726</td>
+            </tr>
+        </table>
+
+        <div class="terms-section">
+            <div class="terms-title">TERMS&CONDITIONS</div>
+            
+            <div class="terms-category">PRICE</div>
+            <ul>
+                <li>Prices are Ex-works (ABIS EXPORTS (INDIA) PVT LTD, Rajnandgaon) + GST as applicable.</li>
+            </ul>
+            
+            <div class="terms-category">AGREEMENTS</div>
+            <ul>
+                <li>The Parivartan and Broiler Integration agreement will be signed separately between the farmer & ABIS EXPORTS (INDIA) PVT LTD</li>
+            </ul>
+            
+            <div class="terms-category">SCOPE OF COMPANY</div>
+            <ul>
+                <li>Supply of materials, support for the project reports and technical support.</li>
+            </ul>
+            
+            <div class="terms-category">WARRANTY</div>
+            <ul>
+                <li>Warranty of supplied equipment - 12 Months from the date of Invoice (Against manufacturing defects only)</li>
+                <li>Technician support will be up to 12 months from the Invoice date up to 6 visits only. Subsequent visits will be charged as per the policy</li>
+            </ul>
+            
+            <div class="terms-category">FARMER/CONTRACTEE SCOPE</div>
+            <ul>
+                <li>Civil works as per drawing, Power supply up to EC panel, Electrical wiring of EC panel, water supply to regulator.</li>
+            </ul>
+            
+            <div class="terms-category">PAYMENT TERMS</div>
+            <ul>
+                <li>For receiving of payments we prefer NEFT/RTGS/IMPS. Cash transaction is strictly not acceptable.</li>
+                <li>25% Advance & Balance 75% against the Quotation before the dispatch.</li>
+                <li>Token amount is non-refundable.</li>
+            </ul>
+            
+            <div class="terms-category">TRANSPORTATION</div>
+            <ul>
+                <li>Transportation cost and actuals to be paid by farmer/contractee to the transporter directly before the loading of material from the company's Warehouse</li>
+            </ul>
+            
+            <div class="terms-category">INSTALLATION CHARGES</div>
+            <ul>
+                <li>Installation charges + GST is applicable.</li>
+                <li>The company will provide 2 technicians for installation of equipment's, charges of first person (Rs 2250/day) & second person (Rs 1250/day) to be paid by the farmer/contractee.</li>
+                <li>The farmer/contractee will have to arrange 2-3 labour for support and ensure fabrication work at his own expense</li>
+                <li>Technician's lodging and boarding shall be arranged by the farmer/contractee.</li>
+            </ul>
+            
+            <div class="terms-category">VALIDITY</div>
+            <ul>
+                <li>The validity of estimation is up to 30 days. Post the expiry of said period, price of equipment's might vary</li>
+                <li>Once the Inquiry consent is received from the farmer (After 25% of the payment) the order will not be cancelled..</li>
+            </ul>
+            
+            <div class="terms-category">CUSTOMER SUPPORT</div>
+            <ul>
+                <li>For any sales query of support, call on 7610255555 or mail us at parivartan@ibgroup.co.in.</li>
+            </ul>
+
+            <div class="terms-category">BANK DETAIL</div>
+            <div class="bank-row">
+                <div class="bank-label">Bank Name</div>
+                <div class="bank-value">: YES BANK LTD.</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">Beneficiary Name</div>
+                <div class="bank-value">: ABIS EXPORTS INDIA PRIVATE LIMITED</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">Account Number</div>
+                <div class="bank-value">: 002581300000988</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">IFSC</div>
+                <div class="bank-value">: YESB0000023</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">Branch</div>
+                <div class="bank-value">: LUDHIANA</div>
+            </div>
+        </div>
+
+        <div class="signature">
+            <p>Authorised signatory</p>
+            <p>ABIS EXPORTS (INDIA) PRIVATE LIMITED</p>
+        </div>
+    </div>
+</body>
+</html> -->
+
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Estimation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #000;
+            font-size: 12px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0;
+            box-sizing: border-box;
+            border: 2px solid #000;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 5px;
+            padding: 10px 0;
+        }
+        .header h1 {
+            margin: 0;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 3px 0 0;
+            font-size: 12px;
+        }
+        .divider {
+            border-bottom: 2px solid #000;
+            margin: 0;
+        }
+        .estimation-info {
+            display: table;
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .info-row {
+            display: table-row;
+        }
+        .info-item {
+            padding: 5px 10px;
+            vertical-align: top;
+        }
+        .info-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 130px;
+        }
+        .project-title {
+            background-color: #f2f2f2;
+            padding: 5px 0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+            border-bottom: 1px solid #000;
+            border-top: 1px solid #000;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0;
+            font-size: 11px;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 4px 6px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #c0c0c0;
+            font-weight: bold;
+        }
+        .section-header {
+            background-color: #c0c0c0;
+            font-weight: bold;
+            text-align: center;
+            padding: 4px;
+        }
+        .sub-header {
+            background-color: #c0c0c0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .col-blue {
+            background-color: #cfddf0 !important;
+        }
+        .sn-column {
+            width: 30px;
+            text-align: center;
+        }
+        .description-column {
+            width: 200px;
+        }
+        .value-column {
+            width: 80px;
+            text-align: center;
+        }
+        .total-row {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .total-row td {
+            background-color: #f2f2f2;
+        }
+        .total-section {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #000;
+        }
+        .total-section td {
+            background-color: #c0c0c0 !important;
+            font-weight: bold;
+            text-align: center;
+            padding: 6px;
+            border: 1px solid #000;
+        }
+        .terms-section {
+            margin-top: 0;
+            font-size: 11px;
+            padding: 10px;
+        }
+        .terms-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .terms-category {
+            font-weight: bold;
+            margin-top: 8px;
+        }
+        .terms-section ul {
+            margin: 0;
+            padding-left: 15px;
+            list-style-type: none;
+        }
+        .terms-section li {
+            margin-bottom: 2px;
+            position: relative;
+            padding-left: 12px;
+        }
+        .terms-section li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+        }
+        .bank-details {
+            margin-top: 10px;
+            padding: 0 10px;
+        }
+        .bank-row {
+            display: flex;
+            margin-bottom: 2px;
+        }
+        .bank-label {
+            font-weight: bold;
+            width: 130px;
+        }
+        .bank-value {
+            flex: 1;
+        }
+        .signature {
+            margin-top: 20px;
+            padding: 0 10px 10px;
+            font-weight: bold;
+        }
+        .align-right {
+            text-align: right;
+        }
+        .align-center {
+            text-align: center;
+        }
+        .quote-letter {
+            text-align: center;
+            font-weight: bold;
+            width: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ABIS EXPORTS (INDIA) PVT. LTD.</h1>
+            <p>CORPORATE HOUSE: INDRAPURA GE ROAD RAIMANDIGAON (C.G.)</p>
+            <p>Email: parivartan@abisexports.com | Web: www.abisexports.in | Ph: 9893999999</p>
+            <p>GSTIN : 22AACCA8211Z1</p>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <table class="estimation-info">
+            <tr>
+                <td class="info-item" style="border: none; width: 50%">
+                    <div><span class="info-label">Estimation No</span> : <%= estimationId %></div>
+                </td>
+                <td class="info-item" style="border: none; width: 50%">
+                    <div><span class="info-label">Customer Number</span> : xxxxx</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="info-item" style="border: none;">
+                    <div><span class="info-label">Estimation Date</span> : <%= estimationDate %></div>
+                </td>
+                <td class="info-item" style="border: none;">
+                    <div><span class="info-label">Customer Name</span> : <%= customerName %></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="info-item" style="border: none;">
+                    <div><span class="info-label">Shed Type</span> : Parivartan Semi EC</div>
+                </td>
+                <td class="info-item" style="border: none;">
+                    <div><span class="info-label">Customer Location</span> : <%= customerLocation %></div>
+                </td>
+            </tr>
+        </table>
+        
+        <div class="divider"></div>
+        
+        <div class="project-title">PARIVARTAN PROJECT</div>
+        
+        <table>
+            <tr>
+                <th colspan="3" class="section-header">COMPLETE HOUSE INFORMATION</th>
+                <th colspan="3" class="section-header">TECHNICAL INFORMATION</th>
+                <th colspan="2" class="section-header">MINIMUM PARIVARTAN EQUIPMENT</th>
+            </tr>
+            <tr>
+                <th class="sn-column">SN</th>
+                <th class="col-blue">DIMENTION & CAPACITY</th>
+                <th class="value-column"></th>
+                <th class="col-blue">TECHNICAL INFORMATION</th>
+                <th class="value-column"></th>
+                <th class="col-blue">ITEM REQUIRMENT</th>
+                <th class="value-column"></th>
+            </tr>
+            <tr>
+                <td class="align-center">01</td>
+                <td>House Length (ft)</td>
+                <td class="align-center"><%= length %></td>
+                <td>Total Power Plan</td>
+                <td class="align-center">345</td>
+                <td>Cooling Line with Transmission motor + Motor</td>
+                <td class="align-center">9</td>
+            </tr>
+            <tr>
+                <td class="align-center">02</td>
+                <td>House Width (ft)</td>
+                <td class="align-center"><%= width %></td>
+                <td>Total Square area</td>
+                <td class="align-center"><%= area %></td>
+                <td>Ventilation Fan</td>
+                <td class="align-center">6</td>
+            </tr>
+            <tr>
+                <td class="align-center">03</td>
+                <td>House Side High (ft)</td>
+                <td class="align-center">8</td>
+                <td>Bird/Feeder</td>
+                <td class="align-center">38</td>
+                <td>Ventilation centrifugal 50" Fan with Motor</td>
+                <td class="align-center">6</td>
+            </tr>
+            <tr>
+                <td class="align-center">04</td>
+                <td>Roof Pitch</td>
+                <td class="align-center">1:6</td>
+                <td>Birds/Nipple</td>
+                <td class="align-center">12</td>
+                <td>Cooling Pad with Distribution Pad & Cooling Tray</td>
+                <td class="align-center">600</td>
+            </tr>
+            <tr>
+                <td class="align-center">05</td>
+                <td>House SF</td>
+                <td class="align-center"><%= area %></td>
+                <td>Cooling Pad Area (Sqft)</td>
+                <td class="align-center">600</td>
+                <td>Direct Brooder 80 KW</td>
+                <td class="align-center">6</td>
+            </tr>
+            <tr>
+                <td class="align-center">06</td>
+                <td>House SF</td>
+                <td class="align-center"><%= area %></td>
+                <td>Cooling Pad Area (Sqft)</td>
+                <td class="align-center">600</td>
+                <td>Conventional Control Panel</td>
+                <td class="align-center">1</td>
+            </tr>
+            <tr>
+                <td class="align-center">07</td>
+                <td>Air Volume @ 1.5" (Humidity Level @ 5" Hg)</td>
+                <td class="align-center">13154</td>
+                <td>CFH Temp</td>
+                <td class="align-center">95</td>
+                <td>Air Circulation Fan</td>
+                <td class="align-center">6</td>
+            </tr>
+            <tr>
+                <td class="align-center">08</td>
+                <td>Birds Capacity</td>
+                <td class="align-center">13154</td>
+                <td>Cooling water supply</td>
+                <td class="align-center">1.1 hour</td>
+                <td>Fogger</td>
+                <td class="align-center">1</td>
+            </tr>
+            <tr>
+                <td class="align-center">09</td>
+                <td>Kg/Sqft</td>
+                <td class="align-center">3.5</td>
+                <td>Lighting</td>
+                <td class="align-center">LED</td>
+                <td>PLC panel with Sensors</td>
+                <td class="align-center">1</td>
+            </tr>
+            <tr>
+                <td colspan="5" style="text-align: right;">Total EXWORKS (Actual Price)</td>
+                <td colspan="1" style="text-align: right;">25,90,810</td>
+                <td class="align-center">720</td>
+            </tr>
+        </table>
+        
+        <div class="section-header">Equipment Package Part - I</div>
+        
+        <table class="quote-table">
+            <tr>
+                <th class="sn-column">SN</th>
+                <th class="col-blue">ITEM DESCRIPTION</th>
+                <th class="value-column">UNIT</th>
+                <th class="col-blue">TOTAL PRICE</th>
+                <th class="col-blue">PER BIRD COST</th>
+            </tr>
+            <tr>
+                <td class="align-center">01</td>
+                <td>Ventilation Fan, Feeder Line & Sensor Hybrid</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">02</td>
+                <td>Cooling System With Accessories</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">03</td>
+                <td>PLC Main For Broiler Nipple Line Connection</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">04</td>
+                <td>Electrical Back-Up & Panel</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="align-center">05</td>
+                <td>Fogger Kit</td>
+                <td class="align-center">1</td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="3" style="text-align: right;">Total EXWORKS (Actual Price)</td>
+                <td>11,44,750</td>
+                <td class="align-center">715</td>
+            </tr>
+        </table>
+        
+        <table class="total-section">
+            <tr>
+                <td style="width: 25%;">Total Amount- ₹ 1,175,648</td>
+                <td style="width: 25%;">Per Bird- ₹ 89</td>
+                <td style="width: 25%;">Tax- ₹ 1,41,078</td>
+                <td style="width: 25%;">Final Amount- ₹ 1,316,726</td>
+            </tr>
+        </table>
+        
+        <div class="terms-section">
+            <div class="terms-title">TERMS&CONDITIONS</div>
+            
+            <div class="terms-category">PRICE</div>
+            <ul>
+                <li>Prices are Ex-works (ABIS EXPORTS (INDIA) PVT LTD, Rajnandgaon) + GST as applicable.</li>
+            </ul>
+            
+            <div class="terms-category">AGREEMENTS</div>
+            <ul>
+                <li>The Parivartan and Broiler Integration agreement will be signed separately between the farmer & ABIS EXPORTS (INDIA) PVT LTD</li>
+            </ul>
+            
+            <div class="terms-category">SCOPE OF COMPANY</div>
+            <ul>
+                <li>Supply of materials, support for the project reports and technical support.</li>
+            </ul>
+            
+            <div class="terms-category">WARRANTY</div>
+            <ul>
+                <li>Warranty of supplied equipment - 12 Months from the date of Invoice (Against manufacturing defects only)</li>
+                <li>Technician support will be up to 12 months from the Invoice date up to 6 visits only. Subsequent visits will be charged as per the policy</li>
+            </ul>
+            
+            <div class="terms-category">FARMER/CONTRACTEE SCOPE</div>
+            <ul>
+                <li>Civil works as per drawing, Power supply up to EC panel, Electrical wiring of EC panel, water supply to regulator.</li>
+            </ul>
+            
+            <div class="terms-category">PAYMENT TERMS</div>
+            <ul>
+                <li>For receiving of payments we prefer NEFT/RTGS/IMPS. Cash transaction is strictly not acceptable.</li>
+                <li>25% Advance & Balance 75% against the Quotation before the dispatch.</li>
+                <li>Token amount is non-refundable.</li>
+            </ul>
+            
+            <div class="terms-category">TRANSPORTATION</div>
+            <ul>
+                <li>Transportation cost and actuals to be paid by farmer/contractee to the transporter directly before the loading of material from the company's Warehouse</li>
+            </ul>
+            
+            <div class="terms-category">INSTALLATION CHARGES</div>
+            <ul>
+                <li>Installation charges + GST is applicable.</li>
+                <li>The company will provide 2 technicians for installation of equipment's, charges of first person (Rs 2250/day) & second person (Rs 1250/day) to be paid by the farmer/contractee.</li>
+                <li>The farmer/contractee will have to arrange 2-3 labour for support and ensure fabrication work at his own expense</li>
+                <li>Technician's lodging and boarding shall be arranged by the farmer/contractee.</li>
+            </ul>
+            
+            <div class="terms-category">VALIDITY</div>
+            <ul>
+                <li>The validity of estimation is up to 30 days. Post the expiry of said period, price of equipment's might vary</li>
+                <li>Once the Inquiry consent is received from the farmer (After 25% of the payment) the order will not be cancelled..</li>
+            </ul>
+            
+            <div class="terms-category">CUSTOMER SUPPORT</div>
+            <ul>
+                <li>For any sales query of support, call on 7610255555 or mail us at parivartan@ibgroup.co.in.</li>
+            </ul>
+
+            <div class="terms-category">BANK DETAIL</div>
+            <div class="bank-row">
+                <div class="bank-label">Bank Name</div>
+                <div class="bank-value">: YES BANK LTD.</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">Beneficiary Name</div>
+                <div class="bank-value">: ABIS EXPORTS INDIA PRIVATE LIMITED</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">Account Number</div>
+                <div class="bank-value">: 002581300000988</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">IFSC</div>
+                <div class="bank-value">: YESB0000023</div>
+            </div>
+            <div class="bank-row">
+                <div class="bank-label">Branch</div>
+                <div class="bank-value">: LUDHIANA</div>
+            </div>
+        </div>
+
+        <div class="signature">
+            <p>Authorised signatory</p>
+            <p>ABIS EXPORTS (INDIA) PRIVATE LIMITED</p>
+        </div>
+    </div>
+</body>
+</html>
