@@ -862,6 +862,51 @@ router.post('/merge-call', async (req, res) => {
 
 
 
+router.post('/call-cdr', async (req, res) => {
+  try {
+    // Log the entire CDR payload
+    console.log('Received CDR data:', JSON.stringify(req.body, null, 2));
+    
+    // Extract some key information for additional logging
+    const {
+      vmSessionId,
+      clientCorrelationId,
+      customerId,
+      callType,
+      callerId,
+      overallCallStatus,
+      duration,
+      billableDuration
+    } = req.body;
+    
+    console.log('Call summary:', {
+      vmSessionId,
+      clientCorrelationId,
+      customerId,
+      callType,
+      callerId,
+      overallCallStatus,
+      duration,
+      billableDuration
+    });
+    
+    // Here you could add code to store the CDR in a database if needed
+    
+    // Send a successful response
+    return res.status(200).json({
+      success: true,
+      message: 'CDR data received and processed successfully',
+      sessionId: vmSessionId
+    });
+  } catch (error) {
+    console.error('Error processing CDR data:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error processing CDR data',
+      error: error.message
+    });
+  }
+});
 
 
  
