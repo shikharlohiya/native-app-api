@@ -7,6 +7,8 @@ const lead_Meeting = require('../../models/lead_meeting');
 const LeadUpdate = require('../../models/lead_update');
 const { Op } = require('sequelize');
 
+
+
 exports.getLatestLeadData = async (req, res) => {
   try {
     const { leadId } = req.params;
