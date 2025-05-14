@@ -164,6 +164,8 @@ Lead_Detail.belongsTo(ParivatanRegion, {
 });
 
 
+
+
 module.exports = Lead_Detail;
 const OnCallDiscussionByBdm = require("./OnCallDiscussionByBdm");
 const Notification = require("./Notification");

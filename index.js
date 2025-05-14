@@ -200,7 +200,7 @@ app.use((req, res, next) => {
 app.set('view engine', 'ejs');
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api', authRoutes);
 app.use('/api', exotelRoutes);
 app.use('/api', AgentRoutes);
 app.use('/api', BDMRoutes);
@@ -242,7 +242,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3005;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log('WebSocket server is ready for connections');

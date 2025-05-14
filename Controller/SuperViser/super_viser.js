@@ -1428,6 +1428,12 @@ exports.getRegionMeetingCount = async (req, res) => {
 
 //v2
 
+
+
+
+
+
+
 exports.getBDMFollowUpTasks = async (req, res) => {
   try {
       const { page = 1, limit = 10, bdmId } = req.query;
@@ -1504,7 +1510,7 @@ exports.getBDMFollowUpTasks = async (req, res) => {
                     { lead_created_by: null }
                 ]
             },
-            { BDMId: bdmId }
+            // { BDMId: bdmId }
         ]
     };
 
@@ -1649,6 +1655,7 @@ exports.getBDMFollowUpTasks = async (req, res) => {
 
 // v2
 
+
 exports.getBDMSelfTasks = async (req, res) => {
   try {
       const { page = 1, limit = 10, bdmId } = req.query;
@@ -1694,10 +1701,11 @@ exports.getBDMSelfTasks = async (req, res) => {
             {
                 [Op.or]: [
                     { lead_created_by: 2 },  // Created by BDM
-                    { lead_created_by: 3 }   // Created by Zonal Manager
+                    { lead_created_by: 3 }  // Created by Zonal Manager
                 ]
             },
-            {
+
+           {
                 [Op.or]: assignments.map(assignment => ({
                     [Op.and]: {
                         RegionId: assignment.RegionId,
@@ -1759,6 +1767,10 @@ exports.getBDMSelfTasks = async (req, res) => {
       });
   }
 };
+
+
+
+
 
 
 

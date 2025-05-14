@@ -2,11 +2,12 @@
 const express = require('express');
 const router = express.Router();
 const { executeCronJob } = require('../../Controller/Attendence/AttendenceController');
+ const verifySession = require("../../middleware/sessionVerify");
 
 
 const bdmActionController = require('../../Controller/Attendence/AttendenceController');
 
-router.post('/batch-lead-actions',bdmActionController.handleBatchLeadActions);
+router.post('/v3/batch-lead-actions', verifySession , bdmActionController.handleBatchLeadActions);
 
 router.post('/todo-list/update', bdmActionController.executeCronJob);
 
