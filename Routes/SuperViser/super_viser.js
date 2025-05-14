@@ -22,7 +22,7 @@ router.get('/superviser/export',  SupervisorController.exportLeadsToExcel);
 router.get('/filter/list/:field',SupervisorController.getDistinctValues);
 router.get('/v3/bdm-followup-tasks',verifySession, SupervisorController.getBDMFollowUpTasks);
 router.get('/v3/bdm-self-tasks',verifySession, SupervisorController.getBDMSelfTasks);
-router.get('/bdm-daily-tasks/:bdmId', SupervisorController.getBdmDailyTasks);
+router.get('/v3/bdm-daily-tasks/:bdmId', verifySession, SupervisorController.getBdmDailyTasks);
 router.get('/leads/export', SupervisorController.exportLeads);
 
 

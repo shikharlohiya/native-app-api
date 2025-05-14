@@ -16,7 +16,7 @@ router.post('/todo-list/whole-update', bdmActionController.updateAllCompletionSt
 
 router.get('/bdm-report', bdmActionController.getAllBdmStats);
 
-router.post('/bdm/checkin', bdmActionController.handleBdmCheckIn);
+router.post('/v3/bdm/checkin', verifySession, bdmActionController.handleBdmCheckIn);
 router.post('/bdm/checkout', bdmActionController.handleBdmCheckOut);
 
 router.post('/bdm/daily-distance', bdmActionController.getBdmDailyDistance);
@@ -26,7 +26,7 @@ router.post('/bdm/attendence/out',bdmActionController.handleAttendanceOut);
 //will do later
 // router.post('/bdm/travel-report', bdmActionController.generateTravelReport);
 
-router.post('/bdm/other-tasks', bdmActionController.handleOtherTasks);
+router.post('/v3/bdm/other-tasks',verifySession, bdmActionController.handleOtherTasks);
 
 router.get('/bdm/all-attendence', bdmActionController.getEmployeeAttendance);
 
