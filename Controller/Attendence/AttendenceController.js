@@ -188,9 +188,317 @@ exports.updateAllCompletionStatuses = async (req, res) => {
 
 
 
-exports.handleBatchLeadActions = async (req, res) => {
-  const transaction = await sequelize.transaction();
+// exports.handleBatchLeadActions = async (req, res) => {
+//   const transaction = await sequelize.transaction();
 
+//   try {
+//     const {
+//       bdmId,
+//       HO_task,
+//       self_task,
+//       other_task,
+//       attendanceType,
+//       latitude,
+//       longitude,
+//     } = req.body;
+
+//     if (!bdmId || !attendanceType || !latitude || !longitude) {
+//       return res.status(400).json({ message: "Invalid input data" });
+//     }
+
+//     const processActions = async (tasks, taskType) => {
+//       return Promise.all(
+//         tasks.map(async (task) => {
+//           if (taskType === "other_task") {
+//             // Handle other_task
+//             return BdmLeadAction.create(
+//               {
+//                 BDMId: bdmId,
+//                 task_type: "other_task",
+//                 task_name: task.task_name,
+//                 action_type: task.action_type || "confirm", // Save action_type with default "confirm"
+//                 specific_action: task.task_name, // Set specific_action to task_name
+//                 remarks: task.remarks,
+//               },
+//               { transaction }
+//             );
+//           } else {
+//             // Handle HO_task and self_task
+//             const {
+//               id,
+//               action_type,
+//               specific_action,
+//               branchOffice,
+//               regionalOffice,
+//               selectedTaskLocation,
+//               new_follow_up_date,
+//               remarks,
+//             } = task;
+
+        
+
+//             const bdmAction = await BdmLeadAction.create(
+//               {
+//                 LeadId: id,
+//                 BDMId: bdmId,
+//                 task_type: taskType,
+//                 action_type,
+//                 branchOffice,
+//                 regionalOffice,
+//                 selectedTaskLocation,
+//                 specific_action:
+//                   action_type === "confirm" ? specific_action : null,
+//                 new_follow_up_date:
+//                   action_type === "postpone" ? new_follow_up_date : null,
+//                 remarks,
+//               },
+//               { transaction }
+//             );
+
+//             // Update Lead_Detail
+
+//             // const lead = await Lead_Detail.findByPk(id, { transaction });
+//             // if (!lead) {
+//             //   throw new Error(`Lead with id ${id} not found`);
+//             // }
+
+//             // if (action_type === "confirm") {
+//             //   lead.last_action = specific_action;
+//             // } else if (action_type === "postpone") {
+//             //   lead.follow_up_date = new Date(new_follow_up_date);
+//             //   lead.bdm_remark = remarks || lead.bdm_remark;
+//             // }
+
+//             // await lead.save({ transaction });
+
+//             // return bdmAction;
+//           }
+//         })
+//       );
+//     };
+
+//     const processedHOTasks = HO_task
+//       ? await processActions(HO_task, "HO_task")
+//       : [];
+//     const processedSelfTasks = self_task
+//       ? await processActions(self_task, "self_task")
+//       : [];
+//     const processedOtherTasks = other_task
+//       ? await processActions(other_task, "other_task")
+//       : [];
+//       const currentDateTime = new Date();
+//     // Create an Attendance record with location
+//     const attendance = await Attendance.create(
+//       {
+//         EmployeeId: bdmId,
+//         AttendanceType: attendanceType,
+//         Latitude: latitude,
+//         Longitude: longitude,
+//         AttendanceInTime: currentDateTime,
+//         AttendanceDate: currentDateTime
+//       },
+//       { transaction }
+//     );
+    
+//     await BdmTravelDetail.create(
+//       {
+//         bdm_id: bdmId,
+//         attendance_id: attendance.id,
+//         action: "Attendance In",
+//         checkin_latitude: latitude,
+//         checkin_longitude: longitude,
+//         checkin_time: new Date(),
+//       },
+//       { transaction }
+//     );
+
+
+
+//     await transaction.commit();
+
+//     res.status(200).json({
+//       success: true,
+//       message:
+//         "Attendence Saved Successfully",
+       
+      
+//     });
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error("Error processing batch lead actions and attendance:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Internal server error", error: error.message });
+//   }
+// };
+
+
+
+// controllers/bdmActionController.js
+ 
+
+// Execute cron job with proper connection handling
+exports.executeCronJob = async () => {
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    
+    // Get today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find all bdm_lead_actions with action_type 'confirm' and action_date today
+    const bdmLeadActions = await BdmLeadAction.findAll({
+      where: {
+        action_type: 'confirm',
+        action_date: {
+          [Op.gte]: today,
+          [Op.lt]: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+      transaction,
+    });
+
+    // Process each bdm_lead_action
+    for (const bdmLeadAction of bdmLeadActions) {
+      const { specific_action, BDMId, LeadId } = bdmLeadAction;
+
+      if (specific_action === 'On Call Discussion') {
+        // Check if an entry exists in on_call_disscusion_by_bdm table
+        const onCallDiscussion = await OnCallDiscussionByBdm.findOne({
+          where: { BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = onCallDiscussion ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+
+      } else if (specific_action === 'Estimation Request') {
+        // Check if an entry exists in the estimation table
+        const estimation = await Estimation.findOne({
+          where: { Bdm_id: BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = estimation ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+
+      } else if (specific_action === 'Meeting') {
+        // Check if an entry exists in the meeting table
+        const meeting = await Meeting.findOne({
+          where: { BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = meeting ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+
+      } else if (specific_action === 'Site Visit') {
+        // Check if an entry exists in the site visit table
+        const siteVisit = await SiteVisit.findOne({
+          where: { BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = siteVisit ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+      }
+    }
+
+    await transaction.commit();
+    console.log('Cron job executed successfully');
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    console.error('Error executing cron job:', error);
+  }
+};
+
+// Schedule the cron job to run every day at 11:57 PM
+cron.schedule('57 23 * * *', exports.executeCronJob);
+
+exports.updateAllCompletionStatuses = async (req, res) => {
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+
+    // Find all bdm_lead_actions with action_type 'confirm'
+    const bdmLeadActions = await BdmLeadAction.findAll({
+      where: {
+        action_type: 'confirm',
+      },
+      transaction,
+    });
+
+    // Process each bdm_lead_action
+    for (const bdmLeadAction of bdmLeadActions) {
+      const { specific_action, BDMId, LeadId } = bdmLeadAction;
+
+      if (specific_action === 'On Call Discussion') {
+        // Check if an entry exists in on_call_disscusion_by_bdm table
+        const onCallDiscussion = await OnCallDiscussionByBdm.findOne({
+          where: { BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = onCallDiscussion ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+
+      } else if (specific_action === 'Estimation Request') {
+        // Check if an entry exists in the estimation table
+        const estimation = await Estimation.findOne({
+          where: { Bdm_id: BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = estimation ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+
+      } else if (
+        specific_action === 'Conversion Follow up & Meeting' ||
+        specific_action === 'Individual Meeting' ||
+        specific_action === 'Group Meeting'
+      ) {
+        // Check if an entry exists in the meeting table
+        const meeting = await Meeting.findOne({
+          where: { BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = meeting ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+
+      } else if (specific_action === 'Site Visit') {
+        // Check if an entry exists in the site visit table
+        const siteVisit = await SiteVisit.findOne({
+          where: { BDMId, LeadDetailId: LeadId },
+          transaction,
+        });
+
+        // Update completion_status based on the existence of the entry
+        const completionStatus = siteVisit ? 'completed' : 'not_completed';
+        await bdmLeadAction.update({ completion_status: completionStatus }, { transaction });
+      }
+    }
+
+    await transaction.commit();
+    res.status(200).json({ message: 'All completion statuses updated successfully' });
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    console.error('Error updating completion statuses:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Handle batch lead actions with proper connection management and attendance check
+exports.handleBatchLeadActions = async (req, res) => {
+  let transaction;
   try {
     const {
       bdmId,
@@ -206,7 +514,38 @@ exports.handleBatchLeadActions = async (req, res) => {
       return res.status(400).json({ message: "Invalid input data" });
     }
 
+    transaction = await sequelize.transaction();
+
+    // Check if employee already has an attendance record for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const existingAttendance = await Attendance.findOne({
+      where: {
+        EmployeeId: bdmId,
+        AttendanceDate: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
+      },
+      transaction
+    });
+
+    if (existingAttendance) {
+      await transaction.commit();
+      return res.status(400).json({ 
+        success: false, 
+        message: "Attendance already marked for today" 
+      });
+    }
+
     const processActions = async (tasks, taskType) => {
+      if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+        return [];
+      }
+      
       return Promise.all(
         tasks.map(async (task) => {
           if (taskType === "other_task") {
@@ -235,9 +574,7 @@ exports.handleBatchLeadActions = async (req, res) => {
               remarks,
             } = task;
 
-        
-
-            const bdmAction = await BdmLeadAction.create(
+            return BdmLeadAction.create(
               {
                 LeadId: id,
                 BDMId: bdmId,
@@ -254,39 +591,20 @@ exports.handleBatchLeadActions = async (req, res) => {
               },
               { transaction }
             );
-
-            // Update Lead_Detail
-
-            // const lead = await Lead_Detail.findByPk(id, { transaction });
-            // if (!lead) {
-            //   throw new Error(`Lead with id ${id} not found`);
-            // }
-
-            // if (action_type === "confirm") {
-            //   lead.last_action = specific_action;
-            // } else if (action_type === "postpone") {
-            //   lead.follow_up_date = new Date(new_follow_up_date);
-            //   lead.bdm_remark = remarks || lead.bdm_remark;
-            // }
-
-            // await lead.save({ transaction });
-
-            // return bdmAction;
           }
         })
       );
     };
 
-    const processedHOTasks = HO_task
-      ? await processActions(HO_task, "HO_task")
-      : [];
-    const processedSelfTasks = self_task
-      ? await processActions(self_task, "self_task")
-      : [];
-    const processedOtherTasks = other_task
-      ? await processActions(other_task, "other_task")
-      : [];
-      const currentDateTime = new Date();
+    // Process tasks in parallel
+    const [processedHOTasks, processedSelfTasks, processedOtherTasks] = await Promise.all([
+      HO_task ? processActions(HO_task, "HO_task") : [],
+      self_task ? processActions(self_task, "self_task") : [],
+      other_task ? processActions(other_task, "other_task") : []
+    ]);
+
+    const currentDateTime = new Date();
+    
     // Create an Attendance record with location
     const attendance = await Attendance.create(
       {
@@ -307,31 +625,36 @@ exports.handleBatchLeadActions = async (req, res) => {
         action: "Attendance In",
         checkin_latitude: latitude,
         checkin_longitude: longitude,
-        checkin_time: new Date(),
+        checkin_time: currentDateTime,
       },
       { transaction }
     );
 
-
-
     await transaction.commit();
 
     res.status(200).json({
-      message:
-        "Batch lead actions processed and attendance marked successfully",
-      HO_task: processedHOTasks,
-      self_task: processedSelfTasks,
-      other_task: processedOtherTasks,
-      attendance,
+      success: true,
+      message: "Attendance Saved Successfully",
     });
   } catch (error) {
-    await transaction.rollback();
+    if (transaction) await transaction.rollback();
     console.error("Error processing batch lead actions and attendance:", error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error", 
+      error: error.message 
+    });
   }
 };
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8689,7 +9012,7 @@ exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
 
 
 // // Google Maps API key
-// const GOOGLE_MAPS_API_KEY = 'AIzaSyCsqQ2nt_c_CDLu6Pde1FEaEKFM-Z0HLak'; // Replace with your actual API key
+
 
 // // API usage tracking (optional)
 // const trackApiUsage = async (apiName) => {

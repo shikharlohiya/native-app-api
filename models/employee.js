@@ -47,6 +47,11 @@ Employee.init(
       allowNull: true,        
       comment: "Firebase Cloud Messaging token for push notifications"
     },
+    sessionId: {
+      type: DataTypes.STRING(45),
+      allowNull: true,
+      comment: "Unique session identifier for single device login"
+    },
     is_active: {
       type: DataTypes.BOOLEAN,
       allowNull: true,
