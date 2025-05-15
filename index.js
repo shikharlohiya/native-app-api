@@ -228,7 +228,7 @@ app.use('/api',Notification);
 app.use('/api', RegisteredPartner);
 // app.use('/api/estimation', EstimationGeneration);
 app.use('/api', shrimp_feed); 
-app.use('/api/create', Travel); 
+app.use('/api', Travel); 
 
 // Root route
 app.get('/', function (req, res) {

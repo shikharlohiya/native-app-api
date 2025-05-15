@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const bdmTravelController = require('../../Controller/Travel/TravelController');
- 
+ const verifySession = require("../../middleware/sessionVerify");
 const multer = require('multer');
 
 // Use memory storage for multer to work with AWS S3
@@ -30,7 +30,7 @@ const uploadMiddleware = upload.fields([
 // Create a new BDM travel detail
 // router.post('/travel',  uploadMiddleware, bdmTravelController.createBdmTravel);
 
-router.post('/travel', (req, res, next) => {
+router.post('/v3/create/travel',verifySession, (req, res, next) => {
   uploadMiddleware(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {

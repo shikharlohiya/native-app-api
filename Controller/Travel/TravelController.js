@@ -97,18 +97,7 @@ exports.createBdmTravel = async (req, res) => {
       });
     }
 
-      // Find the BdmLeadAction if provided
-      // let bdmLeadAction = null;
-      // if (bdmLeadActionId) {
-      //   bdmLeadAction = await BdmLeadAction.findByPk(bdmLeadActionId, {
-      //     transaction: t,
-      //   });
-  
-      //   if (!bdmLeadAction) {
-      //     await t.rollback();
-      //     return res.status(400).json({ error: "BdmLeadAction ID not found" });
-      //   }
-      // }
+ 
 
     // Handle image uploads to AWS S3
     let mandatoryVisitImageUrl = '';
@@ -184,7 +173,7 @@ exports.createBdmTravel = async (req, res) => {
        await bdmLeadAction.update(
          {
            completion_status: "completed",
-           lead_detail_form_id:bdmTravel.id // He
+           lead_detail_form_id:bdmTravel.id 
            
          },
          { transaction: t }
