@@ -1,20 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const MasterController = require('../../Controller/Master/MasterController');
+const verifySession = require("../../middleware/sessionVerify");
+
+
+
 
  
 // const auth = require('../../middleware/check-auth');
  
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
-
-
 // Upload branch data from Excel file
 router.post('/upload-branch-data', upload.single('file'),  MasterController.uploadBranchData);
-
-
-
-
 
 // Get all zonal managers with their region information
 router.get('/get-all-region', MasterController.getAllRegions);
@@ -28,6 +26,13 @@ router.get('/employee-branches/:employeeId', MasterController.getEmployeeBranche
 
 
 
+
+
+
+
+
+//v3
+router.get('/v3/employee-branches/:employeeId',verifySession, MasterController.getEmployeeBranchesByIdV3);
 
  
 module.exports = router;
