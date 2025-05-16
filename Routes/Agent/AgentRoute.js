@@ -4,6 +4,8 @@ const auth = require('../../middleware/check-auth');
 const AgentController = require('../../Controller/Agent/AgentController');
 const { sendTestNotification } = require('../../config/firebase');
 
+const verifySession = require("../../middleware/sessionVerify");
+
 
 router.get('/bdm-followups/details', AgentController.getAgentBdmFollowups);
 
@@ -76,6 +78,13 @@ router.get('/incoming/parivartan/call-analytics',AgentController.getCallAnalytic
 
 
 router.get('/outbound-call-analytics',AgentController.getOutboundCallAnalytics )
+
+
+
+
+//v3
+router.get('/v3/lead/:mobileNo',verifySession, AgentController.getLeadByMobileNo);
+
 
 
 

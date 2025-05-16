@@ -2,6 +2,11 @@ const Parivartan_Region = require('../../models/Parivartan_Region');
 const Parivartan_BDM = require('../../models/Parivartan_BDM');
 const Campaign = require('../../models/campaign');
 const sequelize = require("../../models/index");
+const Employee = require("../../models/employee");
+ 
+const Category = require("../../models/Category");
+const SubCategory = require("../../models/SubCategory");
+
 const fs = require('fs');
 
 // Get all regions
@@ -1228,5 +1233,496 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
       message: 'Error fetching employee branches',
       error: error.message
     });
+  }
+};
+
+
+
+//category and subcategory
+
+// controllers/categoryController.js
+
+/**
+ * Get all categories or filter by name
+ */
+exports.getCategories = async (req, res) => {
+  try {
+    const { name } = req.query;
+    let whereClause = { Deleted: "N" };
+    
+    if (name) {
+      whereClause.CategoryName = {
+        [Op.like]: `%${name}%`,
+      };
+    }
+    
+    const categories = await Category.findAll({
+      where: whereClause,
+      order: [['CategoryId', 'ASC']]
+    });
+    
+    if (categories.length === 0) {
+      return res.status(404).json({ 
+        message: name 
+          ? "No categories found matching the given name" 
+          : "No categories found"
+      });
+    }
+    
+    res.json(categories);
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Get a single category by ID with its subcategories
+ */
+exports.getCategoryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const category = await Category.findOne({
+      where: {
+        CategoryId: id,
+        Deleted: "N"
+      },
+      include: [
+        {
+          model: SubCategory,
+          where: { Deleted: "N" },
+          attributes: ['SubCategoryId', 'SubCategoryName', 'Priority', 'PriorityColor']
+        }
+      ]
+    });
+    
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+    
+    res.json(category);
+  } catch (error) {
+    console.error("Error fetching category:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Get all subcategories or filter by name/priority
+ */
+exports.getSubCategories = async (req, res) => {
+  try {
+    const { name, priority, categoryId } = req.query;
+    let whereClause = { Deleted: "N" };
+    
+    if (name) {
+      whereClause.SubCategoryName = {
+        [Op.like]: `%${name}%`,
+      };
+    }
+    
+    if (priority) {
+      whereClause.Priority = priority;
+    }
+    
+    if (categoryId) {
+      whereClause.CategoryId = categoryId;
+    }
+    
+    const subCategories = await SubCategory.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: Category,
+          where: { Deleted: "N" },
+          attributes: ['CategoryId', 'CategoryName', 'Color']
+        }
+      ],
+      order: [['SubCategoryId', 'ASC']]
+    });
+    
+    if (subCategories.length === 0) {
+      return res.status(404).json({ 
+        message: "No subcategories found matching the given criteria"
+      });
+    }
+    
+    res.json(subCategories);
+  } catch (error) {
+    console.error("Error fetching subcategories:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Get subcategories by priority
+ */
+exports.getSubCategoriesByPriority = async (req, res) => {
+  try {
+    const { priority } = req.params;
+    
+    if (!priority) {
+      return res.status(400).json({ error: "Priority is required" });
+    }
+    
+    const subCategories = await SubCategory.findAll({
+      where: {
+        Priority: priority,
+        Deleted: "N"
+      },
+      include: [
+        {
+          model: Category,
+          where: { Deleted: "N" },
+          attributes: ['CategoryId', 'CategoryName', 'Color']
+        }
+      ],
+      order: [['SubCategoryId', 'ASC']]
+    });
+    
+    if (subCategories.length === 0) {
+      return res.status(404).json({ 
+        message: `No subcategories found with priority ${priority}`
+      });
+    }
+    
+    res.json(subCategories);
+  } catch (error) {
+    console.error("Error fetching subcategories by priority:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Create a new category
+ */
+exports.createCategory = async (req, res) => {
+  try {
+    const { categoryName, color } = req.body;
+    
+    if (!categoryName || !color) {
+      return res.status(400).json({ error: "Category name and color are required" });
+    }
+    
+    const newCategory = await Category.create({
+      CategoryName: categoryName,
+      Color: color,
+      Deleted: "N"
+    });
+    
+    res.status(201).json(newCategory);
+  } catch (error) {
+    console.error("Error creating category:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Create a new subcategory
+ */
+exports.createSubCategory = async (req, res) => {
+  try {
+    const { subCategoryName, priority, priorityColor, categoryId } = req.body;
+    
+    if (!subCategoryName || !categoryId) {
+      return res.status(400).json({ error: "Subcategory name and categoryId are required" });
+    }
+    
+    // Check if category exists
+    const category = await Category.findOne({
+      where: {
+        CategoryId: categoryId,
+        Deleted: "N"
+      }
+    });
+    
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+    
+    const newSubCategory = await SubCategory.create({
+      SubCategoryName: subCategoryName,
+      Priority: priority,
+      PriorityColor: priorityColor,
+      CategoryId: categoryId,
+      Deleted: "N"
+    });
+    
+    res.status(201).json(newSubCategory);
+  } catch (error) {
+    console.error("Error creating subcategory:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Soft delete a category
+ */
+exports.deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const category = await Category.findOne({
+      where: {
+        CategoryId: id,
+        Deleted: "N"
+      }
+    });
+    
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+    
+    // Soft delete the category
+    await category.update({ Deleted: "Y" });
+    
+    // Also soft delete all associated subcategories
+    await SubCategory.update(
+      { Deleted: "Y" },
+      { where: { CategoryId: id, Deleted: "N" } }
+    );
+    
+    res.json({ message: "Category and its subcategories have been deleted" });
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Soft delete a subcategory
+ */
+exports.deleteSubCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const subCategory = await SubCategory.findOne({
+      where: {
+        SubCategoryId: id,
+        Deleted: "N"
+      }
+    });
+    
+    if (!subCategory) {
+      return res.status(404).json({ message: "Subcategory not found" });
+    }
+    
+    // Soft delete the subcategory
+    await subCategory.update({ Deleted: "Y" });
+    
+    res.json({ message: "Subcategory has been deleted" });
+  } catch (error) {
+    console.error("Error deleting subcategory:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+//
+const taskTypes = [
+  { id: 1, name: "Agreement" },
+  { id: 2, name: "Complaint/ Service" },
+  { id: 3, name: "Meeting_Office" },
+  { id: 4, name: "Meeting_Field" },
+  { id: 5, name: "HO Visit" },
+  { id: 6, name: "RO Visit" },
+  { id: 7, name: "BO Visit" },
+  { id: 8, name: "Expo Event" },
+  { id: 9, name: "Travel" },
+  { id: 10, name: "Group Meeting" },
+  { id: 11, name: "Other" }
+];
+
+/**
+ * @route GET /api/task-types
+ * @desc Get task types with optional filtering
+ * @access Public
+ */
+exports.getTaskTypes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredTasks = [...taskTypes];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredTasks = filteredTasks.filter(task => 
+        task.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredTasks = filteredTasks.filter(task => 
+        task.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredTasks.length === 0) {
+      return res.status(404).json({ 
+        message: "No task types found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered task types
+    res.json(filteredTasks);
+  } catch (error) {
+    console.error("Error fetching task types:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+
+const enquiryTypes = [
+  { id: 1, name: "New Sales Inquiry" },
+  { id: 2, name: "Complaint" },
+  { id: 3, name: "Service Call" },
+  { id: 4, name: "Existing Customer new Inquiry" }
+];
+
+/**
+ * @route GET /api/enquiry-types
+ * @desc Get enquiry types with optional filtering
+ * @access Public
+ */
+exports.getEnquiryTypes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredEnquiries = [...enquiryTypes];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredEnquiries = filteredEnquiries.filter(enquiry => 
+        enquiry.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredEnquiries = filteredEnquiries.filter(enquiry => 
+        enquiry.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredEnquiries.length === 0) {
+      return res.status(404).json({ 
+        message: "No enquiry types found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered enquiry types
+    res.json(filteredEnquiries);
+  } catch (error) {
+    console.error("Error fetching enquiry types:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+// Project types data object (in-memory)
+const projectTypes = [
+  { id: 1, name: "Gen Nxt" },
+  { id: 2, name: "Open Shed" },
+  { id: 3, name: "Parivartan" }
+];
+
+/**
+ * @route GET /api/project-types
+ * @desc Get project types with optional filtering
+ * @access Public
+ */
+exports.getProjectTypes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredProjects = [...projectTypes];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredProjects.length === 0) {
+      return res.status(404).json({ 
+        message: "No project types found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered project types
+    res.json(filteredProjects);
+  } catch (error) {
+    console.error("Error fetching project types:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+
+exports.getCampaigns = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let whereClause = {};
+    
+    if (name) {
+      whereClause.CampaignName = {
+        [Op.like]: `%${name}%`
+      };
+    }
+    
+    if (id) {
+      whereClause.CampaignId = id;
+    }
+    
+    const campaigns = await Campaign.findAll({
+      where: whereClause,
+      order: [['CampaignId', 'ASC']]
+    });
+    
+    if (campaigns.length === 0) {
+      return res.status(404).json({ 
+        message: "No campaigns found matching the given criteria"
+      });
+    }
+    
+    res.json(campaigns);
+  } catch (error) {
+    console.error("Error fetching campaigns:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.getManagers = async (req, res) => {
+  try {
+    const managers = await Employee.findAll({
+      where: {
+        EmployeeRoleID: 1,
+        // is_active: true
+      },
+      attributes: ['EmployeeId', 'EmployeeName'],
+      order: [['EmployeeName', 'ASC']]
+    });
+    
+    if (managers.length === 0) {
+      return res.status(404).json({ 
+        message: "No cse found"
+      });
+    }
+    
+    res.json(managers);
+  } catch (error) {
+    console.error("Error fetching managers:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };

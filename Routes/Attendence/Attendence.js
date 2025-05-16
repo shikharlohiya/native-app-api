@@ -5,6 +5,7 @@ const { executeCronJob } = require('../../Controller/Attendence/AttendenceContro
  const verifySession = require("../../middleware/sessionVerify");
 
 
+
 const bdmActionController = require('../../Controller/Attendence/AttendenceController');
 
 router.post('/v3/batch-lead-actions', verifySession , bdmActionController.handleBatchLeadActions);
@@ -61,6 +62,14 @@ router.post('/send-attendance',   bdmActionController.sendAttendanceRecords);
 
 
 router.post('/sync-daily',  bdmActionController.syncDailyAttendance);
+
+
+
+
+//v3
+router.get('/v3/bdm/travel-detail',verifySession, bdmActionController.getBdmTravelDetailsWithDateRange);
+
+
 
 
 module.exports = router;

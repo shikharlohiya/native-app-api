@@ -34,5 +34,32 @@ router.get('/employee-branches/:employeeId', MasterController.getEmployeeBranche
 //v3
 router.get('/v3/employee-branches/:employeeId',verifySession, MasterController.getEmployeeBranchesByIdV3);
 
+// Category routes
+router.get('/v3/categories',verifySession, MasterController.getCategories);
+router.get('/v3/categories/:id',verifySession, MasterController.getCategoryById);
+router.post('/v3/categories',verifySession, MasterController.createCategory);
+router.delete('/v3/categories/:id',verifySession, MasterController.deleteCategory);
+
+// Subcategory routes
+router.get('/v3/subcategories',verifySession, MasterController.getSubCategories);
+router.get('/v3/subcategories/priority/:priority',verifySession, MasterController.getSubCategoriesByPriority);
+router.post('/v3/subcategories',verifySession, MasterController.createSubCategory);
+router.delete('/v3/subcategories/:id',verifySession, MasterController.deleteSubCategory);
+
+
+//task list
+router.get('/v3/tasklist',verifySession, MasterController.getTaskTypes);
+router.get('/v3/enquirytype',verifySession, MasterController.getEnquiryTypes);
+
+
+
+router.get('/v3/getProjectTypes',verifySession, MasterController.getProjectTypes);
+router.get('/v3/leadSource',verifySession, MasterController.getCampaigns);
+router.get('/v3/getCse',verifySession, MasterController.getManagers);
+
+
+
+
+
  
 module.exports = router;

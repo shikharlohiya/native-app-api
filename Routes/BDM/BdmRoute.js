@@ -6,6 +6,9 @@ const BDMController = require("../../Controller/BDM/BdmController");
 const BdmStatisticsController = require("../../Controller/BDM/BdmStatisticsController");
 const BdmMeetingReportController = require("../../Controller/BDM/BdmMeetingReportController");
 const auth = require("../../middleware/check-auth");
+const verifySession = require("../../middleware/sessionVerify");
+
+
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -42,5 +45,10 @@ router.get('/statistics', BdmStatisticsController.getBdmStatistics);
 router.get('/statistics/all', BdmStatisticsController.getAllBdmStatistics);
 router.get('/activities/detailed', BdmStatisticsController.getBdmDetailedActivities);
 router.get('/meeting-report', BdmMeetingReportController.getBdmMeetingReport);
+
+
+//v3
+
+router.get('/v3/activities/detailed',verifySession, BdmStatisticsController.getBdmDetailedActivities);
 
 module.exports = router;
