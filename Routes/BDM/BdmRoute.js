@@ -50,5 +50,8 @@ router.get('/meeting-report', BdmMeetingReportController.getBdmMeetingReport);
 //v3
 
 router.get('/v3/activities/detailed',verifySession, BdmStatisticsController.getBdmDetailedActivities);
+router.get('/v3/getLeadDetailsForBDM',verifySession, BDMController.getLeadDetailsForBDM);
+
+
 
 module.exports = router;

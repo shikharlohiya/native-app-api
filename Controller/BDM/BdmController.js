@@ -1292,6 +1292,10 @@ exports.getEmployeeLeads = async (req, res) => {
 
 
 
+
+
+
+
 // exports.getEmployeeLeads = async (req, res) => {
 //   try {
 //     const {
@@ -4879,4 +4883,154 @@ exports.getEmployeeRegionsWithLeads = async (req, res) => {
     }
   };
 
+
+
+  //getleadbybdm
+  //v3
+  exports.getLeadDetailsForBDM = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const {
+      bdmId,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      project,
+      inquiryType,
+      customerName,
+      mobileNo,
+      state,
+      region,
+      callStatus,
+      callType,
+      category,
+      followUpDateFrom,
+      subcategory,
+      RegionId,
+      categoryId,
+      subcategoryId,
+      sourceofleadGenerated,
+      lastAction,
+      AgentId,
+      branchId,
+      followUpDateTo,
+      createdDateFrom,
+      createdDateTo
+    } = req.query;
+
+    // Find BDM info to get region ID
+    const bdmInfo = await Parivartan_BDM.findOne({
+      where: {
+        EmployeeId: bdmId,
+        is_active: 'Active',
+        is_bdm: 'Yes',
+        Deleted: 'N'
+      },
+      transaction
+    });
+
+    if (!bdmInfo) {
+      await transaction.commit();
+      return res.status(404).json({
+        success: false,
+        message: "BDM not found or is not active"
+      });
+    }
+
+    // Build filter conditions
+    const filterConditions = {
+      RegionId: bdmInfo.RegionId
+    };
+
+    // Add optional filters if provided
+    if (project) filterConditions.Project = project;
+    if (inquiryType) filterConditions.InquiryType = inquiryType;
+    if (customerName) filterConditions.CustomerName = { [Op.like]: `%${customerName}%` };
+    if (mobileNo) filterConditions.MobileNo = { [Op.like]: `%${mobileNo}%` };
+    if (state) filterConditions.state_name = { [Op.like]: `%${state}%` };
+    if (region) filterConditions.region_name = { [Op.like]: `%${region}%` };
+    if (callStatus) filterConditions.call_status = callStatus;
+    if (callType) filterConditions.call_type = callType;
+    if (category) filterConditions.category = category;
+    if (subcategory) filterConditions.subcategory = subcategory;
+    if (RegionId) filterConditions.RegionId = RegionId;
+    if (categoryId) filterConditions.categoryId = categoryId;
+    if(AgentId) filterConditions.AgentId = AgentId;
+    if(lastAction) filterConditions.lastAction = lastAction;
+    if (branchId) filterConditions.branchId = branchId;
+     if (subcategoryId) filterConditions.subcategoryId = subcategoryId;
+     if (subcategoryId) filterConditions.subcategoryId = subcategoryId;
+      if (sourceofleadGenerated) filterConditions.source_of_lead_generated = sourceofleadGenerated;
+
+
+    
+    // Date range filters
+    if (followUpDateFrom && followUpDateTo) {
+      filterConditions.follow_up_date = {
+        [Op.between]: [new Date(followUpDateFrom), new Date(followUpDateTo)]
+      };
+    } else if (followUpDateFrom) {
+      filterConditions.follow_up_date = { [Op.gte]: new Date(followUpDateFrom) };
+    } else if (followUpDateTo) {
+      filterConditions.follow_up_date = { [Op.lte]: new Date(followUpDateTo) };
+    }
+    
+    if (createdDateFrom && createdDateTo) {
+      filterConditions.createdAt = {
+        [Op.between]: [new Date(createdDateFrom), new Date(createdDateTo)]
+      };
+    } else if (createdDateFrom) {
+      filterConditions.createdAt = { [Op.gte]: new Date(createdDateFrom) };
+    } else if (createdDateTo) {
+      filterConditions.createdAt = { [Op.lte]: new Date(createdDateTo) };
+    }
+
+    // Calculate pagination
+    const offset = (page - 1) * limit;
+    
+    // Query with pagination, filtering, and includes
+    const { count, rows } = await Lead_Detail.findAndCountAll({
+      where: filterConditions,
+     
+      order: [[sortBy, sortOrder]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      distinct: true,
+      transaction
+    });
+
+    await transaction.commit();
+
+    // Prepare pagination metadata
+    const totalItems = count;
+    const totalPages = Math.ceil(totalItems / limit);
+    const currentPage = parseInt(page);
+    const hasNext = currentPage < totalPages;
+    const hasPrevious = currentPage > 1;
+
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      pagination: {
+        totalItems,
+        totalPages,
+        currentPage,
+        itemsPerPage: parseInt(limit),
+        hasNext,
+        hasPrevious
+      }
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error fetching lead details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
 
