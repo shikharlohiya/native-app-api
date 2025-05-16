@@ -178,14 +178,14 @@ exports.updateEstimationDownloadStatus = async (req, res) => {
       });
     }
 
-    if (estimation.status !== "Generated") {
-      await t.rollback();
-      return res.status(400).json({
-        success: false,
-        message:
-          'Estimation status must be "Generated" to update to "Estimation Shared"',
-      });
-    }
+    // if (estimation.status !== "Generated") {
+    //   await t.rollback();
+    //   return res.status(400).json({
+    //     success: false,
+    //     message:
+    //       'Estimation status must be "Generated" to update to "Estimation Shared"',
+    //   });
+    // }
 
     // Update the estimation
     await estimation.update(
