@@ -68,6 +68,12 @@ router.post('/sync-daily',  bdmActionController.syncDailyAttendance);
 
 //v3
 router.get('/v3/bdm/travel-detail',verifySession, bdmActionController.getBdmTravelDetailsWithDateRange);
+router.post('/v3/bdm/create-leave', verifySession, bdmActionController.createLeave);
+router.get('/v3/bdm/get-leave',verifySession, bdmActionController.getEmployeeLeaves);
+router.get('/v3/bdm/delete-leave/:leaveId',verifySession, bdmActionController.deleteLeave);
+router.get('/bdm/get-all-employee-leave',verifySession, bdmActionController.getEmployeesOnLeave);
+
+
 
 
 

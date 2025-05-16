@@ -57,6 +57,10 @@ router.get('/v3/getProjectTypes',verifySession, MasterController.getProjectTypes
 router.get('/v3/leadSource',verifySession, MasterController.getCampaigns);
 router.get('/v3/getCse',verifySession, MasterController.getManagers);
 
+//leave
+router.get('/v3/typeOfLeave',verifySession, MasterController.getLeaveTypes);
+
+
 
 
 

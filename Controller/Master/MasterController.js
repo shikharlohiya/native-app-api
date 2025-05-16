@@ -1726,3 +1726,55 @@ exports.getManagers = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
+
+
+
+
+const leaveTypes = [
+  { id: 1, name: "Sick Leave" },
+  { id: 2, name: "Paid Leave" },
+  { id: 3, name: "Regional Holiday" },
+  { id: 4, name: "Unpaid Leave" }
+];
+
+/**
+ * @route GET /api/leave-types
+ * @desc Get leave types with optional filtering
+ * @access Public
+ */
+exports.getLeaveTypes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredLeaves = [...leaveTypes];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredLeaves = filteredLeaves.filter(leave => 
+        leave.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredLeaves = filteredLeaves.filter(leave => 
+        leave.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredLeaves.length === 0) {
+      return res.status(404).json({ 
+        message: "No leave types found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered leave types
+    res.json(filteredLeaves);
+  } catch (error) {
+    console.error("Error fetching leave types:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
