@@ -1,10 +1,14 @@
 const express = require('express');
 const multer = require('multer');
+
+const verifySession = require("../../middleware/sessionVerify");
 const  createLeadDocument  = require('../../Controller/Actions/lead_converted');
 const router = express.Router();
 
+
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
 
 const uploadMiddleware = upload.fields([
     { name: 'payment_slip', maxCount: 10 },
@@ -28,5 +32,10 @@ const uploadMiddleware = upload.fields([
 
 router.post('/lead-documents', uploadMiddleware, createLeadDocument.createLeadDocument);
 router.get('/lead-documents', createLeadDocument.getLeadDocumentData);
+
+
+//v3
+router.post('/v3/lead-documents',verifySession, uploadMiddleware, createLeadDocument.createLeadDocument);
+router.get('/v3/lead-documents',verifySession, createLeadDocument.getLeadDocumentData);
 
 module.exports = router;

@@ -20,6 +20,8 @@ const Lead_Update = require('../../Controller/Actions/lead_update');
 const auth = require('../../middleware/check-auth');
 const multer = require('multer');
 
+const verifySession = require("../../middleware/sessionVerify");
+
 
 // const upload = multer({ dest: 'uploads/' });
 // const upload = multer({ storage: multer.memoryStorage() });
@@ -36,6 +38,12 @@ const uploadMiddleware = upload.fields([
 router.post('/create/meeting', uploadMiddleware, lead_Meeting.createMeeting);
 router.post('/update/lead',auth, Lead_Update.createLeadUpdate);
 router.get('/leads/:leadId/meetings',auth, lead_Meeting.getMeetingsByLeadId);
+
+
+//v3
+router.post('/v3/create/meeting',verifySession, uploadMiddleware, lead_Meeting.createMeeting);
+router.post('/v3/update/lead',verifySession, Lead_Update.createLeadUpdate);
+router.get('/v3/leads/:leadId/meetings',verifySession, lead_Meeting.getMeetingsByLeadId);
 
 module.exports = router;
 
