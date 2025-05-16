@@ -72,6 +72,7 @@ router.post('/v3/bdm/create-leave', verifySession, bdmActionController.createLea
 router.get('/v3/bdm/get-leave',verifySession, bdmActionController.getEmployeeLeaves);
 router.get('/v3/bdm/delete-leave/:leaveId',verifySession, bdmActionController.deleteLeave);
 router.get('/bdm/get-all-employee-leave',verifySession, bdmActionController.getEmployeesOnLeave);
+router.get('/v3/bdm/view',verifySession, bdmActionController.getSimpleTravelReport);
 
 
 
