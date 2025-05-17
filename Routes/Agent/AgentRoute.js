@@ -82,11 +82,11 @@ router.get('/outbound-call-analytics',AgentController.getOutboundCallAnalytics )
 
 
 
-//v3
 router.get('/v3/lead/:mobileNo',verifySession, AgentController.getLeadByMobileNo);
 router.post('/v3/group-meeting/create',verifySession,  AgentController.createGroupMeeting);
-// Get group meetings by BDM ID
 router.get('/v3/bdm/group-meeting/:bdm_id', AgentController.getGroupMeetingsByBdmId);
+
+router.post('/v3/create/leads',verifySession, AgentController.createLead);
 
 
 

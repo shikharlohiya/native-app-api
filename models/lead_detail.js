@@ -134,7 +134,33 @@ Lead_Detail.init(
     RegionId:{
       type: DataTypes.STRING(50),
       allowNull: true,
+    },
+    categoryId:{
+            type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+        subCategoryId:{
+            type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+     branchName:{
+            type: DataTypes.STRING,
+      allowNull: true,
+    },
+         branchId:{
+            type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+        districtName:{
+        type: DataTypes.STRING,
+      allowNull: true,
+            
+
     }
+
+
+
+
   },
 
   {

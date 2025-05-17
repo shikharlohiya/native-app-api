@@ -20,8 +20,18 @@ router.post('/upload-leads', upload.single('file'), SupervisorController.uploadL
 router.get('/get/leads',  SupervisorController.getLeads);
 router.get('/superviser/export',  SupervisorController.exportLeadsToExcel);
 router.get('/filter/list/:field',SupervisorController.getDistinctValues);
+
+
+router.get('/bdm-followup-tasks', SupervisorController.getBDMFollowUpTasks);
+
 router.get('/v3/bdm-followup-tasks',verifySession, SupervisorController.getBDMFollowUpTasks);
+router.get('/bdm-self-tasks', SupervisorController.getBDMSelfTasks);
+
+router.get('/bdm-daily-tasks/:bdmId',  SupervisorController.getBdmDailyTasks);
+
+
 router.get('/v3/bdm-self-tasks',verifySession, SupervisorController.getBDMSelfTasks);
+
 router.get('/v3/bdm-daily-tasks/:bdmId', verifySession, SupervisorController.getBdmDailyTasks);
 router.get('/leads/export', SupervisorController.exportLeads);
 

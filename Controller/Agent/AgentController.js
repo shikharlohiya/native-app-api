@@ -135,7 +135,12 @@ exports.createLead = async (req, res) => {
           pincode,
           lead_created_by,
           RegionId,
-          created_by
+          created_by,
+          branchName,
+          branchId,
+          districtName,
+          categoryId,
+          subCategoryId
       } = req.body;
 
     
@@ -264,7 +269,13 @@ if (existingLead) {
           last_action: lead_created_by === 1 ? "Lead Created by Agent" : 
                       lead_created_by === 2 ? "Lead Created by BDM" : "Lead Created by Zonal Manager",
           RegionId,
-          created_by
+          created_by,
+            branchName,
+          branchId,
+          districtName,
+          categoryId,
+          subCategoryId
+
       };
 
       const lead = await Lead_Detail.create(leadData, { transaction: t });
@@ -328,9 +339,7 @@ if (existingLead) {
         }
           
           
-          
-          
-          
+        
           
           else {
             console.log('BDM has no FCM token registered:', BDMId);
@@ -380,6 +389,8 @@ if (existingLead) {
       });
   }
 };
+
+
 
 const isEmpty = (value) => {
     return value === null || value === undefined || value === '' || value === 'null';

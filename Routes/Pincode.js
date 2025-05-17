@@ -10,7 +10,7 @@ const Parivartan_State = require('../models/Parivartan_State.js');
 const { Op } = require('sequelize');
 const State = require('../models/state.js');
 const City = require('../models/city.js');
-
+const verifySession = require(".././middleware/sessionVerify.js");
 
 
 router.get('/places/:pincode',auth, async (req, res) => {
@@ -119,6 +119,71 @@ router.get('/regions/:stateName', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+
+
+router.get('/v3/regions',verifySession, async (req, res) => {
+  try {
+    const { stateName } = req.query;
+    
+    if (!stateName) {
+      return res.status(400).json({ error: 'State name is required' });
+    }
+
+    const regions = await Region.findAll({
+      where: {
+        stateName: {
+          [Op.like]: `%${stateName}%`
+        }
+      }
+    });
+
+    if (regions.length === 0) {
+      return res.status(404).json({ message: 'No regions found for the given state name' });
+    }
+
+    res.json(regions);
+  } catch (error) {
+    console.error('Error fetching regions:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+ 
+// API to get regions by state
+router.get('/v3/regions/:stateName',verifySession, async (req, res) => {
+  try {
+    const { stateName } = req.params;
+    const state = await Parivartan_State.findOne({
+      where: {
+        StateName: stateName,
+        Deleted: 'N'
+      },
+      include: [{
+        model: Parivartan_Region,
+        where: { Deleted: 'N' },
+        attributes: ['RegionId', 'RegionName']
+      }]
+    });
+
+    if (!state) {
+      return res.status(404).json({ message: 'State not found' });
+    }
+
+    if (state.parivartan_regions.length === 0) {
+      return res.status(404).json({ message: 'No regions found for this state' });
+    }
+
+    res.json(state.parivartan_regions);
+  } catch (error) {
+    console.error('Error in /regions/:stateName:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
 
 // API to get employee by region
  
