@@ -4,6 +4,12 @@ const { validationResult } = require('express-validator');
 const { uploadFile } = require('../../Library/awsS3');
 const sequelize = require("../../models/index");
 const BdmLeadAction = require("../../models/BdmLeadAction")
+const {  Employee } = require('../../models/models');
+const EmployeeLocation = require('../../models/EmployeeLocation')
+const { Op ,QueryTypes,Sequelize } = require('sequelize');
+
+
+ 
 
 /**
  * Create a new BDM travel detail entry with conditional validation
@@ -207,3 +213,179 @@ exports.createBdmTravel = async (req, res) => {
     });
   }
 };
+
+
+exports.saveEmployeeLocation = async (req, res) => {
+  try {
+    const {
+      EmployeeId,
+      latitude,
+      longitude,
+      isCheckIn,
+      checkInType,
+      checkInDetails,
+      address,
+      deviceInfo,
+      batteryLevel
+    } = req.body;
+
+    // Validate required fields
+    if (!EmployeeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee ID is required'
+      });
+    }
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required'
+      });
+    }
+
+    // Check if employee exists
+    const employee = await Employee.findOne({
+      where: { EmployeeId }
+    });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    // Create location record
+    const locationData = await EmployeeLocation.create({
+      EmployeeId,
+      latitude,
+      longitude,
+      timestamp: new Date(),
+      isCheckIn: isCheckIn || false,
+      checkInType: isCheckIn ? checkInType : null,
+      checkInDetails: isCheckIn ? checkInDetails : null,
+      address,
+      deviceInfo,
+      batteryLevel
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: isCheckIn ? 'Check-in recorded successfully' : 'Location recorded successfully',
+      data: locationData
+    });
+
+  } catch (error) {
+    console.error('Error saving employee location:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save employee location',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+/**
+ * Get employee location data with date filtering
+ * @route GET /api/employee/location
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ */
+exports.getEmployeeLocations = async (req, res) => {
+  try {
+    const { 
+      EmployeeId, 
+      startDate, 
+      endDate, 
+      isCheckIn, 
+      checkInType 
+    } = req.query;
+
+    // Build filter conditions
+    const whereConditions = {};
+    
+    // Employee filter
+    if (EmployeeId) {
+      whereConditions.EmployeeId = EmployeeId;
+    }
+    
+    // Date range filter
+    if (startDate && endDate) {
+      whereConditions.timestamp = {
+        [Op.between]: [
+          new Date(startDate + 'T00:00:00'), 
+          new Date(endDate + 'T23:59:59')
+        ]
+      };
+    } else if (startDate) {
+      whereConditions.timestamp = {
+        [Op.gte]: new Date(startDate + 'T00:00:00')
+      };
+    } else if (endDate) {
+      whereConditions.timestamp = {
+        [Op.lte]: new Date(endDate + 'T23:59:59')
+      };
+    } else {
+      // Default to current day if no dates provided
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+      
+      whereConditions.timestamp = {
+        [Op.between]: [startOfDay, endOfDay]
+      };
+    }
+    
+    // Check-in filter
+    if (isCheckIn !== undefined) {
+      whereConditions.isCheckIn = isCheckIn === 'true';
+    }
+    
+    // Check-in type filter
+    if (checkInType) {
+      whereConditions.checkInType = checkInType;
+    }
+
+    // Query the database
+    const locations = await EmployeeLocation.findAll({
+      where: whereConditions,
+      // include: [
+      //   {
+      //     model: Employee,
+      //     as: 'employee',
+      //     attributes: ['EmployeeName', 'EmployeePhone', 'EmployeeRegion']
+      //   }
+      // ],
+      order: [['timestamp', 'ASC']]
+    });
+
+    // Process the data to group by date if needed
+    const formattedLocations = locations.map(location => {
+      const locationData = location.toJSON();
+      return {
+        ...locationData,
+        formattedDate: new Date(locationData.timestamp).toLocaleDateString(),
+        formattedTime: new Date(locationData.timestamp).toLocaleTimeString()
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Employee locations retrieved successfully',
+      count: locations.length,
+      data: formattedLocations
+    });
+
+  } catch (error) {
+    console.error('Error retrieving employee locations:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve employee locations',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+
+

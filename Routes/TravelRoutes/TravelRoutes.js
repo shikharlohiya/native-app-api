@@ -46,6 +46,23 @@ router.post('/v3/create/travel',verifySession, (req, res, next) => {
   });
 });
 
+router.post(
+  '/v3/location',verifySession,
+  
+  bdmTravelController.saveEmployeeLocation
+);
+
+/**
+ * @route GET /api/employee/location
+ * @desc Get employee location data with date filtering
+ * @access Private
+ */
+router.get(
+  '/v3/location',verifySession,
+  
+  bdmTravelController.getEmployeeLocations
+);
+
 
 
 module.exports = router;

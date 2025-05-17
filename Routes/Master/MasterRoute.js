@@ -61,6 +61,10 @@ router.get('/v3/getCse',verifySession, MasterController.getManagers);
 router.get('/v3/typeOfLeave',verifySession, MasterController.getLeaveTypes);
 
 
+//actions list
+
+
+
 
 
 

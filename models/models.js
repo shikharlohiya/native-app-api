@@ -51,7 +51,7 @@ const Parivartan_Branch = require('./Parivartan_Branch.js');
 const BdmTravelDetailForm = require('./BdmTravelDetailForm.js');
 const Category = require('./Category.js');
 const SubCategory = require('./SubCategory.js');
-
+const EmployeeLocation = require('./EmployeeLocation.js')
 const { ShrimpFeedMaster, ShrimpFeedRemark } = require('./associations');
 
   
@@ -516,7 +516,7 @@ if (require.main === module) {
 
 
 
-// SubCategory.sync({force: true});
+// EmployeeLocation.sync({force: true});
 
   
 
