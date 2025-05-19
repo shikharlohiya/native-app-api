@@ -59,6 +59,7 @@ router.get('/v3/getCse',verifySession, MasterController.getManagers);
 
 //leave
 router.get('/v3/typeOfLeave',verifySession, MasterController.getLeaveTypes);
+router.get('/v3/modeoftravel',verifySession, MasterController.getTransportationModes);
 
 
 //actions list

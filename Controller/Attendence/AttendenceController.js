@@ -9388,3 +9388,83 @@ exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
 
 
 /* bdm travel detail form Api for ho/ro/bo/travel */
+
+
+
+
+//leave stutus check
+
+
+/**
+ * @route GET /api/employee-leave-status
+ * @desc Check if an employee is currently on leave
+ * @access Private
+ * 
+ * 
+ */
+ exports.checkEmployeeLeaveStatus = async (req, res) => {
+  try {
+    const { employeeId, date } = req.query;
+    
+    // Validate input
+    if (!employeeId) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Employee ID is required" 
+      });
+    }
+    
+    // If no date provided, use current date
+    const checkDate = date ? new Date(date) : new Date();
+    
+    // Check for invalid date
+    if (isNaN(checkDate.getTime())) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid date format" 
+      });
+    }
+    
+    // Format date to remove time part for comparison
+    const formattedDate = checkDate.toISOString().split('T')[0];
+    
+    // Query to check if employee is on leave for the specified date
+    const activeLeave = await Leave.findOne({
+      where: {
+        EmployeeId: employeeId,
+        StartDate: { [Op.lte]: formattedDate },
+        EndDate: { [Op.gte]: formattedDate }
+      }
+    });
+    
+    if (activeLeave) {
+      // Employee is on leave
+      return res.status(200).json({
+        success: true,
+        isOnLeave: true,
+        leaveDetails: {
+          leaveId: activeLeave.id,
+          leaveType: activeLeave.LeaveType,
+          startDate: activeLeave.StartDate,
+          endDate: activeLeave.EndDate,
+          remarks: activeLeave.Remarks
+        }
+      });
+    } else {
+      // Employee is not on leave
+      return res.status(200).json({
+        success: true,
+        isOnLeave: false,
+        message: "Employee is not on leave for the specified date"
+      });
+    }
+    
+  } catch (error) {
+    console.error("Error checking employee leave status:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error", 
+      error: error.message 
+    });
+  }
+};

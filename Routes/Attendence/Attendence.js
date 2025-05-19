@@ -79,6 +79,12 @@ router.post('/v3/bdm/checkin', verifySession, bdmActionController.handleBdmCheck
 router.post('/v3/bdm/checkout',verifySession, bdmActionController.handleBdmCheckOut);
 router.post('/v3/bdm/attendence/out',verifySession,bdmActionController.handleAttendanceOut);
 
+router.get('/v3/leave/status',verifySession,bdmActionController.checkEmployeeLeaveStatus);
+
+
+
+
+
 
 
 

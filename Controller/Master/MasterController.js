@@ -1779,3 +1779,54 @@ exports.getLeaveTypes = async (req, res) => {
 };
 
 
+//
+// Array of transportation modes
+const transportationModes = [
+  { id: 1, name: "Air" },
+  { id: 2, name: "Bus" },
+  { id: 3, name: "Train" },
+  { id: 4, name: "Car" },
+  { id: 5, name: "Scooter" },
+  { id: 6, name: "Bike" },
+  { id: 7, name: "Auto" },
+  { id: 8, name: "Other" }
+];
+
+/**
+ * @route GET /api/transportation-modes
+ * @desc Get transportation modes with optional filtering
+ * @access Public
+ */
+exports.getTransportationModes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredModes = [...transportationModes];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredModes = filteredModes.filter(mode => 
+        mode.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredModes = filteredModes.filter(mode => 
+        mode.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredModes.length === 0) {
+      return res.status(404).json({
+        message: "No transportation modes found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered transportation modes
+    res.json(filteredModes);
+  } catch (error) {
+    console.error("Error fetching transportation modes:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
