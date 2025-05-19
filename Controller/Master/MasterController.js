@@ -1963,3 +1963,150 @@ exports.getTransportationModes = async (req, res) => {
   }
 };
 
+
+
+
+//
+// Data arrays for travel reasons and purpose for visit
+const travelReasons = [
+  { id: 1, name: "New Area Development" },
+  { id: 2, name: "Customer Meeting" },
+  { id: 3, name: "RO Meeting" },
+  { id: 4, name: "HO Meeting" },
+  { id: 5, name: "BO Meeting" }
+];
+
+const visitPurposes = [
+  { id: 1, name: "Meeting_with_RH_BM_ZH" },
+  { id: 2, name: "admin_work" },
+  { id: 3, name: "customer_meeting" },
+  { id: 4, name: "other" }
+];
+
+/**
+ * @route GET /api/travel-reasons
+ * @desc Get travel reasons with optional filtering
+ * @access Public
+ */
+exports.getTravelReasons = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredReasons = [...travelReasons];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredReasons = filteredReasons.filter(reason => 
+        reason.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredReasons = filteredReasons.filter(reason => 
+        reason.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredReasons.length === 0) {
+      return res.status(404).json({
+        message: "No travel reasons found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered travel reasons
+    res.json(filteredReasons);
+  } catch (error) {
+    console.error("Error fetching travel reasons:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * @route GET /api/visit-purposes
+ * @desc Get visit purposes with optional filtering
+ * @access Public
+ */
+exports.getVisitPurposes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredPurposes = [...visitPurposes];
+    
+    // Apply filters if provided
+    if (name) {
+      filteredPurposes = filteredPurposes.filter(purpose => 
+        purpose.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    if (id) {
+      filteredPurposes = filteredPurposes.filter(purpose => 
+        purpose.id === parseInt(id)
+      );
+    }
+    
+    // Check if any results were found
+    if (filteredPurposes.length === 0) {
+      return res.status(404).json({
+        message: "No visit purposes found matching the given criteria"
+      });
+    }
+    
+    // Return the filtered visit purposes
+    res.json(filteredPurposes);
+  } catch (error) {
+    console.error("Error fetching visit purposes:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * @route GET /api/visit-purposes/:name/additional-info
+ * @desc Get additional info requirements for specific visit purpose
+ * @access Public
+ */
+exports.getVisitPurposeAdditionalInfo = async (req, res) => {
+  try {
+    const { name } = req.params;
+    
+    // Find the specified visit purpose
+    const purpose = visitPurposes.find(p => p.name === name);
+    
+    if (!purpose) {
+      return res.status(404).json({
+        message: "Visit purpose not found"
+      });
+    }
+    
+    // Determine additional info needed based on purpose
+    let additionalInfo = {
+      requiresAdditionalInfo: false,
+      fieldType: null
+    };
+    
+    if (name === "Meeting_with_RH_BM_ZH") {
+      additionalInfo = {
+        requiresAdditionalInfo: true,
+        fieldType: "concernPersonName",
+        description: "Name of the person concerned for the meeting"
+      };
+    } else if (name === "admin_work") {
+      additionalInfo = {
+        requiresAdditionalInfo: true,
+        fieldType: "adminTaskSelect",
+        description: "Type of administrative task to be performed"
+      };
+    }
+    
+    // Return the additional info requirements
+    res.json({
+      purpose,
+      additionalInfo
+    });
+  } catch (error) {
+    console.error("Error fetching visit purpose additional info:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
