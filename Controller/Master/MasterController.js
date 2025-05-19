@@ -1109,17 +1109,147 @@ exports.getEmployeeBranchesById = async (req, res) => {
 
 
 //v3
+//changes on 19 may
+
+// exports.getEmployeeBranchesByIdV3 = async (req, res) => {
+//   try {
+//     const { employeeId } = req.params;
+
+//     if (!employeeId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Employee ID is required'
+//       });
+//     }
+
+//     // Find all employee records with the given ID (might have multiple regions)
+//     const employeeRecords = await Parivartan_BDM.findAll({
+//       where: {
+//         EmployeeId: employeeId,
+//         Deleted: 'N'
+//       },
+//       include: [
+//         {
+//           model: Parivartan_Region,
+//           attributes: ['RegionId', 'RegionName']
+//         }
+//       ]
+//     });
+
+//     if (!employeeRecords || employeeRecords.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Employee not found or inactive'
+//       });
+//     }
+
+//     // Extract all UNIQUE RegionIds assigned to this employee
+//     const regionIds = [...new Set(employeeRecords.map(emp => emp.RegionId))].filter(Boolean);
+    
+//     // Get a map of unique regions with their names
+//     const uniqueRegionsMap = {};
+//     employeeRecords.forEach(record => {
+//       if (record.RegionId && !uniqueRegionsMap[record.RegionId]) {
+//         uniqueRegionsMap[record.RegionId] = {
+//           RegionId: record.RegionId,
+//           RegionName: record.parivartan_region?.RegionName
+//         };
+//       }
+//     });
+    
+//     // Convert the map to an array - this is the separate region list
+//     const regionList = Object.values(uniqueRegionsMap);
+
+//     // Find all branches for the unique regions
+//     const branches = await Parivartan_Branch.findAll({
+//       where: {
+//         RegionId: {
+//           [Op.in]: regionIds
+//         },
+//         Deleted: 'N'
+//       },
+//       include: [
+//         {
+//           model: Parivartan_Region,
+//           attributes: ['RegionName']
+//         }
+//       ]
+//     });
+
+//     // Create a separate branch list with complete details
+//     const branchList = branches.map(branch => ({
+//       BranchCode: branch.BranchCode,
+//       Branch: branch.Branch,
+//       Zone: branch.Zone,
+//       RO: branch.RO,
+//       RegionId: branch.RegionId,
+//       RegionName: branch.parivartan_region?.RegionName
+//     }));
+
+//     // Group branches by RegionId (for the region-wise breakdown)
+//     const branchesByRegion = {};
+//     branchList.forEach(branch => {
+//       if (!branchesByRegion[branch.RegionId]) {
+//         branchesByRegion[branch.RegionId] = [];
+//       }
+//       branchesByRegion[branch.RegionId].push(branch);
+//     });
+
+//     // Extract employee info, combining info from all records if needed
+//     const employeeInfo = {
+//       EmployeeId: employeeRecords[0].EmployeeId,
+//       EmployeeName: employeeRecords[0].EmployeeName,
+//       // Collect all project values the employee is assigned to
+//       Projects: [...new Set(employeeRecords.map(emp => emp.Project))].filter(Boolean),
+//       is_bdm: employeeRecords[0].is_bdm,
+//       is_zonal_manager: employeeRecords[0].is_zonal_manager,
+//       // Use the separate region list
+//       regions: regionList
+//     };
+
+//     // Prepare region-wise branch data
+//     const regionsData = regionList.map(region => {
+//       const regionId = region.RegionId;
+//       return {
+//         RegionId: regionId,
+//         RegionName: region.RegionName,
+//         branchCount: branchesByRegion[regionId]?.length || 0,
+//         branches: branchesByRegion[regionId] || []
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       employee: employeeInfo,
+//       totalRegions: regionList.length,
+//       totalBranches: branchList.length,
+//       // Include the separate region and branch lists
+//       regionList: regionList,
+//       branchList: branchList,
+//       // Keep the original structure for backward compatibility
+//       regions: regionsData
+//     });
+//   } catch (error) {
+//     console.error('Error fetching employee branches by ID:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching employee branches',
+//       error: error.message
+//     });
+//   }
+// };
+
 exports.getEmployeeBranchesByIdV3 = async (req, res) => {
   try {
     const { employeeId } = req.params;
-
+    
     if (!employeeId) {
       return res.status(400).json({
         success: false,
         message: 'Employee ID is required'
       });
     }
-
+    
     // Find all employee records with the given ID (might have multiple regions)
     const employeeRecords = await Parivartan_BDM.findAll({
       where: {
@@ -1133,17 +1263,17 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
         }
       ]
     });
-
+    
     if (!employeeRecords || employeeRecords.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Employee not found or inactive'
       });
     }
-
+    
     // Extract all UNIQUE RegionIds assigned to this employee
     const regionIds = [...new Set(employeeRecords.map(emp => emp.RegionId))].filter(Boolean);
-    
+        
     // Get a map of unique regions with their names
     const uniqueRegionsMap = {};
     employeeRecords.forEach(record => {
@@ -1154,10 +1284,10 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
         };
       }
     });
-    
+        
     // Convert the map to an array - this is the separate region list
     const regionList = Object.values(uniqueRegionsMap);
-
+    
     // Find all branches for the unique regions
     const branches = await Parivartan_Branch.findAll({
       where: {
@@ -1173,17 +1303,19 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
         }
       ]
     });
-
+    
     // Create a separate branch list with complete details
     const branchList = branches.map(branch => ({
+      id: branch.id, // Add branch ID
       BranchCode: branch.BranchCode,
       Branch: branch.Branch,
       Zone: branch.Zone,
       RO: branch.RO,
       RegionId: branch.RegionId,
-      RegionName: branch.parivartan_region?.RegionName
+      RegionName: branch.parivartan_region?.RegionName,
+      Ho_office: "Head office" // Add Ho_office field
     }));
-
+    
     // Group branches by RegionId (for the region-wise breakdown)
     const branchesByRegion = {};
     branchList.forEach(branch => {
@@ -1192,7 +1324,7 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
       }
       branchesByRegion[branch.RegionId].push(branch);
     });
-
+    
     // Extract employee info, combining info from all records if needed
     const employeeInfo = {
       EmployeeId: employeeRecords[0].EmployeeId,
@@ -1204,7 +1336,7 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
       // Use the separate region list
       regions: regionList
     };
-
+    
     // Prepare region-wise branch data
     const regionsData = regionList.map(region => {
       const regionId = region.RegionId;
@@ -1215,7 +1347,7 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
         branches: branchesByRegion[regionId] || []
       };
     });
-
+    
     res.status(200).json({
       success: true,
       employee: employeeInfo,
@@ -1236,6 +1368,7 @@ exports.getEmployeeBranchesByIdV3 = async (req, res) => {
     });
   }
 };
+
 
 
 

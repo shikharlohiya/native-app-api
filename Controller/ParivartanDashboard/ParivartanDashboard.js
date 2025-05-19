@@ -186,6 +186,226 @@ const { Op, Sequelize } = require("sequelize");
 //   }
 // };
 
+
+
+
+
+//changes on 19may
+
+// exports.getBdmPerformanceSummary = async (req, res) => {
+//  try {
+//    // Get BDM ID from both route parameters and query parameters
+//    const bdmIdFromParams = req.params.bdmId ? parseInt(req.params.bdmId) : null;
+//    const bdmIdFromQuery = req.query.bdmId ? parseInt(req.query.bdmId) : null;
+   
+//    // Use the parameter from either source
+//    const bdmId = bdmIdFromParams || bdmIdFromQuery;
+   
+//    // Get date parameters from query or use current month as default
+//    const { startDate, endDate } = req.query;
+   
+//    // Get the current date
+//    const today = new Date();
+   
+//    // // Use provided dates if available, otherwise default to current month
+//    // const parsedStartDate = startDate 
+//    //   ? new Date(startDate) 
+//    //   : new Date(today.getFullYear(), today.getMonth(), 1);
+   
+//    // const parsedEndDate = endDate 
+//    //   ? new Date(endDate) 
+//    //   : new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+
+
+
+//    // Use provided dates if available, otherwise default to current month
+// const parsedStartDate = startDate 
+// ? new Date(startDate)
+// : new Date(today.getFullYear(), today.getMonth(), 1);
+
+// // For end date, if it's the same as start date, set time to end of day
+// const parsedEndDate = endDate 
+// ? new Date(endDate)
+// : new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+
+// // If the dates are the same (comparing just the date part), set end time to 23:59:59
+// if (parsedStartDate.getFullYear() === parsedEndDate.getFullYear() &&
+//   parsedStartDate.getMonth() === parsedEndDate.getMonth() &&
+//   parsedStartDate.getDate() === parsedEndDate.getDate()) {
+// // Set to end of the day
+// parsedEndDate.setHours(23, 59, 59, 999);
+// }
+
+
+
+
+
+   
+//    // Define our query filters for actions
+//    const whereClause = {
+//      action_type: 'confirm',
+//      createdAt: {
+//        [Op.between]: [parsedStartDate, parsedEndDate]
+//      }
+//    };
+   
+//    // Initialize where clause for BDMs query
+//    let bdmsWhereClause = {
+//      EmployeeRoleID: 2  // BDM role ID
+//    };
+   
+//    // If bdmId is provided, filter by that specific BDM
+//    if (bdmId) {
+//      bdmsWhereClause.EmployeeId = bdmId;
+//    }
+   
+//    // Get BDMs with the applied filters
+//    const bdms = await Employee.findAll({
+//      where: bdmsWhereClause,
+//      attributes: ['EmployeeId', 'EmployeeName'],
+//      include: [
+//        {
+//          model: EmployeeRole,
+//          as: 'role',
+//          attributes: ['RoleName']
+//        }
+//      ]
+//    });
+   
+//    // Format the response
+//    const bdmData = [];
+   
+//    for (const bdm of bdms) {
+//      // Get action counts for this BDM
+//      const actionCounts = await BdmLeadAction.findAll({
+//        attributes: [
+//          'specific_action', 
+//          [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
+//          [
+//            sequelize.fn(
+//              'SUM', 
+//              sequelize.literal(`CASE WHEN completion_status = 'completed' THEN 1 ELSE 0 END`)
+//            ), 
+//            'completed'
+//          ]
+//        ],
+//        where: {
+//          ...whereClause,
+//          BDMId: bdm.EmployeeId // Using EmployeeId as per your model
+//        },
+//        group: ['specific_action']
+//      });
+     
+//      // Transform the counts into our desired format
+//      const actions = [];
+     
+//      // Define the standard action types we want to include
+//      const standardActions = [
+//        "Meeting", 
+//        "Site Visit", 
+//        "On Call Discussion", 
+//        "RO Visit", 
+//        "Estimation"
+//      ];
+     
+//      // Initialize with zeros
+//      standardActions.forEach(action => {
+//        actions.push({
+//          type: action,
+//          done: 0,
+//          target: 0
+//        });
+//      });
+     
+//      // Fill in actual data
+//      actionCounts.forEach(count => {
+//        const index = actions.findIndex(a => a.type === count.specific_action);
+//        if (index >= 0) {
+//          actions[index].done = parseInt(count.dataValues.completed) || 0;
+//          actions[index].target = parseInt(count.dataValues.total) || 0;
+//        } else {
+//          // Handle any action types not in our standard list
+//          actions.push({
+//            type: count.specific_action,
+//            done: parseInt(count.dataValues.completed) || 0,
+//            target: parseInt(count.dataValues.total) || 0
+//          });
+//        }
+//      });
+     
+//      // Get historical performance data for the last 4 months
+//      const performance = [];
+     
+//      for (let i = 0; i < 4; i++) {
+//        const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+//        const monthStartDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+//        const monthEndDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
+       
+//        const monthName = monthStartDate.toLocaleString('default', { month: 'short' });
+       
+//        const monthlyActions = await BdmLeadAction.findAll({
+//          attributes: [
+//            [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
+//            [
+//              sequelize.fn(
+//                'SUM', 
+//                sequelize.literal(`CASE WHEN completion_status = 'completed' THEN 1 ELSE 0 END`)
+//              ), 
+//              'completed'
+//            ]
+//          ],
+//          where: {
+//            BDMId: bdm.EmployeeId, // Using EmployeeId as per your model
+//            action_type: 'confirm',
+//            createdAt: {
+//              [Op.between]: [monthStartDate, monthEndDate]
+//            }
+//          }
+//        });
+       
+//        if (monthlyActions && monthlyActions[0]) {
+//          const total = parseInt(monthlyActions[0].dataValues.total) || 0;
+//          const completed = parseInt(monthlyActions[0].dataValues.completed) || 0;
+//          const value = total > 0 ? Math.round((completed / total) * 100) : 0;
+         
+//          performance.push({
+//            month: monthName,
+//            value
+//          });
+//        } else {
+//          performance.push({
+//            month: monthName,
+//            value: 0
+//          });
+//        }
+//      }
+     
+//      // Add to our BDM data array
+//      bdmData.push({
+//        id: bdm.EmployeeId, // Using EmployeeId as per your model
+//        name: bdm.EmployeeName, // Using EmployeeName instead of name
+//        actions,
+//        performance: performance.reverse()  // Reverse to get chronological order
+//      });
+//    }
+   
+//    // Return the formatted data
+//    res.status(200).json({
+//      success: true,
+//      data: bdmData,
+//      timestamp: new Date()
+//    });
+   
+//  } catch (error) {
+//    console.error("Error in getBdmPerformanceSummary:", error);
+//    res.status(500).json({
+//      success: false,
+//      error: "Internal server error",
+//      details: error.message
+//    });
+//  }
+// };
+
 exports.getBdmPerformanceSummary = async (req, res) => {
  try {
    // Get BDM ID from both route parameters and query parameters
@@ -201,39 +421,23 @@ exports.getBdmPerformanceSummary = async (req, res) => {
    // Get the current date
    const today = new Date();
    
-   // // Use provided dates if available, otherwise default to current month
-   // const parsedStartDate = startDate 
-   //   ? new Date(startDate) 
-   //   : new Date(today.getFullYear(), today.getMonth(), 1);
-   
-   // const parsedEndDate = endDate 
-   //   ? new Date(endDate) 
-   //   : new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
-
-
-
    // Use provided dates if available, otherwise default to current month
-const parsedStartDate = startDate 
-? new Date(startDate)
-: new Date(today.getFullYear(), today.getMonth(), 1);
+   const parsedStartDate = startDate 
+     ? new Date(startDate)
+     : new Date(today.getFullYear(), today.getMonth(), 1);
 
-// For end date, if it's the same as start date, set time to end of day
-const parsedEndDate = endDate 
-? new Date(endDate)
-: new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+   // For end date, if it's the same as start date, set time to end of day
+   const parsedEndDate = endDate 
+     ? new Date(endDate)
+     : new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
 
-// If the dates are the same (comparing just the date part), set end time to 23:59:59
-if (parsedStartDate.getFullYear() === parsedEndDate.getFullYear() &&
-  parsedStartDate.getMonth() === parsedEndDate.getMonth() &&
-  parsedStartDate.getDate() === parsedEndDate.getDate()) {
-// Set to end of the day
-parsedEndDate.setHours(23, 59, 59, 999);
-}
-
-
-
-
-
+   // If the dates are the same (comparing just the date part), set end time to 23:59:59
+   if (parsedStartDate.getFullYear() === parsedEndDate.getFullYear() &&
+     parsedStartDate.getMonth() === parsedEndDate.getMonth() &&
+     parsedStartDate.getDate() === parsedEndDate.getDate()) {
+     // Set to end of the day
+     parsedEndDate.setHours(23, 59, 59, 999);
+   }
    
    // Define our query filters for actions
    const whereClause = {
@@ -269,6 +473,40 @@ parsedEndDate.setHours(23, 59, 59, 999);
    // Format the response
    const bdmData = [];
    
+   // Define action types with their colors
+   const actionTypeColors = [
+     {
+       id: 1,
+       type: "Meeting",
+       text_color: '#4A90E2',
+       bg_color: '#3689F6'
+     },
+     {
+       id: 2,
+       type: "Site Visit",
+       text_color: '#27AE60',
+       bg_color: '#57C0A1'
+     },
+     {
+       id: 3,
+       type: "On Call Discussion",
+       text_color: '#F39C12',
+       bg_color: '#F5BC4C'
+     },
+     {
+       id: 4,
+       type: "RO Visit",
+       text_color: '#9B59B6',
+       bg_color: '#EF8651'
+     },
+     {
+       id: 5,
+       type: "Estimation",
+       text_color: '#E74C3C',
+       bg_color: '#EC5564'
+     }
+   ];
+   
    for (const bdm of bdms) {
      // Get action counts for this BDM
      const actionCounts = await BdmLeadAction.findAll({
@@ -293,25 +531,19 @@ parsedEndDate.setHours(23, 59, 59, 999);
      // Transform the counts into our desired format
      const actions = [];
      
-     // Define the standard action types we want to include
-     const standardActions = [
-       "Meeting", 
-       "Site Visit", 
-       "On Call Discussion", 
-       "RO Visit", 
-       "Estimation"
-     ];
-     
-     // Initialize with zeros
-     standardActions.forEach(action => {
+     // Initialize with zeros and add colors
+     actionTypeColors.forEach(actionConfig => {
        actions.push({
-         type: action,
+         id: actionConfig.id,
+         type: actionConfig.type,
          done: 0,
-         target: 0
+         target: 0,
+         text_color: actionConfig.text_color,
+         bg_color: actionConfig.bg_color
        });
      });
      
-     // Fill in actual data
+     // Fill in actual data while preserving colors and IDs
      actionCounts.forEach(count => {
        const index = actions.findIndex(a => a.type === count.specific_action);
        if (index >= 0) {
@@ -319,10 +551,21 @@ parsedEndDate.setHours(23, 59, 59, 999);
          actions[index].target = parseInt(count.dataValues.total) || 0;
        } else {
          // Handle any action types not in our standard list
+         // Generate a new ID that's higher than our predefined ones
+         const newId = actions.length > 0 ? Math.max(...actions.map(a => a.id)) + 1 : actionTypeColors.length + 1;
+         
+         // Generate a random color for new action types
+         const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+         // Generate a lighter version for background
+         const bgColor = randomColor + '20'; // Adding 20 for 12.5% opacity
+         
          actions.push({
+           id: newId,
            type: count.specific_action,
            done: parseInt(count.dataValues.completed) || 0,
-           target: parseInt(count.dataValues.total) || 0
+           target: parseInt(count.dataValues.total) || 0,
+           text_color: randomColor,
+           bg_color: bgColor
          });
        }
      });
@@ -399,6 +642,8 @@ parsedEndDate.setHours(23, 59, 59, 999);
    });
  }
 };
+
+
 
 
 exports.getBdmActionDetails = async (req, res) => {
@@ -605,6 +850,8 @@ exports.getTeamPerformanceSummary = async (req, res) => {
     });
   }
 };
+
+
 
 // Create a new BDM Lead Action
 exports.createBdmLeadAction = async (req, res) => {
