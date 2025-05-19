@@ -77,6 +77,7 @@ router.get('/v3/bdm/view',verifySession, bdmActionController.getSimpleTravelRepo
 router.post('/v3/bdm/checkin', verifySession, bdmActionController.handleBdmCheckIn);
 
 router.post('/v3/bdm/checkout',verifySession, bdmActionController.handleBdmCheckOut);
+router.post('/v3/bdm/attendence/out',verifySession,bdmActionController.handleAttendanceOut);
 
 
 
