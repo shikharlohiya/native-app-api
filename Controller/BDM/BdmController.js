@@ -4912,10 +4912,11 @@ exports.getEmployeeRegionsWithLeads = async (req, res) => {
       categoryId,
       subcategoryId,
       sourceofleadGenerated,
-      lastAction,
+      lastActionDate,
+      lastActionType,
       AgentId,
       branchId,
-      followUpDateTo,
+      followUpDate,
       createdDateFrom,
       createdDateTo
     } = req.query;

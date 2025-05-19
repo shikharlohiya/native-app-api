@@ -15,6 +15,8 @@ exports.createOnCallDiscussionByBdm = async (req, res) => {
       follow_up_date,
       category,
       sub_category,
+      categoryId,
+      subCategoryId,
       remark,
       closure_month,
       bdmLeadActionId,
