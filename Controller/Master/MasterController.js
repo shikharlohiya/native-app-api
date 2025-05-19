@@ -6,6 +6,7 @@ const Employee = require("../../models/employee");
  
 const Category = require("../../models/Category");
 const SubCategory = require("../../models/SubCategory");
+const verifySession = require("../../middleware/sessionVerify");
 
 const fs = require('fs');
 

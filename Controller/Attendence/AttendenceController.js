@@ -1012,6 +1012,7 @@ exports.handleBdmCheckIn = async (req, res) => {
       leadDetailId,  // Optional
       attendanceId,
       action,
+      actionId,
       latitude,
       longitude,
       bdmLeadActionId  // Add this new parameter
@@ -1116,6 +1117,7 @@ exports.handleOtherTasks = async (req, res) => {
         const {
           id,
           action_type,
+          LeadId,
           specific_action,
           new_follow_up_date,
           remarks,
@@ -1129,7 +1131,7 @@ exports.handleOtherTasks = async (req, res) => {
         // Create BDM Lead Action record
         const bdmAction = await BdmLeadAction.create(
           {
-            LeadId: id,
+            LeadId: LeadId,
             BDMId: bdmId,
             task_type: "other_task",
             action_type,

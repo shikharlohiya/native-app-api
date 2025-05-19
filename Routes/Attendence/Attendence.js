@@ -17,7 +17,7 @@ router.post('/todo-list/whole-update', bdmActionController.updateAllCompletionSt
 
 router.get('/bdm-report', bdmActionController.getAllBdmStats);
 
-router.post('/v3/bdm/checkin', verifySession, bdmActionController.handleBdmCheckIn);
+router.post('/v3/bdm/checkin', bdmActionController.handleBdmCheckIn);
 router.post('/bdm/checkout', bdmActionController.handleBdmCheckOut);
 
 router.post('/bdm/daily-distance', bdmActionController.getBdmDailyDistance);
@@ -73,6 +73,10 @@ router.get('/v3/bdm/get-leave',verifySession, bdmActionController.getEmployeeLea
 router.get('/v3/bdm/delete-leave/:leaveId',verifySession, bdmActionController.deleteLeave);
 router.get('/bdm/get-all-employee-leave',verifySession, bdmActionController.getEmployeesOnLeave);
 router.get('/v3/bdm/view',verifySession, bdmActionController.getSimpleTravelReport);
+
+router.post('/v3/bdm/checkin', verifySession, bdmActionController.handleBdmCheckIn);
+
+router.post('/v3/bdm/checkout',verifySession, bdmActionController.handleBdmCheckOut);
 
 
 
