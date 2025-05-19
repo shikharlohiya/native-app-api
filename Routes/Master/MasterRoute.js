@@ -65,6 +65,11 @@ router.get('/v3/modeoftravel',verifySession, MasterController.getTransportationM
 router.get('/v3/getTravelReasons',verifySession, MasterController.getTravelReasons);
 router.get('/v3/getVisitPurposes',verifySession, MasterController.getVisitPurposes);
 
+router.get('/v3/getModelTypes',verifySession, MasterController.getModelTypes);
+
+
+
+
 
 //actions list
 

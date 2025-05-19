@@ -2110,3 +2110,54 @@ exports.getVisitPurposeAdditionalInfo = async (req, res) => {
 
 
 
+// Model Types Data
+const modelTypes = [
+  { id: 1, name: "Full EC" },
+  { id: 2, name: "Semi EC Type 1" },
+  { id: 3, name: "Semi EC Type 2" },
+  { id: 4, name: "Basic EC" },
+  { id: 5, name: "Gen Nxt" }
+];
+
+/**
+ * @route GET /api/model-types
+ * @desc Get model types with optional filtering
+ * @access Public
+ */
+
+
+exports.getModelTypes = async (req, res) => {
+  try {
+    const { name, id } = req.query;
+    let filteredModelTypes = [...modelTypes];
+
+    // Apply filters if provided
+    if (name) {
+      filteredModelTypes = filteredModelTypes.filter(modelType => 
+        modelType.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+
+    if (id) {
+      filteredModelTypes = filteredModelTypes.filter(modelType => 
+        modelType.id === parseInt(id)
+      );
+    }
+
+    // Check if any results were found
+    if (filteredModelTypes.length === 0) {
+      return res.status(404).json({ 
+        message: "No model types found matching the given criteria" 
+      });
+    }
+
+    // Return the filtered model types
+    res.json(filteredModelTypes);
+  } catch (error) {
+    console.error("Error fetching model types:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
