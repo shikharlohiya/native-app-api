@@ -56,6 +56,11 @@ Employee.init(
       type: DataTypes.BOOLEAN,
       allowNull: true,
       comment: "Indicates if the employee account is active"
+    },
+      platform: {
+      type: DataTypes.STRING(45),
+      allowNull: true,
+     
     }
   
   },

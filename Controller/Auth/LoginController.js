@@ -747,10 +747,10 @@ const prepareEmployeeResponse = async (employee, token, isMasterAccess) => {
 
 exports.updateFcmToken = async (req, res) => {
   try {
-    const {  userId, fcmToken } = req.body;
+    const {  employeeId, fcmToken, platform } = req.body;
 
     // Validation
-    if (!userId || !fcmToken) {
+    if (!employeeId || !fcmToken) {
       return res.status(400).json({
         success: false,
         message: "Employee ID and FCM token are required"
@@ -758,7 +758,7 @@ exports.updateFcmToken = async (req, res) => {
     }
 
     // Find employee
-    const employee = await Employee.findByPk(userId);
+    const employee = await Employee.findByPk(employeeId);
     
     if (!employee) {
       return res.status(404).json({
@@ -769,8 +769,11 @@ exports.updateFcmToken = async (req, res) => {
 
     // Update FCM token
     await Employee.update(
-      { fcmToken: fcmToken },
-      { where: { EmployeeId: userId } }
+      { fcmToken: fcmToken,
+        platform:platform
+
+       },
+      { where: { EmployeeId: employeeId } }
     );
 
     return res.status(200).json({
