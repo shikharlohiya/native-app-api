@@ -4918,7 +4918,8 @@ exports.getEmployeeRegionsWithLeads = async (req, res) => {
       branchId,
       followUpDate,
       createdDateFrom,
-      createdDateTo
+      createdDateTo,
+      followUpDateTo
     } = req.query;
 
     // Find BDM info to get region ID
@@ -4955,38 +4956,58 @@ exports.getEmployeeRegionsWithLeads = async (req, res) => {
     if (callStatus) filterConditions.call_status = callStatus;
     if (callType) filterConditions.call_type = callType;
     if (category) filterConditions.category = category;
-    if (subcategory) filterConditions.subcategory = subcategory;
+    if (subcategory) filterConditions.sub_category = subcategory;
     if (RegionId) filterConditions.RegionId = RegionId;
-    if (categoryId) filterConditions.categoryId = categoryId;
+    // if (categoryId) filterConditions.categoryId = categoryId;
     if(AgentId) filterConditions.AgentId = AgentId;
-    if(lastAction) filterConditions.lastAction = lastAction;
+    
     if (branchId) filterConditions.branchId = branchId;
-     if (subcategoryId) filterConditions.subcategoryId = subcategoryId;
-     if (subcategoryId) filterConditions.subcategoryId = subcategoryId;
-      if (sourceofleadGenerated) filterConditions.source_of_lead_generated = sourceofleadGenerated;
 
+     if (sourceofleadGenerated) filterConditions.source_of_lead_generated = sourceofleadGenerated;
+     if (lastActionDate) filterConditions.updatedAt = subcategoryId;
+      // if (lastActionType) filterConditions.last_action = lastActionType;
+      // if (followUpDate) filterConditions.follow_up_date = followUpDate;
+    
+   
+      if (lastActionDate) {
+      // Assuming lastActionDate is stored in updatedAt
+      const actionDate = new Date(lastActionDate);
+      filterConditions.updatedAt = {
+        [Op.gte]: new Date(actionDate.setHours(0, 0, 0, 0)),
+        [Op.lt]: new Date(actionDate.setHours(23, 59, 59, 999))
+      };
+    }
+    
+    // Fix for followUpDate filter
+    if (followUpDate) {
+      const parsedDate = new Date(followUpDate);
+      filterConditions.follow_up_date = {
+        [Op.gte]: new Date(parsedDate.setHours(0, 0, 0, 0)),
+        [Op.lt]: new Date(parsedDate.setHours(23, 59, 59, 999))
+      };
+    }
 
     
     // Date range filters
-    if (followUpDateFrom && followUpDateTo) {
-      filterConditions.follow_up_date = {
-        [Op.between]: [new Date(followUpDateFrom), new Date(followUpDateTo)]
-      };
-    } else if (followUpDateFrom) {
-      filterConditions.follow_up_date = { [Op.gte]: new Date(followUpDateFrom) };
-    } else if (followUpDateTo) {
-      filterConditions.follow_up_date = { [Op.lte]: new Date(followUpDateTo) };
-    }
+    // if (followUpDateFrom && followUpDateTo) {
+    //   filterConditions.follow_up_date = {
+    //     [Op.between]: [new Date(followUpDateFrom), new Date(followUpDateTo)]
+    //   };
+    // } else if (followUpDateFrom) {
+    //   filterConditions.follow_up_date = { [Op.gte]: new Date(followUpDateFrom) };
+    // } else if (followUpDateTo) {
+    //   filterConditions.follow_up_date = { [Op.lte]: new Date(followUpDateTo) };
+    // }
     
-    if (createdDateFrom && createdDateTo) {
-      filterConditions.createdAt = {
-        [Op.between]: [new Date(createdDateFrom), new Date(createdDateTo)]
-      };
-    } else if (createdDateFrom) {
-      filterConditions.createdAt = { [Op.gte]: new Date(createdDateFrom) };
-    } else if (createdDateTo) {
-      filterConditions.createdAt = { [Op.lte]: new Date(createdDateTo) };
-    }
+    // if (createdDateFrom && createdDateTo) {
+    //   filterConditions.createdAt = {
+    //     [Op.between]: [new Date(createdDateFrom), new Date(createdDateTo)]
+    //   };
+    // } else if (createdDateFrom) {
+    //   filterConditions.createdAt = { [Op.gte]: new Date(createdDateFrom) };
+    // } else if (createdDateTo) {
+    //   filterConditions.createdAt = { [Op.lte]: new Date(createdDateTo) };
+    // }
 
     // Calculate pagination
     const offset = (page - 1) * limit;
