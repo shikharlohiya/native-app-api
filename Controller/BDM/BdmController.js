@@ -22,6 +22,12 @@ const Parivartan_Region = require("../../models/Parivartan_Region");
 const BdmLeadAction = require("../../models/BdmLeadAction");
 const BdmTravelDetailForm = require("../../models/BdmTravelDetailForm");
 
+ 
+ 
+ 
+ 
+
+
 exports.getLeadsByBDMId = async (req, res) => {
   try {
     const { bdmId } = req.params;
@@ -5056,3 +5062,122 @@ exports.getEmployeeRegionsWithLeads = async (req, res) => {
   }
 };
 
+
+
+//lead count
+
+ 
+const Category = require('../../models/Category');
+ 
+
+// API to get category-wise lead counts for BDM's active region
+exports.getBDMCategoryCounts = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { bdmId } = req.params;
+    
+    // Find BDM info to get region ID
+    const bdmInfo = await Parivartan_BDM.findOne({
+      where: {
+        EmployeeId: bdmId,
+        is_active: 'Active',
+        is_bdm: 'Yes',
+        Deleted: 'N'
+      },
+      transaction
+    });
+    
+    if (!bdmInfo) {
+      await transaction.commit();
+      return res.status(404).json({
+        success: false,
+        message: "BDM not found or is not active"
+      });
+    }
+    
+    // Get all categories from the category table
+    const categories = await Category.findAll({
+      where: {
+        Deleted: 'N'
+      },
+      attributes: ['CategoryId', 'CategoryName', 'Color'],
+      transaction
+    });
+    
+    // Define color mapping for specific categories
+    const colorMapping = {
+      'Total': { bg_color: '#000080', text_color: '#FFFFFF' },
+      'Hot': { bg_color: '#FF0000', text_color: '#FFFFFF' },
+      'Warm': { bg_color: '#FFA500', text_color: '#FFFFFF' },
+      'Cold': { bg_color: '#0096FF', text_color: '#FFFFFF' },
+      'Pending': { bg_color: '#DE3163', text_color: '#FFFFFF' },
+      'Closed': { bg_color: '#0BDA51', text_color: '#FFFFFF' }
+    };
+    
+    // Get lead counts for each category in the region
+    const categoryCounts = await Promise.all(
+      categories.map(async (category) => {
+        const count = await LeadDetail.count({
+          where: {
+            RegionId: bdmInfo.RegionId,
+            categoryId: category.CategoryId
+          },
+          transaction
+        });
+        
+        // Get color mapping or use the category's color from database
+        const defaultColor = { 
+          bg_color: category.Color, 
+          text_color: '#FFFFFF' 
+        };
+        const colors = colorMapping[category.CategoryName] || defaultColor;
+        
+        return {
+          category_id: category.CategoryId,
+          category_name: category.CategoryName,
+          count: count,
+          bg_color: colors.bg_color,
+          text_color: colors.text_color
+        };
+      })
+    );
+    
+    // Get total lead count for the region
+    const totalCount = await LeadDetail.count({
+      where: {
+        RegionId: bdmInfo.RegionId
+      },
+      transaction
+    });
+    
+    // Prepare result with total included
+    const result = [
+      {
+        category_id: 0,
+        category_name: 'Total',
+        count: totalCount,
+        bg_color: colorMapping.Total.bg_color,
+        text_color: colorMapping.Total.text_color
+      },
+      ...categoryCounts
+    ];
+    
+    await transaction.commit();
+    
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+    
+  } catch (error) {
+    await transaction.rollback();
+    
+    console.error('Error in getBDMCategoryCounts:', error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching category counts",
+      error: error.message
+    });
+  }
+};

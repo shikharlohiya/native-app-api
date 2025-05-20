@@ -56,6 +56,6 @@ router.get('/v3/getLeadDetailsForBDM',verifySession, BDMController.getLeadDetail
 router.get('/v3/zm/region',verifySession,BDMController.getEmployeeRegionsWithLeads );
 
 router.get('/v3/zm/regions',verifySession,BDMController.getZonalManagerRegions );
-
+router.get('/v3/bdm-category-counts/:bdmId',verifySession, BDMController.getBDMCategoryCounts);
 
 module.exports = router;
