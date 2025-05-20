@@ -458,49 +458,49 @@ exports.createMeeting = async (req, res) => {
     } = req.body;
 
     // Validate checkout fields if provided
-    if (travelDetailId) {
-      if (!latitude || !longitude) {
-        await t.rollback();
-        return res.status(400).json({
-          message: "When providing travelDetailId, latitude and longitude are required"
-        });
-      }
+    // if (travelDetailId) {
+    //   if (!latitude || !longitude) {
+    //     await t.rollback();
+    //     return res.status(400).json({
+    //       message: "When providing travelDetailId, latitude and longitude are required"
+    //     });
+    //   }
 
-      // Find and validate travel detail
-      const travelDetail = await BdmTravelDetail.findByPk(travelDetailId, {
-        transaction: t
-      });
+    //   // Find and validate travel detail
+    //   const travelDetail = await BdmTravelDetail.findByPk(travelDetailId, {
+    //     transaction: t
+    //   });
 
-      if (!travelDetail) {
-        await t.rollback();
-        return res.status(404).json({
-          message: "Travel detail record not found"
-        });
-      }
+    //   if (!travelDetail) {
+    //     await t.rollback();
+    //     return res.status(404).json({
+    //       message: "Travel detail record not found"
+    //     });
+    //   }
 
-      if (travelDetail.checkout_time) {
-        await t.rollback();
-        return res.status(400).json({
-          message: "Check-out already recorded for this travel detail"
-        });
-      }
+    //   if (travelDetail.checkout_time) {
+    //     await t.rollback();
+    //     return res.status(400).json({
+    //       message: "Check-out already recorded for this travel detail"
+    //     });
+    //   }
 
-      // Update travel detail with checkout information
-      try {
-        await travelDetail.update({
-          checkout_latitude: latitude,
-          checkout_longitude: longitude, 
-          checkout_time: new Date()
-        }, { transaction: t });
-      } catch (updateError) {
-        await t.rollback();
-        console.error("Error updating travel detail:", updateError);
-        return res.status(500).json({
-          message: "Error updating travel detail",
-          error: updateError.message
-        });
-      }
-    }
+    //   // Update travel detail with checkout information
+    //   try {
+    //     await travelDetail.update({
+    //       checkout_latitude: latitude,
+    //       checkout_longitude: longitude, 
+    //       checkout_time: new Date()
+    //     }, { transaction: t });
+    //   } catch (updateError) {
+    //     await t.rollback();
+    //     console.error("Error updating travel detail:", updateError);
+    //     return res.status(500).json({
+    //       message: "Error updating travel detail",
+    //       error: updateError.message
+    //     });
+    //   }
+    // }
 
     // Parse the IDs to integers
     const leadDetailId = parseInt(LeadDetailId, 10);
@@ -662,9 +662,9 @@ exports.createMeeting = async (req, res) => {
     res.status(201).json({
       message: "Meeting created successfully",
       meeting,
-      checkout: travelDetailId ? {
-        message: "Check-out recorded successfully"
-      } : null
+      // checkout: travelDetailId ? {
+      //   message: "Check-out recorded successfully"
+      // } : null
     });
 
   } catch (error) {
