@@ -267,7 +267,7 @@ router.get('/v3/regions/:stateName',verifySession, async (req, res) => {
 //       });
 //   }
 // });
-router.get('/v3/employee/:regionId', async (req, res) => {
+router.get('/v3/employee/:regionId',verifySession, async (req, res) => {
   try {
       const { regionId } = req.params;
 
