@@ -2635,9 +2635,115 @@ const validateMeetingData = (data) => {
   return errors;
 };
 
+// exports.createGroupMeeting = async (req, res) => {
+//   const t = await sequelize.transaction();
+
+//   try {
+//     const meetingData = req.body;
+    
+//     // Validate each entry in the array
+//     if (!Array.isArray(meetingData)) {
+//       await t.rollback();
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Input must be an array of meeting data'
+//       });
+//     }
+    
+//     const results = [];
+//     const errors = [];
+//     const group_id = `GM-${uuidv4().substring(0, 8)}`;
+    
+//     // Process each meeting entry
+//     for (const entry of meetingData) {
+//       // Validate entry data
+//       const validationErrors = validateMeetingData(entry);
+      
+//       if (Object.keys(validationErrors).length > 0) {
+//         errors.push({
+//           entry: entry,
+//           errors: validationErrors
+//         });
+//         continue;
+//       }
+      
+//       // Check if mobile number already exists for unique entries
+ 
+      
+//       // Create the meeting entry
+//       const meetingEntry = await GroupMeeting.create({
+//         group_id: group_id,
+//         meeting_location : entry.meeting_location,
+//         nearest_branch : entry.nearestBranch,
+//         customer_name: entry.customer_name || entry.name, // Support both field names
+//         mobile: entry.mobile,
+//         location: entry.location,
+//         pincode: entry.pincode,
+//         group_meeting_title: entry.group_meeting_title || "Group Meeting", // Default title if not provided
+//         is_unique: entry.is_unique === "yes" || entry.is_unique === true,
+//         action_type: "group_meeting",
+//         bdm_id: entry.bdm_id || meetingData[0].bdm_id, // Use the first entry's bdm_id as fallback
+//         created_at: new Date()
+//       }, { transaction: t });
+      
+//       results.push(meetingEntry);
+//     }
+    
+//     // Check if we have any successful entries
+//     if (results.length === 0) {
+//       await t.rollback();
+//       return res.status(400).json({
+//         success: false,
+//         message: 'No valid meeting entries were provided',
+//         errors: errors
+//       });
+//     }
+    
+
+//     await t.commit();
+    
+//     // Return the response with results and any errors
+//     return res.status(201).json({
+//       success: true,
+//       message: `Group meeting created successfully with ${results.length} participants`,
+//       group_id: group_id,
+//       results: results,
+//       errors: errors.length > 0 ? errors : undefined
+//     });
+    
+//   } catch (error) {
+//     await t.rollback();
+//     console.error("Error creating group meeting:", error);
+    
+//     // Handle specific database errors
+//     if (error.name === 'SequelizeUniqueConstraintError') {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Duplicate entry found",
+//         error: error.errors.map(e => e.message)
+//       });
+//     }
+    
+//     if (error.name === 'SequelizeValidationError') {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Validation error",
+//         error: error.errors.map(e => e.message)
+//       });
+//     }
+    
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error creating group meeting",
+//       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//     });
+//   }
+// };
+
+
 exports.createGroupMeeting = async (req, res) => {
   const t = await sequelize.transaction();
-
+  
   try {
     const meetingData = req.body;
     
@@ -2667,14 +2773,11 @@ exports.createGroupMeeting = async (req, res) => {
         continue;
       }
       
-      // Check if mobile number already exists for unique entries
- 
-      
       // Create the meeting entry
       const meetingEntry = await GroupMeeting.create({
         group_id: group_id,
-        meeting_location : entry.meeting_location,
-        nearest_branch : entry.nearestBranch,
+        meeting_location: entry.meeting_location,
+        nearest_branch: entry.nearestBranch,
         customer_name: entry.customer_name || entry.name, // Support both field names
         mobile: entry.mobile,
         location: entry.location,
@@ -2685,6 +2788,46 @@ exports.createGroupMeeting = async (req, res) => {
         bdm_id: entry.bdm_id || meetingData[0].bdm_id, // Use the first entry's bdm_id as fallback
         created_at: new Date()
       }, { transaction: t });
+      
+      // Handle bdmLeadActionId if provided in the entry
+      if (entry.bdmLeadActionId) {
+        try {
+          const bdmLeadAction = await BdmLeadAction.findByPk(entry.bdmLeadActionId, {
+            transaction: t,
+          });
+          
+          if (bdmLeadAction) {
+            await bdmLeadAction.update(
+              {
+                completion_status: "completed",
+                group_meeting_id: meetingEntry.id // Link to the group meeting
+              },
+              { transaction: t }
+            );
+            
+            // Create a log entry for BDM action completion
+            await LeadLog.create(
+              {
+                action_type: "Group Meeting Completed",
+                performed_by: entry.bdm_id || meetingData[0].bdm_id,
+                LeadDetailId: bdmLeadAction.LeadDetailId,
+                remarks: `Group Meeting at ${entry.meeting_location} completed`,
+              },
+              { transaction: t }
+            );
+          } else {
+            errors.push({
+              entry: entry,
+              errors: { bdmLeadActionId: 'BDM Lead Action not found' }
+            });
+          }
+        } catch (actionError) {
+          errors.push({
+            entry: entry,
+            errors: { bdmLeadAction: actionError.message }
+          });
+        }
+      }
       
       results.push(meetingEntry);
     }
@@ -2699,7 +2842,6 @@ exports.createGroupMeeting = async (req, res) => {
       });
     }
     
-
     await t.commit();
     
     // Return the response with results and any errors
@@ -2739,6 +2881,10 @@ exports.createGroupMeeting = async (req, res) => {
     });
   }
 };
+
+
+
+
 
 
 
