@@ -13,7 +13,7 @@ const City = require('../models/city.js');
 const verifySession = require(".././middleware/sessionVerify.js");
 
 
-router.get('/places/:pincode',auth, async (req, res) => {
+router.get('/v3/places/:pincode',verifySession, async (req, res) => {
   try {
     const pincode = req.params.pincode;
     const query = `
