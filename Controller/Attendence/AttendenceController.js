@@ -508,6 +508,7 @@ exports.handleBatchLeadActions = async (req, res) => {
       attendanceType,
       latitude,
       longitude,
+      id
     } = req.body;
 
     if (!bdmId || !attendanceType || !latitude || !longitude) {
@@ -558,6 +559,8 @@ exports.handleBatchLeadActions = async (req, res) => {
                 action_type: task.action_type || "confirm", // Save action_type with default "confirm"
                 specific_action: task.task_name, // Set specific_action to task_name
                 remarks: task.remarks,
+                LeadId:task.id
+
               },
               { transaction }
             );
