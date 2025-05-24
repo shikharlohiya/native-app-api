@@ -18,10 +18,10 @@ router.get('/download-estimation/:estimation_id', estimationController.downloadE
 
 ///estimation v3
 router.get('/v3/shared/by-lead-detail/:leadDetailId',verifySession, estimationController.getEstimationsSharedByLeadDetailId);
-router.get('/v3/by-lead-detail/:leadDetailId', estimationController.getEstimationsByLeadDetailId);
+router.get('/v3/by-lead-detail/:leadDetailId',verifySession, estimationController.getEstimationsByLeadDetailId);
 router.get('/v3/shared/by-lead-detail/:leadDetailId',verifySession, estimationController.getEstimationsSharedByLeadDetailId);
-router.get('/v3/convert/:leadDetailId', estimationController.getEstimationsConvert);
-router.post('/v3/estimation/download-complete',verifySession, estimationController.updateEstimationDownloadStatus);
+router.get('/v3/convert/:leadDetailId',verifySession, estimationController.getEstimationsConvert);
+router.post('/v3/estimation/download-complete', estimationController.updateEstimationDownloadStatus);
 router.post('/v3/create/estimations',verifySession, estimationController.createEstimation);
 router.get('/v3/leads/:leadId/estimation', verifySession,estimationController.getEstimationByLeadId);
 router.get('/v3/download-estimation/:estimation_id',verifySession, estimationController.downloadEstimationZip);

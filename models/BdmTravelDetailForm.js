@@ -107,7 +107,7 @@ BdmTravelDetailForm.init(
     
     // col12: Reason for travel
     reasonForTravel: {
-      type: DataTypes.ENUM('New Area Development', 'Customer Meeting', 'RO Meeting', 'HO Meeting', 'BO Meeting',),
+      type: DataTypes.ENUM('New Area Development', 'Customer Meeting', 'RO Meeting', 'HO Meeting','Site Visit', 'Travel Back to Base Location', 'BO Meeting',),
       allowNull: true,
       comment: 'Reason for undertaking travel'
     },

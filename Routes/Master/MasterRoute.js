@@ -67,6 +67,16 @@ router.get('/v3/getVisitPurposes',verifySession, MasterController.getVisitPurpos
 
 router.get('/v3/getModelTypes',verifySession, MasterController.getModelTypes);
 
+router.get('/v3/getHOSelection',verifySession, MasterController.getHOSelection);
+router.get('/v3/getAdminTasks',verifySession, MasterController.getAdminTasks);
+ 
+
+
+// router.get('/v3/postalpincode', MasterController.getModelTypes);
+
+
+
+
 
 
 

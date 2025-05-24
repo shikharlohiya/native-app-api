@@ -2161,3 +2161,155 @@ exports.getModelTypes = async (req, res) => {
 
 
 
+// Head Office Selection Data
+const hoSelectionTypes = [
+  { id: 1, value: "training", name: "Training" },
+  { id: 2, value: "review", name: "Review" },
+  { id: 3, value: "other", name: "Other" }
+];
+
+// Admin Task Selection Data
+const adminTaskTypes = [
+  { id: 1, value: "agreement", name: "Agreement" },
+  { id: 2, value: "customer_kyc", name: "Customer KYC" },
+  { id: 3, value: "others", name: "Others" }
+];
+
+/**
+ * @route GET /api/ho-selection
+ * @desc Get head office selection types with optional filtering
+ * @access Public
+ */
+exports.getHOSelection = async (req, res) => {
+  try {
+    const { name, value, id } = req.query;
+    let filteredHOSelection = [...hoSelectionTypes];
+
+    // Apply filters if provided
+    if (name) {
+      filteredHOSelection = filteredHOSelection.filter(hoType => 
+        hoType.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+
+    if (value) {
+      filteredHOSelection = filteredHOSelection.filter(hoType => 
+        hoType.value.toLowerCase().includes(value.toLowerCase())
+      );
+    }
+
+    if (id) {
+      filteredHOSelection = filteredHOSelection.filter(hoType => 
+        hoType.id === parseInt(id)
+      );
+    }
+
+    // Check if any results were found
+    if (filteredHOSelection.length === 0) {
+      return res.status(404).json({ 
+        message: "No head office selection types found matching the given criteria" 
+      });
+    }
+
+    // Return the filtered head office selection types
+    res.json({
+      success: true,
+      data: filteredHOSelection,
+      count: filteredHOSelection.length
+    });
+  } catch (error) {
+    console.error("Error fetching head office selection types:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error" 
+    });
+  }
+};
+
+/**
+ * @route GET /api/admin-tasks
+ * @desc Get admin task selection types with optional filtering
+ * @access Public
+ */
+exports.getAdminTasks = async (req, res) => {
+  try {
+    const { name, value, id } = req.query;
+    let filteredAdminTasks = [...adminTaskTypes];
+
+    // Apply filters if provided
+    if (name) {
+      filteredAdminTasks = filteredAdminTasks.filter(adminTask => 
+        adminTask.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+
+    if (value) {
+      filteredAdminTasks = filteredAdminTasks.filter(adminTask => 
+        adminTask.value.toLowerCase().includes(value.toLowerCase())
+      );
+    }
+
+    if (id) {
+      filteredAdminTasks = filteredAdminTasks.filter(adminTask => 
+        adminTask.id === parseInt(id)
+      );
+    }
+
+    // Check if any results were found
+    if (filteredAdminTasks.length === 0) {
+      return res.status(404).json({ 
+        message: "No admin task types found matching the given criteria" 
+      });
+    }
+
+    // Return the filtered admin task types
+    res.json({
+      success: true,
+      data: filteredAdminTasks,
+      count: filteredAdminTasks.length
+    });
+  } catch (error) {
+    console.error("Error fetching admin task types:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error" 
+    });
+  }
+};
+
+/**
+ * @route GET /api/selection-options
+ * @desc Get both HO and Admin selection options in one call
+ * @access Public
+ */
+exports.getSelectionOptions = async (req, res) => {
+  try {
+    const { type } = req.query;
+
+    let responseData = {};
+
+    if (!type || type === 'ho' || type === 'all') {
+      responseData.hoSelection = hoSelectionTypes;
+    }
+
+    if (!type || type === 'admin' || type === 'all') {
+      responseData.adminTasks = adminTaskTypes;
+    }
+
+    // Return combined selection options
+    res.json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    console.error("Error fetching selection options:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error" 
+    });
+  }
+};
+
+
+
+
