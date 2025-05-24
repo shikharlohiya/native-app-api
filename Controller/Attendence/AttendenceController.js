@@ -19,6 +19,7 @@ const fs = require('fs');
 const Leave = require("../../models/Leave");
 const { Employee_Role } = require("../../models/models");
 const BdmTravelDetailForm = require("../../models/BdmTravelDetailForm");
+const https = require('https');
 
 
 
@@ -1102,15 +1103,90 @@ exports.handleBdmCheckIn = async (req, res) => {
 };
 
 //other task add api
+//changes on 24may
+
+// exports.handleOtherTasks = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+
+//   try {
+//     const { bdmId, other_task } = req.body;
+
+//     if (!bdmId || !other_task || !Array.isArray(other_task)) {
+//       return res.status(400).json({ 
+//         message: "Invalid input data. bdmId and other_task array are required" 
+//       });
+//     }
+
+//     // Process other tasks
+//     const processedOtherTasks = await Promise.all(
+//       other_task.map(async (task) => {
+//         const {
+//           id,
+//           action_type,
+//           LeadId,
+//           specific_action,
+//           new_follow_up_date,
+//           remarks,
+//           task_name,
+//           branchOffice,
+//           regionalOffice,
+//           selectedTaskLocation,
+
+//         } = task;
+
+//         // Create BDM Lead Action record
+//         const bdmAction = await BdmLeadAction.create(
+//           {
+//             LeadId: LeadId,
+//             BDMId: bdmId,
+//             task_type: "other_task",
+//             action_type,
+//             specific_action:  task_name,
+//             new_follow_up_date:  new_follow_up_date,
+//             remarks,
+//             task_name,
+//             branchOffice,
+//             regionalOffice,
+//             selectedTaskLocation
+
+
+//           },
+//           { transaction }
+//         );
+
+//         // Optionally, you can add Lead_Detail update logic here if needed
+//         // Similar to your commented code in the original function
+
+//         return bdmAction;
+//       })
+//     );
+
+//     await transaction.commit();
+
+//     res.status(200).json({
+//       message: "Other tasks processed successfully",
+//       other_task: processedOtherTasks,
+//     });
+
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error("Error processing other tasks:", error);
+//     res.status(500).json({ 
+//       message: "Internal server error", 
+//       error: error.message 
+//     });
+//   }
+// };
+
 exports.handleOtherTasks = async (req, res) => {
   const transaction = await sequelize.transaction();
-
+  
   try {
     const { bdmId, other_task } = req.body;
 
     if (!bdmId || !other_task || !Array.isArray(other_task)) {
-      return res.status(400).json({ 
-        message: "Invalid input data. bdmId and other_task array are required" 
+      return res.status(400).json({
+        message: "Invalid input data. bdmId and other_task array are required"
       });
     }
 
@@ -1119,6 +1195,7 @@ exports.handleOtherTasks = async (req, res) => {
       other_task.map(async (task) => {
         const {
           id,
+          uuid, // Accept UUID from client
           action_type,
           LeadId,
           specific_action,
@@ -1128,31 +1205,40 @@ exports.handleOtherTasks = async (req, res) => {
           branchOffice,
           regionalOffice,
           selectedTaskLocation,
-
         } = task;
 
-        // Create BDM Lead Action record
+        // Check if record with this UUID already exists (for offline sync)
+        // Only check if UUID is provided
+        if (uuid) {
+          const existingRecord = await BdmLeadAction.findOne({
+            where: { uuid },
+            transaction
+          });
+
+          if (existingRecord) {
+            console.log(`Record with UUID ${uuid} already exists, skipping...`);
+            return existingRecord;
+          }
+        }
+
+        // Create BDM Lead Action record with UUID (can be null)
         const bdmAction = await BdmLeadAction.create(
           {
+            uuid: uuid || null, // Use provided UUID or set to null
             LeadId: LeadId,
             BDMId: bdmId,
             task_type: "other_task",
             action_type,
-            specific_action:  task_name,
-            new_follow_up_date:  new_follow_up_date,
+            specific_action: task_name,
+            new_follow_up_date: new_follow_up_date,
             remarks,
             task_name,
             branchOffice,
             regionalOffice,
             selectedTaskLocation
-
-
           },
           { transaction }
         );
-
-        // Optionally, you can add Lead_Detail update logic here if needed
-        // Similar to your commented code in the original function
 
         return bdmAction;
       })
@@ -1167,13 +1253,25 @@ exports.handleOtherTasks = async (req, res) => {
 
   } catch (error) {
     await transaction.rollback();
+    
+    // Handle unique constraint violation for UUID
+    if (error.name === 'SequelizeUniqueConstraintError' && error.fields && error.fields.includes('uuid')) {
+      console.error("UUID conflict detected:", error);
+      return res.status(409).json({
+        message: "Duplicate UUID detected. This record may have already been synced.",
+        error: "UUID_CONFLICT"
+      });
+    }
+
     console.error("Error processing other tasks:", error);
-    res.status(500).json({ 
-      message: "Internal server error", 
-      error: error.message 
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
     });
   }
 };
+
+
 
 // checkout task 
 
@@ -7545,7 +7643,11 @@ cron.schedule('55 23 * * *', exports.syncDailyAttendance, {
   timezone: "Asia/Kolkata" // Set to your timezone
 });
 
+
 console.log('Attendance sync cron job scheduled to run at 11 :50 daily');
+
+
+
 
 
 
@@ -7579,7 +7681,6 @@ exports.scheduleDailySync = () => {
 
 
  
-
 
 
 
@@ -10056,6 +10157,484 @@ exports.getBdmTravelDetailsWithDateRange = async (req, res) => {
       success: false,
       message: "Internal server error", 
       error: error.message 
+    });
+  }
+};
+
+
+
+
+ 
+exports.getCrmAttendanceReport = async (req, res) => {
+  try {
+    console.time('crmAttendanceReportGeneration');
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "Both start date and end date are required" });
+    }
+
+    // Parse date range
+    const dateStart = new Date(startDate);
+    const dateEnd = new Date(endDate);
+    
+    // Set start date to beginning of day
+    dateStart.setHours(0, 0, 0, 0);
+    
+    // Set end date to end of day
+    dateEnd.setHours(23, 59, 59, 999);
+    
+    // Check if date range is reasonable (max 31 days for performance)
+    const daysDifference = Math.ceil((dateEnd - dateStart) / (1000 * 60 * 60 * 24));
+    if (daysDifference > 31) {
+      return res.status(400).json({ 
+        message: "Date range too large. Please select a range of 31 days or less for optimal performance." 
+      });
+    }
+
+    // Format dates for API call
+    const apiStartDate = moment(dateStart).format('YYYY-MM-DD');
+    const apiEndDate = moment(dateEnd).format('YYYY-MM-DD');
+
+    // Fetch data from external API
+    const apiUrl = `https://myib.co.in:8052/v2/mobile/Attendance/CRMEmployeeDetail?startDate=${apiStartDate}&endDate=${apiEndDate}&source=CRM`;
+    
+    let attendanceData;
+    try {
+      const response = await axios.get(apiUrl, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.data || !response.data.Success) {
+        return res.status(500).json({ 
+          message: "Failed to fetch attendance data from external API",
+          error: response.data?.Message || "Unknown error"
+        });
+      }
+      
+      attendanceData = response.data.Data || [];
+    } catch (apiError) {
+      console.error("Error fetching from external API:", apiError.message);
+      return res.status(500).json({
+        message: "Failed to connect to external attendance API",
+        error: apiError.message
+      });
+    }
+
+    if (attendanceData.length === 0) {
+      return res.status(404).json({ message: "No attendance data found for the specified date range" });
+    }
+
+    // Group data by PersonNumber to get unique employees
+    const employeeMap = new Map();
+    
+    attendanceData.forEach(record => {
+      const personNumber = record.PersonNumber;
+      if (!employeeMap.has(personNumber)) {
+        employeeMap.set(personNumber, {
+          personNumber: personNumber,
+          attendanceRecords: []
+        });
+      }
+      employeeMap.get(personNumber).attendanceRecords.push(record);
+    });
+
+    const employees = Array.from(employeeMap.values());
+
+    // Create Excel workbook with proper options for cell display
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('CRM Attendance Report', {
+      properties: {
+        defaultRowHeight: 20,
+        showGridLines: true
+      }
+    });
+
+    // Generate date range array
+    const dateArray = [];
+    let currentDate = new Date(dateStart);
+    
+    while (currentDate <= dateEnd) {
+      dateArray.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Set up columns with standard widths
+    const columns = [
+      { header: 'Person Number', key: 'personNumber', width: 15 },
+      { header: 'Employee Name', key: 'employeeName', width: 25 },
+      { header: 'Role', key: 'role', width: 40 }
+    ];
+
+    // Add date columns
+    dateArray.forEach(date => {
+      const dateStr = moment(date).format('D');
+      const key = `Day${dateStr}`;
+      
+      columns.push(
+        { header: `Day${dateStr}(In)`, key: `${key}In`, width: 15 },
+        { header: `Day${dateStr}(Out)`, key: `${key}Out`, width: 15 },
+        { header: `Attendance${dateStr}`, key: `${key}Status`, width: 15 }
+      );
+    });
+
+    // Add columns to worksheet
+    worksheet.columns = columns;
+
+    // Set header row to bold
+    worksheet.getRow(1).font = { bold: true };
+    
+    // Add second row with dates
+    const dateRow = worksheet.addRow({});
+    
+    // Fill the first three cells with empty values
+    dateRow.getCell(1).value = '';
+    dateRow.getCell(2).value = '';
+    dateRow.getCell(3).value = '';
+    
+    // Add date numbers to row
+    let cellIndex = 4;
+    dateArray.forEach(date => {
+      const dateNum = moment(date).format('D');
+      
+      // Fill 3 cells (In, Out, Status) with the same date number for each date
+      dateRow.getCell(cellIndex).value = dateNum;
+      dateRow.getCell(cellIndex + 1).value = dateNum;
+      dateRow.getCell(cellIndex + 2).value = dateNum;
+      
+      cellIndex += 3;
+    });
+
+    // Add borders to all cells
+    worksheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+
+    // Process each employee
+    for (const employee of employees) {
+      const personNumber = employee.personNumber;
+      const attendanceRecords = employee.attendanceRecords;
+      
+      // Create row for this employee
+      const rowData = {
+        personNumber: personNumber,
+        employeeName: `Employee ${personNumber}`,
+        role: 'CRM Employee'
+      };
+      
+      // Group attendance records by date
+      const attendanceByDate = {};
+      
+      attendanceRecords.forEach(record => {
+        // Parse the date from the API format (DD/MM/YYYY)
+        const recordDate = moment(record.Date, 'DD/MM/YYYY').format('YYYY-MM-DD');
+        attendanceByDate[recordDate] = record;
+      });
+      
+      // Process each date in the range for this employee
+      dateArray.forEach(date => {
+        const dateStr = moment(date).format('D');
+        const formattedDate = moment(date).format('YYYY-MM-DD');
+        const key = `Day${dateStr}`;
+        
+        const dayRecord = attendanceByDate[formattedDate];
+        
+        let inTime = '';
+        let outTime = '';
+        let status = '';
+        
+        if (dayRecord) {
+          // Extract time from SignInTime - just take as is from API
+          if (dayRecord.SignInTime) {
+            const inTimePart = dayRecord.SignInTime.split(' ').slice(1).join(' ');
+            inTime = inTimePart;
+          }
+          
+          // Extract time from SignOutTime - just take as is from API
+          if (dayRecord.SignOutTime) {
+            const outTimePart = dayRecord.SignOutTime.split(' ').slice(1).join(' ');
+            outTime = outTimePart;
+          }
+          
+          // Use the status from API directly
+          status = dayRecord.Status;
+        }
+        
+        // Add data to row - only add if there's actual data
+        rowData[`${key}In`] = inTime;
+        rowData[`${key}Out`] = outTime;
+        rowData[`${key}Status`] = status;
+      });
+      
+      // Add the row to worksheet
+      worksheet.addRow(rowData);
+    }
+
+    // Auto-filter the header row
+    worksheet.autoFilter = {
+      from: {
+        row: 1,
+        column: 1
+      },
+      to: {
+        row: 1,
+        column: worksheet.columns.length
+      }
+    };
+    
+    // Freeze panes - first two rows and first three columns
+    worksheet.views = [
+      {
+        state: 'frozen',
+        xSplit: 3,
+        ySplit: 2,
+        topLeftCell: 'D3',
+        activeCell: 'A1'
+      }
+    ];
+
+    // Set response headers for file download
+    const reportDateRange = `${moment(dateStart).format('YYYY-MM-DD')}_to_${moment(dateEnd).format('YYYY-MM-DD')}`;
+      
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=crm_attendance_report_${reportDateRange}.xlsx`
+    );
+
+    // Write to response
+    await workbook.xlsx.write(res);
+    
+    console.timeEnd('crmAttendanceReportGeneration');
+
+  } catch (error) {
+    console.error("Error generating CRM attendance report:", error);
+    console.timeEnd('crmAttendanceReportGeneration');
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+///
+
+
+
+// Helper function to calculate number of days between two dates
+const calculateNumberOfDays = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const timeDifference = end.getTime() - start.getTime();
+  const dayDifference = Math.ceil(timeDifference / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
+  return dayDifference;
+};
+
+// Helper function to determine leave count based on duration
+const getLeaveCount = (leaveDuration) => {
+  return leaveDuration === "Half Day" ? 2 : 9;
+};
+
+exports.syncLeaveRequests = async (req, res) => {
+  try {
+    let startDate, endDate;
+
+    // Check if date range is provided in the request
+    if (req.body && req.body.startDate && req.body.endDate) {
+      // Parse dates from request body
+      startDate = new Date(req.body.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      
+      endDate = new Date(req.body.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // Default to today's date if no range provided
+      startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      
+      endDate = new Date(startDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    // Validate dates
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      const message = "Invalid date format provided";
+      if (req.method === 'GET' || req.method === 'POST') {
+        return res.status(400).json({ message });
+      }
+      console.log(message);
+      return;
+    }
+
+    // Get all leave records for the date range
+    const leaves = await Leave.findAll({
+      where: {
+        StartDate: {
+          [Op.between]: [startDate, endDate]
+        }
+      },
+      include: [{
+        model: Employee,
+        as: 'Employee',
+        attributes: ['EmployeeId']
+      }]
+    });
+
+    if (leaves.length === 0) {
+      const message = `No leave records found between ${startDate.toISOString().split('T')[0]} and ${endDate.toISOString().split('T')[0]}`;
+      if (req.method === 'GET' || req.method === 'POST') {
+        return res.status(404).json({ message });
+      }
+      console.log(message);
+      return;
+    }
+
+    // Format data for the external API
+    const leaveRecords = leaves.map(leave => {
+      const numberOfDays = calculateNumberOfDays(leave.StartDate, leave.EndDate);
+      const leaveDuration = numberOfDays === 0.5 ? "Half Day" : "Full Day";
+      
+      return {
+        PersonNumber: leave.Employee.EmployeeId.toString(),
+        LeaveDuration: leaveDuration,
+        StartDate: leave.StartDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        EndDate: leave.EndDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        NumberOfDays: numberOfDays,
+        LeaveCount: getLeaveCount(leaveDuration),
+        Reason: leave.Remarks || "" // Use empty string if remarks is null
+      };
+    });
+
+    // Send to external API
+    const response = await axios.post(
+      'https://myib.co.in:8052/v2/Mobile/NewLeaveRequests/CreateMultipleLeaves',
+      leaveRecords,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+      }
+    );
+
+    const successMessage = `Successfully synced ${leaveRecords.length} leave records between ${startDate.toISOString().split('T')[0]} and ${endDate.toISOString().split('T')[0]}`;
+
+    // If this was called as an API endpoint, send a response
+    if (req.method === 'GET' || req.method === 'POST') {
+      return res.status(200).json({
+        message: successMessage,
+        dateRange: {
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
+        },
+        sentRecords: leaveRecords.length,
+        leaveData: leaveRecords,
+        apiResponse: response.data
+      });
+    }
+
+    console.log(successMessage);
+    return;
+
+  } catch (error) {
+    const errorMessage = `Error syncing leave requests: ${error.message}`;
+    console.error(errorMessage);
+
+    // If this was called as an API endpoint, send a response
+    if (req && res) {
+      return res.status(500).json({
+        message: "Failed to sync leave requests",
+        error: error.message
+      });
+    }
+  }
+};
+
+// Alternative version if you want to sync leaves by specific leave IDs
+exports.syncLeaveRequestsByIds = async (req, res) => {
+  try {
+    const { leaveIds } = req.body;
+
+    if (!leaveIds || !Array.isArray(leaveIds) || leaveIds.length === 0) {
+      return res.status(400).json({ 
+        message: "Please provide an array of leave IDs to sync" 
+      });
+    }
+
+    // Get specific leave records by IDs
+    const leaves = await Leave.findAll({
+      where: {
+        id: {
+          [Op.in]: leaveIds
+        }
+      },
+      include: [{
+        model: Employee,
+        as: 'Employee',
+        attributes: ['EmployeeId']
+      }]
+    });
+
+    if (leaves.length === 0) {
+      return res.status(404).json({ 
+        message: "No leave records found for the provided IDs" 
+      });
+    }
+
+    // Format data for the external API
+    const leaveRecords = leaves.map(leave => {
+      const numberOfDays = calculateNumberOfDays(leave.StartDate, leave.EndDate);
+      const leaveDuration = numberOfDays === 0.5 ? "Half Day" : "Full Day";
+      
+      return {
+        PersonNumber: leave.Employee.EmployeeId.toString(),
+        LeaveDuration: leaveDuration,
+        StartDate: leave.StartDate.toISOString().split('T')[0],
+        EndDate: leave.EndDate.toISOString().split('T')[0],
+        NumberOfDays: numberOfDays,
+        LeaveCount: getLeaveCount(leaveDuration),
+        Reason: leave.Remarks || ""
+      };
+    });
+
+    // Send to external API
+    const response = await axios.post(
+      'https://dev.myib.co.in:9052/v2/Mobile/NewLeaveRequests/CreateMultipleLeaves',
+      leaveRecords,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+      }
+    );
+
+    return res.status(200).json({
+      message: `Successfully synced ${leaveRecords.length} leave records`,
+      sentRecords: leaveRecords.length,
+      leaveData: leaveRecords,
+      apiResponse: response.data
+    });
+
+  } catch (error) {
+    console.error(`Error syncing leave requests by IDs: ${error.message}`);
+    return res.status(500).json({
+      message: "Failed to sync leave requests",
+      error: error.message
     });
   }
 };

@@ -84,6 +84,16 @@ BdmLeadAction.init(
       type: DataTypes.STRING,
       allowNull: true,
     },
+      uuid: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      unique: true,
+      },
+    group_meeting_id:{
+            type: DataTypes.STRING,
+      allowNull: true,
+
+    }
 
 
   },
